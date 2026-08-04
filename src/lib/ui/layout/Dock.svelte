@@ -1,60 +1,93 @@
 <script lang="ts">
-	const apps=[
-		"⌂",
-		"🖥",
-		"📝",
-		"⚡",
-		"🤖",
-		"⚙"
-	];
+  import { Icon, type IconName } from "$lib/ui/primitives";
+
+  /**
+   * Dock launcher entries. `label` is the accessible name (aria-label) —
+   * icons are decorative, so every button must be labelled.
+   */
+  const apps: readonly { icon: IconName; label: string }[] = [
+    { icon: "home", label: "Home" },
+    { icon: "display", label: "Display" },
+    { icon: "file-text", label: "Files" },
+    { icon: "zap", label: "Zap" },
+    { icon: "bot", label: "Bot" },
+    { icon: "settings", label: "Settings" },
+  ];
 </script>
 
 <nav>
-
-{#each apps as app}
-
-<button>{app}</button>
-
-{/each}
-
+  {#each apps as app}
+    <button aria-label={app.label}>
+      <Icon name={app.icon} size={24} />
+    </button>
+  {/each}
 </nav>
 
 <style>
-nav{
-	display:flex;
-	align-items:center;
-	justify-content:center;
-	gap:18px;
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--dex-space-6);
 
-	background:rgba(15,20,30,.25);
+    background: var(--dex-surface-1);
 
-	backdrop-filter:blur(20px);
+    backdrop-filter: blur(var(--dex-blur-glass));
 
-	border-top:1px solid rgba(0,212,255,.15);
-}
+    border-top: 1px solid var(--dex-border);
+  }
 
-button{
+  button {
+    position: relative;
 
-	width:52px;
-	height:52px;
+    width: var(--dex-layout-dock-button);
+    height: var(--dex-layout-dock-button);
 
-	border:none;
+    border: none;
 
-	border-radius:16px;
+    border-radius: var(--dex-radius-lg);
 
-	background:rgba(255,255,255,.05);
+    background: var(--dex-surface-3);
 
-	color:white;
+    color: var(--dex-text-1);
 
-	cursor:pointer;
+    cursor: pointer;
 
-	transition:.2s;
-}
+    /* motion rule: transform/opacity only */
+    transition:
+      transform var(--dex-duration-base) var(--dex-ease-out),
+      opacity var(--dex-duration-base) var(--dex-ease-out);
+  }
 
-button:hover{
+  /* hover wash fades in via opacity (compositor-friendly) */
+  button::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--dex-accent-soft);
+    opacity: 0;
+    transition: opacity var(--dex-duration-base) var(--dex-ease-out);
+    pointer-events: none;
+  }
 
-	transform:translateY(-4px);
+  button:hover {
+    transform: translateY(calc(-1 * var(--dex-space-2)));
+  }
 
-	background:rgba(0,212,255,.15);
-}
+  button:hover::before {
+    opacity: 1;
+  }
+
+  button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--dex-focus-ring);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button,
+    button::before {
+      transition: none;
+    }
+  }
 </style>

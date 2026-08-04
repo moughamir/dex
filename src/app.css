@@ -1,46 +1,30 @@
-:root{
+/* Global shell CSS. Imported once by src/routes/+layout.svelte. */
+@import "./lib/ui/styles/tokens.css";
 
-	color-scheme:dark;
-
-	font-family:
-		Inter,
-		system-ui,
-		sans-serif;
-
-	background:transparent;
+:root {
+  color-scheme: dark;
+  font-family: var(--dex-font-sans, Inter, system-ui, sans-serif);
+  background: transparent;
 }
 
-*{
-	margin:0;
-	padding:0;
-	box-sizing:border-box;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 html,
-body{
-
-	width:100%;
-	height:100%;
-
-	overflow:hidden;
-
-	background:#05070b;
-
-	color:white;
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  /* ADR-0004: the window is transparent — the desktop shows through the
+     shell. Glass panels own the visual backdrop, never the body. */
+  background: transparent;
+  color: var(--dex-text-1, #ffffff);
 }
 
-body{
-
-	background:
-
-	radial-gradient(circle at center,
-	rgba(0,180,255,.08),
-	transparent 65%),
-
-	#05070b;
-}
-
-button{
-
-	font:inherit;
+button {
+  font: inherit;
+  color: inherit;
 }

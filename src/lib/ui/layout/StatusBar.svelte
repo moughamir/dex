@@ -1,24 +1,19 @@
-<footer>
-
-READY
-
-</footer>
+<footer>DEX:2K26 MMXXVI</footer>
 
 <style>
-footer{
+  footer {
+    display: flex;
 
-	display:flex;
+    align-items: center;
 
-	align-items:center;
+    padding: 0 var(--dex-space-5);
 
-	padding:0 16px;
+    font-size: var(--dex-font-size-xs);
 
-	font-size:.8rem;
+    background: var(--dex-surface-1);
 
-	background:rgba(15,20,30,.3);
+    border-top: 1px solid var(--dex-border-subtle);
 
-	border-top:1px solid rgba(255,255,255,.06);
-
-	color:#8eaab7;
-}
+    color: var(--dex-text-3);
+  }
 </style>

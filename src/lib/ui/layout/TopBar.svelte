@@ -1,40 +1,46 @@
 <script lang="ts">
-	let time = $state("");
+  let time = $state("");
 
-	const update = () =>
-		time = new Date().toLocaleTimeString([],{
-			hour:"2-digit",
-			minute:"2-digit"
-		});
+  const update = () =>
+    (time = new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    }));
 
-	update();
-	setInterval(update,1000);
+  update();
+  setInterval(update, 1000);
 </script>
 
 <header>
-	<div class="logo">DEX</div>
+  <div class="logo">DEX</div>
 
-	<div>{time}</div>
+  <div class="clock">{time}</div>
 </header>
 
 <style>
-header{
-	display:flex;
-	align-items:center;
-	justify-content:space-between;
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 
-	padding:0 24px;
+    padding: 0 var(--dex-space-7);
+    color: var(--dex-text-1);
+    backdrop-filter: blur(var(--dex-blur-glass));
 
-	backdrop-filter:blur(20px);
+    background: var(--dex-surface-1);
 
-	background:rgba(15,20,30,.35);
+    border-bottom: 1px solid var(--dex-border);
+  }
 
-	border-bottom:1px solid rgba(0,212,255,.2);
-}
+  .logo {
+    font-weight: var(--dex-font-weight-bold);
+    letter-spacing: var(--dex-tracking-logo);
+    color: var(--dex-accent);
+  }
 
-.logo{
-	font-weight:700;
-	letter-spacing:.3em;
-	color:#5ddcff;
-}
+  /* data/digits render in the mono face (design language) */
+  .clock {
+    font-family: var(--dex-font-mono);
+    letter-spacing: var(--dex-tracking-wide);
+  }
 </style>

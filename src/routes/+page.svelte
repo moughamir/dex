@@ -1,5 +1,5 @@
 <script lang="ts">
-	import HUD from "$lib/layout/HUD.svelte";
+  import HUD from "$lib/ui/layout/HUD.svelte";
 </script>
 
 <HUD />
