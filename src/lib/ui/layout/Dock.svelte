@@ -27,7 +27,7 @@
 		radius="full"
 		class="pointer-events-auto flex items-center gap-2"
 	>
-		{#each apps as Icon}
+		{#each apps as Icon (Icon)}
 			<Button
 				size="icon"
 				variant="ghost"

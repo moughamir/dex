@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { cva, type VariantProps } from "class-variance-authority";
 	import { twMerge } from "tailwind-merge";
+	import { resolve } from "$app/paths";
+	import type { Pathname } from "$app/types";
 	import type { Snippet } from "svelte";
 
 	const variants = cva(
@@ -67,7 +69,7 @@
 </script>
 
 <a
-	href={href}
+	href={href === "#" ? "#" : resolve(href as Pathname)}
 	class={classes}
 >
 	{#if icon}

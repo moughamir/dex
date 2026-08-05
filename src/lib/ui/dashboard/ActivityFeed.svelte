@@ -19,7 +19,7 @@
 
 	<div class="space-y-3">
 
-		{#each items as item}
+		{#each items as item (item)}
 
 			<div class="rounded-xl bg-(--surface-2) p-4">
 				{item}
