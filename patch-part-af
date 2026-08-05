@@ -1,0 +1,2189 @@
+--> C["Manifest schema-validated (zod)"]
++    C -- invalid --> X["Rejected: validation error, journaled"]
++    C -- valid --> D["Signature verified, if signed"]
++    D -- unsigned --> F
++    D -- invalid signature --> X
++    D -- valid signature --> E["Publisher identity recorded"]
++    E --> F["Capability grants applied from manifest"]
++    F --> G["Runtime installs: same path as local install"]
++    G --> H["Plugin / Widget runs within boundary (ADR-0005)"]
++```
++
++The chain preserves the ADR-0005 invariant at every step: the Runtime never
++grants more than the manifest declares, and the manifest is validated
++identically whether it came from the marketplace or from a local file.
++
++### Marketplace as index
++
++The marketplace index is a data structure — a catalog of extension records —
++that the Runtime queries through a typed contract. Each record describes an
++extension: identifier, version, manifest hash, publisher, quality signals, and
++the location of the artifact. The Runtime's marketplace client resolves a record
++to an artifact, downloads it, and then hands the artifact to the ordinary
++install pipeline.
++
++Because the marketplace is an index, multiple marketplaces can coexist. A user
++can point the Runtime at a personal index, an organization's index, or the
++default community index, without any change to the install pipeline.
++
++### Lifecycle parity
++
++Install, update, and remove from the marketplace are the same commands as
++install, update, and remove from a local file, with one addition: the marketplace
++client records which index a Plugin came from, so updates are checked against
++that index and a removed Plugin's provenance is preserved in the Journal.
++
++## Impact
++
++- **Plugin boundary (ADR-0005).** The marketplace adds no new system access and
++  no new grant path. It is a discovery layer in front of the existing boundary.
++- **Widget isolation.** Marketplace Widgets install through the same
++  shell-mediated command path as all Widgets. A marketplace cannot grant a
++  Widget direct IPC.
++- **Secrets.** Marketplace artifacts never contain secrets. A Plugin that
++  needs a credential requests it through the Secrets contract at runtime, never
++  through its package.
++- **Lightweight Core.** The marketplace client lives outside the core, in the
++  Plugin Platform feature.
++- **Non-Goals.** No account, no mandatory telemetry, no DEX-operated service.
++  The marketplace mechanism is hosted by whoever publishes the index.
++
++## Open Questions
++
++- **What hosting model should the marketplace use?** A static index served over
++  HTTPS, a git repository, or a registry protocol — and who operates the default
++  community index?
++- **What moderation model should apply to the default index?** Does the
++  community index have a review process, a code-review requirement, or a
++  reputation system, and who has authority over delisting?
++- **Who issues signing keys and how is the trust root established?** Is
++  signing by a central authority, by a web-of-trust, or purely optional with
++  unsigned artifacts allowed?
++- **How are quality signals computed without violating the no-telemetry rule?**
++  Can the index use opt-in usage reporting, or must signals be derived from
++  review status and maintenance activity alone?
++- **How is an update's compatibility with the installed Runtime version
++  enforced?** Is compatibility a marketplace signal, a manifest field, or a
++  Runtime-enforced check at install time?
++- **How do multiple marketplaces interact for the same Plugin?** If an
++  extension exists in two indexes, which one owns its update channel, and how
++  is the conflict resolved?
++
++## Future Evolution
++
++- **Sandboxing (M8.4).** A full permission system that refines the capability
++  grants the marketplace can surface to the user before install.
++- **Enterprise deployment.** A read-only marketplace index distributed within an
++  organization, with the same trust chain and no public hosting.
++- **Marketplace APIs for other extension classes.** The index model generalizes
++  to any manifest-declared artifact, including themes and Agent templates.
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Plugin First (principle 4): [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Roadmap M3.4 and M8.3: [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- Plugin and Widget requirements (PW-1..PW-4): [`../10-product/10_Master_PRD.md`](../10-product/10_Master_PRD.md)
++- Plugin boundary: [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++- Typed IPC contract: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Plugin API contract: [`../30-specs/PluginAPI.md`](../30-specs/PluginAPI.md)
++- Widget API contract: [`../30-specs/WidgetAPI.md`](../30-specs/WidgetAPI.md)
++- Secrets contract: [`../30-specs/Secrets.md`](../30-specs/Secrets.md)
++- Plugins subsystem: [`../20-architecture/27_Plugins.md`](../20-architecture/27_Plugins.md)
++- Related RFCs: [`WorkspaceSharing.md`](WorkspaceSharing.md), [`AIAgents.md`](AIAgents.md)
+\ No newline at end of file
+diff --git a/docs/60-rfc/Voice.md b/docs/60-rfc/Voice.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..c6ea00f61b98164fda526d5ab555d8f984add6b4
+--- /dev/null
++++ b/docs/60-rfc/Voice.md
+@@ -0,0 +1,166 @@
++# RFC: Voice Control of the Runtime
++
++- **Status:** Draft
++- **Owner:** AI Platform (roadmap Phase 6)
++- **Related phase:** M6.5 (Voice: STT, TTS, wake word)
++- **Depends on:** [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++
++## Context
++
++The roadmap schedules Voice in Phase 6 (M6.5): speech-to-text, text-to-speech,
++and a wake word. Voice is an AI capability, and AI is Optional (principle 12):
++every AI capability must degrade gracefully to a fully manual workflow, and no
++core capability may require a model, an API key, or a network.
++
++Voice is also an input surface, and DEX is CLI First (principle 3): every
++capability is scriptable from the command line, and the graphical shell is a
++second client of the same surface. The cleanest way to make voice a first-class
++input is to treat it as a third client of that same surface — the same commands,
++spoken. A spoken command is not a new capability; it is an existing command
++reached by a different channel.
++
++Voice has an accessibility value that the manual and graphical surfaces do not
++fully cover: it lets a user drive the Runtime without a keyboard, which
++complements the accessibility work in the engineering guides. But it must never
++be the only way to reach a capability.
++
++This RFC proposes a local-first speech pipeline that maps spoken input onto the
++existing command tree, degrades when offline or disabled, and never becomes a
++critical path.
++
++## Proposal
++
++**Voice** is an input surface onto the Runtime's existing command tree. A
++speech pipeline converts spoken audio to text, resolves the text to an intent,
++and maps that intent to a typed command — the same command a user would type in
++the CLI. The pipeline is local-first: speech-to-text runs offline where a local
++model is available, and the wake word is a local detector. When the pipeline is
++offline or disabled, the Runtime is fully functional and every capability
++remains reachable by keyboard and CLI.
++
++The Voice contract:
++
++1. **Same commands, spoken.** Voice resolves to the existing command tree. It
++   introduces no command that has no CLI form, and it never bypasses the typed
++   IPC contract (ADR-0002).
++2. **Local-first.** Speech-to-text and the wake word run locally where possible.
++   A network model is an optional Provider, never a requirement.
++3. **Graceful degradation.** When offline, when no model is available, or when
++   Voice is disabled, the Runtime is unchanged. Voice is a convenience, not a
++   dependency.
++4. **Accessibility complement.** Voice provides a keyboard-free path to the
++   Runtime's capabilities, complementing the accessibility guidance rather than
++   replacing it.
++5. **Privacy by default.** Audio is processed locally and is not transmitted
++   unless the user explicitly enables a network Provider. No audio is retained
++   beyond the current utterance.
++
++## Design
++
++### Voice → intent → command
++
++The pipeline has four stages. Each stage is a typed seam, so a failure at any
++stage degrades cleanly rather than producing a malformed command.
++
++```mermaid
++flowchart LR
++    A["Audio capture"] --> B["Wake word / push-to-talk"]
++    B --> C["Speech-to-text (STT)"]
++    C --> D["Intent resolution"]
++    D --> E["Command mapping"]
++    E --> F["Typed command surface (ADR-0002)"]
++    F --> G["Runtime executes"]
++    C -. offline model .-> C
++    D -. command tree .-> D
++```
++
++- **Audio capture.** The Runtime captures audio through the host system's input
++  devices, owned by Rust. Capture begins on a wake word or an explicit
++  push-to-talk signal.
++- **Wake word.** A local detector recognizes a user-chosen wake word. It is a
++  Provider; a user can disable it and rely on push-to-talk.
++- **Speech-to-text.** STT is a Provider. A local model is preferred; a network
++  model is an optional alternative. The output is a plain-text transcript.
++- **Intent resolution.** The transcript is resolved against the command tree.
++  This is the same mapping the CLI's parser performs, expressed for natural
++  language. Ambiguous or unrecognized input is rejected with a clear message,
++  never silently mapped to a wrong command.
++- **Command mapping.** The resolved intent becomes a typed command with
++  validated arguments, submitted through the same contract client a human or an
++  Agent would use.
++
++### Voice as a third client
++
++Because voice resolves to the command tree, it inherits the guarantees of CLI
++First: what works in the CLI works in voice, and nothing is voice-only. The
++graphical shell, the CLI, and voice are three clients of one surface. This is
++what keeps voice from becoming a parallel, divergent capability.
++
++### Providers and degradation
++
++STT, TTS, and the wake word are each a Provider behind a fixed interface. If a
++Provider is absent — no local model, no network — the pipeline reports the
++missing stage and the user falls back to keyboard and CLI. The Runtime never
++blocks on a model.
++
++### Accessibility
++
++Voice is a keyboard-free input path. It is designed to complement the
++accessibility guidance: it does not replace keyboard navigation, screen-reader
++support, or reduced-motion behavior, and it respects the same preference
++surfaces. A user who cannot use a keyboard can drive the Runtime's command tree
++by voice; a user who cannot use voice is unaffected.
++
++## Impact
++
++- **AI is Optional (principle 12).** Voice is entirely optional. Disabling it
++  or removing its models leaves the Runtime fully functional.
++- **CLI First (principle 3).** Voice adds no command that lacks a CLI form. It
++  is a third client of the same command surface.
++- **Typed IPC (ADR-0002).** Voice commands pass through the same schema
++  validation as any other command. A misrecognized utterance becomes a
++  validation error, not a malformed system call.
++- **Privacy.** Audio is local by default. A network STT Provider is explicit
++  opt-in, and no audio is retained beyond the current utterance.
++- **Lightweight Core.** The speech pipeline lives outside the core, in the AI
++  Platform feature, and is loaded only when Voice is enabled.
++
++## Open Questions
++
++- **What model size is acceptable for local speech-to-text?** Does the local
++  model fit the Runtime's performance and memory budgets, and how is accuracy
++  balanced against footprint?
++- **Which languages does the command tree support in speech?** Is intent
++  resolution language-dependent, and how are non-English utterances handled?
++- **How is privacy balanced against a network STT Provider?** If a user opts
++  into a network model, what is transmitted, and how is the boundary between
++  local and remote processing made explicit?
++- **How is the wake word chosen and trained?** Is it a fixed set, a
++  user-recorded phrase, or a per-user model, and how does that affect the local
++  footprint?
++- **How are ambiguous spoken commands resolved?** Does the pipeline ask for
++  confirmation, present a ranked list, or reject, and how does that choice
++  affect the interruptibility and safety of the command surface?
++- **How does voice interact with the Agent and Automation surfaces?** Can a
++  spoken command invoke an Agent or a workflow, and does that reuse the same
++  command tree or introduce a new one?
++
++## Future Evolution
++
++- **Text-to-speech feedback.** TTS for confirmation and status, as a Provider,
++  so the Runtime can respond to a spoken command without a screen.
++- **Continuous dictation.** Free-form dictation into the Knowledge Vault,
++  reusing the same STT Provider.
++- **Voice for accessibility.** Deeper integration with the accessibility
++  guidance as the input model matures.
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- AI is Optional (principle 12) and CLI First (principle 3): [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Roadmap M6.5: [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- AI requirements (AI-1..AI-3): [`../10-product/10_Master_PRD.md`](../10-product/10_Master_PRD.md)
++- Accessibility guidance: [`../40-engineering/Accessibility.md`](../40-engineering/Accessibility.md)
++- Typed IPC contract: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- AI subsystem: [`../20-architecture/26_AI.md`](../20-architecture/26_AI.md)
++- Related RFCs: [`AIAgents.md`](AIAgents.md), [`Marketplace.md`](Marketplace.md)
+\ No newline at end of file
+diff --git a/docs/60-rfc/WorkspaceSharing.md b/docs/60-rfc/WorkspaceSharing.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..2bed07ad89646034587b85d15d426dd50bae00b0
+--- /dev/null
++++ b/docs/60-rfc/WorkspaceSharing.md
+@@ -0,0 +1,183 @@
++# RFC: Sharing Workspaces Between Machines and Teams
++
++- **Status:** Draft
++- **Owner:** Workspace Runtime
++- **Related phase:** M3.4, M8.x, Long-Term Vision v2 (collaborative workspaces)
++- **Depends on:** [`../30-specs/Manifest.md`](../30-specs/Manifest.md), [`../30-specs/Secrets.md`](../30-specs/Secrets.md)
++
++## Context
++
++The Vision states that a Workspace is a portable object: a Workspace created on
++one machine activates on another, and the Workspace Manifest is the contract
++that makes this possible. The roadmap's Long-Term Vision (v2) names
++*collaborative workspaces* as a future capability. The Workspace contract
++already guarantees that a Workspace declared by its Manifest activates on any
++machine the Runtime runs on, without manual re-assembly.
++
++Portability within one machine's registry is not the same as sharing between
++machines and teams. Sharing requires a Workspace to be packaged as an artifact
++that can leave the machine, be inspected, and be imported elsewhere — without
++carrying the developer's secrets or credentials, and without losing the
++reproducibility that makes a Manifest meaningful.
++
++The Non-Goals constrain the design. DEX is not a cloud service and does not lock
++data into proprietary formats. Sharing must therefore work without a DEX-operated
++server, and the shared artifact must be an open, documented format.
++
++This RFC proposes export and import of a Workspace as a shareable artifact:
++the Manifest, pinned dependency versions, and a snapshot subset, with secrets
++and credentials excluded.
++
++## Proposal
++
++**Workspace Sharing** is the export and import of a Workspace as a portable,
++self-contained artifact. The artifact bundles the Workspace Manifest, pinned
++versions of the dependencies the Manifest references, and an optional snapshot
++subset of the Workspace's state. It is shared without a server — as a file, or
++through a version-control system such as git. Secrets and credentials are
++excluded by default and never embedded in the artifact.
++
++The Sharing contract:
++
++1. **Manifest-led.** The artifact is anchored by the Workspace Manifest. The
++   Manifest is the declarative contract; the artifact makes it portable.
++2. **Pinned and reproducible.** Dependency versions referenced by the Manifest
++   are pinned in the artifact, so importing the artifact reproduces the
++   Workspace's declared environment rather than whatever is current.
++3. **Snapshot subset.** The artifact may include a subset of the Workspace's
++   Snapshots — the state needed to restore where work left off — but never the
++   full runtime state by default.
++4. **Secrets excluded.** Secrets and credentials are excluded from the artifact
++   per the Secrets contract. They never leave the device unencrypted and are
++   never embedded in a shared file.
++5. **Serverless.** Sharing works through files and git. There is no
++   DEX-operated server and no account.
++6. **Open format.** The artifact is an open, documented format, consistent with
++   the Non-Goal that DEX does not lock data into proprietary formats.
++
++## Design
++
++### The shareable artifact
++
++An exported Workspace is a directory (or an archive of that directory) with a
++defined layout:
++
++- **The Workspace Manifest**, the declarative contract.
++- **A lockfile** of pinned dependency versions — the versions of the tools,
++  Workspace Services, and Plugins the Manifest references.
++- **A snapshot subset**, optional, containing the Snapshots the exporter chose
++  to include.
++- **A provenance record**, describing the source machine, the export time, and
++  the Runtime version that produced the artifact.
++
++The artifact is a plain, inspectable structure. A recipient can read the
++Manifest and the lockfile before importing; nothing is hidden.
++
++### Share → import → activate
++
++Importing an artifact is a deliberate, user-invoked act. The Runtime validates
++the Manifest, resolves the pinned dependencies, and activates the Workspace —
++without ever trusting the artifact more than a local Manifest.
++
++```mermaid
++flowchart TD
++    A["Export: Manifest + lockfile + snapshot subset"] --> B["Share: file or git"]
++    B --> C["Import: artifact received"]
++    C --> D["Manifest schema-validated"]
++    D -- invalid --> X["Rejected: validation error, journaled"]
++    D -- valid --> E["Lockfile resolved: pinned versions"]
++    E --> F["Secrets excluded: none embedded"]
++    F --> G["User reviews and confirms"]
++    G --> H["Workspace declared in registry"]
++    H --> I["Activate (Workspace Activation)"]
++    I --> J["Workspace live on this machine"]
++```
++
++The import path is the same as declaring a Workspace from a local Manifest, with
++the addition of the lockfile resolution and the explicit user confirmation. The
++artifact never bypasses the Workspace lifecycle.
++
++### What is shared vs excluded
++
++The artifact shares the declarative and reproducible parts of a Workspace and
++excludes the private parts:
++
++- **Shared:** the Manifest, the pinned dependency lockfile, and the chosen
++  snapshot subset.
++- **Excluded:** secrets, credentials, and any value the Secrets contract
++  protects. These are never embedded in the artifact. A recipient who needs a
++  secret provides it locally through the Secrets contract at activation time.
++
++### Reproducibility
++
++The lockfile is what makes the artifact reproducible. Without it, a Manifest
++that references "the current version" of a tool would activate differently on
++different machines. With it, importing the artifact on a second machine resolves
++the same pinned versions, so the Workspace's declared environment is
++reproduced rather than approximated.
++
++### Trust of imported Manifests
++
++An imported Manifest is validated by the same schema as a locally authored one.
++The artifact's provenance record is informational; it does not confer trust. A
++recipient reviews the Manifest and lockfile before confirming the import, and
++the Runtime treats the imported Manifest exactly as it treats any other — with
++no elevated privileges.
++
++## Impact
++
++- **Workspace First (principle 1).** Sharing treats the Workspace as the atomic,
++  portable unit of work, extending the Manifest's portability to a shareable
++  artifact.
++- **Secrets.** Sharing is a new consumer of the Secrets contract. The rule is
++  unchanged: secrets never leave the device unencrypted and are excluded from
++  the artifact.
++- **Offline First (principle 2).** Sharing is serverless and works fully
++  offline. Importing an artifact requires no network.
++- **Non-Goals.** No cloud service, no account, no proprietary format. The
++  artifact is open and shared through files and git.
++- **Lightweight Core.** The export and import logic lives outside the core, in
++  the Workspace feature.
++
++## Open Questions
++
++- **What is the granularity of sharing?** Is the unit always a full Workspace,
++  or can a user share a subset — a single Workspace Service, a single Snapshot,
++  or a Manifest without any snapshot?
++- **How is trust in an imported Manifest established?** Beyond schema
++  validation, does the recipient rely on the provenance record, on a signature,
++  or on manual review, and how is a malicious Manifest detected?
++- **What storage format should the artifact use?** A plain directory, a tar
++  archive, or a git repository, and how does the choice affect diffing and
++  versioning of shared Workspaces?
++- **How are pinned dependency versions resolved when a pin is unavailable on
++  the importing machine?** Does import fail, fall back to the nearest version,
++  or prompt the user, and how is that recorded?
++- **How does the snapshot subset interact with the Secrets exclusion?** If a
++  Snapshot references a secret by handle, how is that handle resolved on the
++  importing machine without embedding the secret?
++- **How do collaborative workspaces (Long-Term Vision v2) build on this
++  artifact?** Is collaboration a shared artifact plus a merge workflow, or a
++  distinct live-sharing mechanism?
++
++## Future Evolution
++
++- **Collaborative workspaces.** Multiple users importing and merging the same
++  artifact, with the lockfile and provenance record supporting a merge workflow.
++- **Signed artifacts.** Optional signing of the artifact to bind it to a
++  publisher, reusing the trust model proposed for the Marketplace.
++- **Enterprise distribution.** A read-only index of approved Workspace
++  artifacts within an organization, sharing the same open format.
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Workspace First (principle 1) and Offline First (principle 2): [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Not a cloud service, no proprietary formats: [`../00-vision/04_NonGoals.md`](../00-vision/04_NonGoals.md)
++- Vision (portable Workspaces) and roadmap Long-Term Vision v2: [`../00-vision/01_Vision.md`](../00-vision/01_Vision.md), [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- Workspace requirements (WR-5): [`../10-product/10_Master_PRD.md`](../10-product/10_Master_PRD.md)
++- Workspace contract: [`../30-specs/Workspace.md`](../30-specs/Workspace.md)
++- Workspace Manifest contract: [`../30-specs/Manifest.md`](../30-specs/Manifest.md)
++- Workspace Snapshot contract: [`../30-specs/Snapshot.md`](../30-specs/Snapshot.md)
++- Secrets contract: [`../30-specs/Secrets.md`](../30-specs/Secrets.md)
++- Related RFCs: [`CloudSync.md`](CloudSync.md), [`Marketplace.md`](Marketplace.md)
+\ No newline at end of file
+diff --git a/docs/70-api/CLI.md b/docs/70-api/CLI.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..14412e1be64f96163f373a078b90b537f6155f89
+--- /dev/null
++++ b/docs/70-api/CLI.md
+@@ -0,0 +1,264 @@
++# DEX CLI — Command Line Reference
++
++## Purpose
++
++This document is the user-facing reference for the `dex` command line
++interface: the command tree, options, arguments, exit codes, and `--json`
++output. It is the *companion* to the contract — the formal grammar, argument
++schemas, and output schemas are owned by
++[`../30-specs/CLI.md`](../30-specs/CLI.md). Where this document and the
++contract disagree, the contract wins.
++
++The CLI is the stable, complete surface of the Workspace Runtime. Per the
++CLI First principle (principle 3), every capability is reachable and
++scriptable from the command line; the graphical shell is a second client of
++the same command surface, never a separate one. What works in the shell
++works in the CLI, and nothing is GUI-only.
++
++## Current status
++
++The `dex` binary is **planned**. Phase 0 ships the layer model and
++infrastructure only; no CLI binary exists yet. The command tree below is the
++intended surface, mapped to the roadmap milestones that deliver each
++subcommand. Until a subcommand's milestone lands, that subcommand is not
++available. The first command domains arrive with Phase 4 M4.1 (Rust Core —
++commands, IPC, services), which is when the CLI companion of the command
++surface is expected to ship.
++
++## Global usage
++
++```
++dex [global options] <command> [command options] [arguments]
++```
++
++### Global options
++
++| Option | Description |
++|---|---|
++| `--json` | Emit machine-readable JSON on stdout (see [JSON output](#json-output)) |
++| `--quiet`, `-q` | Suppress non-error output |
++| `--verbose`, `-v` | Increase log verbosity (repeatable) |
++| `--help`, `-h` | Show help for the command |
++| `--version`, `-V` | Print the `dex` version |
++
++Global options may appear before or after the subcommand.
++
++## Command tree
++
++The tree mirrors the command domains of the IPC surface (see
++[`Commands.md`](Commands.md)); each subcommand drives the same command the
++shell drives.
++
++```
++dex
++├── theme            manage the active theme                     [M1.4]
++├── widget           install, list, remove Widgets               [M3.1]
++├── search           query filesystem and Context                [M4.2]
++├── secrets          store and retrieve secrets                  [Phase 4]
++├── workspace        activate, list, deactivate Workspaces       [M5.5]
++├── manifest         validate and inspect Workspace Manifests    [M5.5]
++├── snapshot         create and restore Workspace Snapshots      [M5.5]
++├── service          start, stop, status of Workspace Services   [M5.5]
++├── journal          append and read journal entries             [Phase 5]
++├── vault            query the Knowledge Vault                   [M6.2]
++├── automation       run and schedule workflows                  [M7.1]
++└── plugin           install, list, remove Plugins               [M8.1]
++```
++
++The milestone in brackets is the roadmap milestone that delivers the
++subcommand. Subcommands without a milestone are planned within the phase
++named.
++
++## Subcommand reference
++
++Each subcommand is **planned**; the exact arguments and output schemas are
++owned by [`../30-specs/CLI.md`](../30-specs/CLI.md) and the per-domain
++specifications. The entries below are the intended surface.
++
++### `dex workspace`
++
++Manage Workspaces — the atomic unit of the developer's day.
++
++| Subcommand | Arguments | Description | Milestone |
++|---|---|---|---|
++| `dex workspace list` | — | list declared Workspaces | M5.5 |
++| `dex workspace activate <name>` | `name` | perform Workspace Activation | M5.5 |
++| `dex workspace deactivate` | — | leave the active Workspace | M5.5 |
++
++### `dex manifest`
++
++Work with Workspace Manifests.
++
++| Subcommand | Arguments | Description | Milestone |
++|---|---|---|---|
++| `dex manifest validate <path>` | `path` | validate a Workspace Manifest | M5.5 |
++| `dex manifest show <name>` | `name` | print a Workspace Manifest | M5.5 |
++
++### `dex snapshot`
++
++Capture and restore Workspace Snapshots.
++
++| Subcommand | Arguments | Description | Milestone |
++|---|---|---|---|
++| `dex snapshot create <name>` | `name` | capture a Workspace Snapshot | M5.5 |
++| `dex snapshot restore <name>` | `name` | restore a Workspace to a Snapshot | M5.5 |
++| `dex snapshot list` | — | list Snapshots | M5.5 |
++
++### `dex service`
++
++Supervise Workspace Services.
++
++| Subcommand | Arguments | Description | Milestone |
++|---|---|---|---|
++| `dex service start <name>` | `name` | start a Workspace Service | M5.5 |
++| `dex service stop <name>` | `name` | stop a Workspace Service | M5.5 |
++| `dex service status` | — | report Workspace Service states | M5.5 |
++
++### `dex theme`
++
++Switch and inspect themes.
++
++| Subcommand | Arguments | Description | Milestone |
++|---|---|---|---|
++| `dex theme list` | — | list available themes | M1.4 |
++| `dex theme set <name>` | `name` | set the active theme | M1.4 |
++| `dex theme get` | — | print the active theme | M1.4 |
++
++### `dex widget`
++
++Manage Widgets.
++
++| Subcommand | Arguments | Description | Milestone |
++|---|---|---|---|
++| `dex widget list` | — | list installed Widgets | M3.1 |
++| `dex widget install <id>` | `id` | install a Widget | M3.1 |
++| `dex widget remove <id>` | `id` | remove a Widget | M3.1 |
++
++### `dex plugin`
++
++Manage Plugins.
++
++| Subcommand | Arguments | Description | Milestone |
++|---|---|---|---|
++| `dex plugin list` | — | list installed Plugins | M8.1 |
++| `dex plugin install <id>` | `id` | install a Plugin | M8.1 |
++| `dex plugin remove <id>` | `id` | remove a Plugin | M8.1 |
++
++### `dex search`
++
++Search filesystem and Context.
++
++| Subcommand | Arguments | Description | Milestone |
++|---|---|---|---|
++| `dex search query <term>` | `term` | run a search | M4.2 |
++
++### `dex secrets`
++
++Store and retrieve secrets.
++
++| Subcommand | Arguments | Description | Milestone |
++|---|---|---|---|
++| `dex secrets set <key>` | `key` | store a secret (read from stdin) | Phase 4 |
++| `dex secrets get <key>` | `key` | retrieve a secret | Phase 4 |
++| `dex secrets delete <key>` | `key` | delete a secret | Phase 4 |
++
++### `dex journal`
++
++Append and read journal entries.
++
++| Subcommand | Arguments | Description | Milestone |
++|---|---|---|---|
++| `dex journal append <text>` | `text` | append an entry | Phase 5 |
++| `dex journal read` | — | read recent entries | Phase 5 |
++
++### `dex vault`
++
++Query the Knowledge Vault.
++
++| Subcommand | Arguments | Description | Milestone |
++|---|---|---|---|
++| `dex vault query <term>` | `term` | query the Knowledge Vault | M6.2 |
++
++### `dex automation`
++
++Run and schedule workflows.
++
++| Subcommand | Arguments | Description | Milestone |
++|---|---|---|---|
++| `dex automation run <name>` | `name` | run a workflow | M7.1 |
++| `dex automation list` | — | list workflows | M7.1 |
++
++## Exit codes
++
++Exit codes are the CLI's contract with scripts. The set is closed and maps
++to the IPC error envelope (see [`Commands.md`](Commands.md)); the exact
++mapping is finalized in [`../30-specs/CLI.md`](../30-specs/CLI.md).
++
++| Code | Meaning |
++|---|---|
++| `0` | Success |
++| `1` | Internal failure |
++| `2` | Usage error (unknown command, missing or invalid argument) |
++| `3` | Validation failure |
++| `4` | Not found |
++| `5` | Conflict |
++| `6` | Unsupported operation |
++| `7` | Permission denied |
++| `130` | Interrupted (SIGINT) |
++
++## JSON output
++
++With `--json`, the CLI writes a single JSON object to stdout and no
++human-formatted text. The object shape is stable and schema-validated; the
++formal schema is owned by [`../30-specs/CLI.md`](../30-specs/CLI.md).
++
++On success:
++
++```json
++{ "ok": true, "data": { } }
++```
++
++On failure, the error envelope mirrors the IPC `AppError` shape:
++
++```json
++{ "ok": false, "error": { "type": "not_found", "message": "no such workspace" } }
++```
++
++`error.type` is one of the closed set: `validation`, `not_found`,
++`permission_denied`, `conflict`, `unsupported`, `internal`.
++
++## Examples
++
++```bash
++# Activate a Workspace
++dex workspace activate my-project
++
++# Validate a Workspace Manifest before committing it
++dex manifest validate ./dex.workspace.yaml
++
++# Capture a Snapshot, machine-readable
++dex --json snapshot create before-refactor
++
++# Set the active theme
++dex theme set cyber
++
++# Install a Plugin
++dex plugin install org.example.tooling
++```
++
++## Related Documents
++
++- CLI contract (formal grammar and schemas):
++  [`../30-specs/CLI.md`](../30-specs/CLI.md)
++- CLI First principle:
++  [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Command catalog (the IPC surface the CLI drives):
++  [`Commands.md`](Commands.md)
++- Event catalog:
++  [`Events.md`](Events.md)
++- Plugin and Widget SDK surface:
++  [`PluginsWidgets.md`](PluginsWidgets.md)
++- Roadmap and milestones:
++  [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- Canonical terminology:
++  [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
+\ No newline at end of file
+diff --git a/docs/70-api/Commands.md b/docs/70-api/Commands.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..6a0b878d4a6e6ac1f3747d70d48adbe8b7fa4ff1
+--- /dev/null
++++ b/docs/70-api/Commands.md
+@@ -0,0 +1,175 @@
++# DEX Commands — Public IPC Command Catalog
++
++## Purpose
++
++This document is the public catalog of the DEX IPC command surface: every
++command a consumer can invoke across the frontend ⇄ Rust boundary, its
++arguments, its result, the errors it can raise, and the roadmap phase that
++owns it. It is a *reference* — it lists what exists and what is planned, and
++it never describes a planned command as if it were live.
++
++The wire contract mechanics — zod validation at both edges, the error
++envelope, the command registry — are owned by
++[`20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++and [`0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md).
++Formal schemas for each domain are owned by the specifications in
++[`../30-specs/`](../30-specs/). This document indexes that surface and maps
++it to the roadmap; it does not re-derive the contracts.
++
++## Why the surface is shaped this way
++
++DEX crosses a language boundary — TypeScript and Rust — on every IPC call.
++The Strong Typing principle (principle 8) makes every seam a typed contract,
++so the command surface is not a loose collection of functions but a
++**registry**: a command is not callable until it is declared in exactly two
++places — the TypeScript contract registry (`core/api/commands.ts`) and the
++Rust `invoke_handler` (`src-tauri/src/lib.rs`). A command in only one place
++is dead surface.
++
++Three consequences follow from this design:
++
++1. **Two validation edges.** The frontend validates arguments before the
++   round trip (fail fast) and the result after (detect contract drift). The
++   Rust edge validates on the way in via serde. A mismatch surfaces as a
++   typed error at the boundary, not as `undefined` deep in UI code.
++2. **One contract client per domain.** Features never import
++   `@tauri-apps/api`; they call a typed async function in
++   `core/services/<domain>.ts`. The contract client is the only public
++   surface a feature may use.
++3. **A closed error set.** Every failure is normalized to the `IpcError`
++   envelope with a `type` from a closed set, so callers handle typed errors,
++   never `unknown`.
++
++## Command lifecycle
++
++A command becomes callable through the five-step checklist (ADR-0002):
++
++1. Rust: `src-tauri/src/commands/<domain>.rs` — `#[tauri::command]`,
++   `Result<T, AppError>`, exactly one serde struct argument.
++2. Rust: declare the module and **append** the function to the single
++   `generate_handler![...]` in `src-tauri/src/lib.rs`. Exactly one
++   `invoke_handler` call may exist; a second silently shadows the first.
++3. TypeScript: add a `defineCommand(...)` contract plus zod schemas in
++   `core/api/commands.ts`. Duplicate names are rejected.
++4. TypeScript: expose a typed async function in `core/services/<domain>.ts`.
++5. Capability grant if a plugin is involved
++   (`src-tauri/capabilities/default.json`).
++
++```mermaid
++flowchart LR
++    FEAT["feature"] --> CLIENT["core/services/<domain>.ts"]
++    CLIENT --> INVOKE["core/api/tauri.ts invoke"]
++    INVOKE -->|"args zod-validated"| TAURI["@tauri-apps/api invoke"]
++    TAURI -->|"serde-validated"| RUST["src-tauri command"]
++    RUST -->|"Result&lt;T, AppError&gt;"| TAURI
++    TAURI -->|"result zod-validated"| INVOKE
++    INVOKE -->|"IpcError on failure"| CLIENT
++```
++
++## Error envelope
++
++Every command returns `Result<T, AppError>`. On the wire, `AppError`
++serializes to exactly `{ "type", "message" }`, where `type` is one of the
++closed set:
++
++| `type` | Meaning |
++|---|---|
++| `validation` | Arguments failed semantic validation |
++| `not_found` | The requested entity does not exist |
++| `permission_denied` | The caller lacks the required capability |
++| `conflict` | The operation conflicts with current state |
++| `unsupported` | The operation is not supported in this context |
++| `internal` | An unexpected failure inside the Runtime |
++
++Two additional `IpcError` types reach callers that are not part of the Rust
++envelope: `unknown` (a transport/string rejection) and `contract` (the
++result failed zod validation). Infallible commands return `Ok(())`, which
++maps to `z.null()` on the frontend.
++
++## Implemented commands
++
++### `greet` — core domain
++
++The canonical command, implemented in Phase 0 (M0.3) to prove the typed IPC
++seam end to end. It is the only live command today.
++
++| Field | Value |
++|---|---|
++| Command name | `greet` |
++| Domain | `core` |
++| Milestone | M0.3 (implemented) |
++| Status | **implemented** |
++| Args schema | `{ name: string }` |
++| Result schema | `{ message: string }` |
++| Error types | `internal` (the handler returns `Ok` unconditionally today) |
++| Rust handler | `src-tauri/src/commands/core.rs` → `commands::core::greet` |
++| Contract client | `core/services/greet.ts` → `greet(name): Promise<string>` |
++
++The contract client returns the `message` string directly:
++
++```ts
++import { greet } from "$lib/core/services/greet";
++const message = await greet("Ada"); // "Hello, Ada! You've been greeted from Rust!"
++```
++
++## Planned command domains
++
++The following domains are planned and mapped to roadmap milestones. They are
++**not implemented**; their exact command names, argument schemas, and result
++schemas are owned by the specification named for each domain. Until a domain
++lands, its commands are not callable.
++
++| Domain | Roadmap milestone | Status | Contract spec |
++|---|---|---|---|
++| `theme` | Phase 1 · M1.4 | planned | [`../30-specs/Theme.md`](../30-specs/Theme.md) |
++| `widget` | Phase 3 · M3.1 | planned | [`../30-specs/WidgetAPI.md`](../30-specs/WidgetAPI.md) |
++| `search` | Phase 4 · M4.2 | planned | [`../30-specs/Search.md`](../30-specs/Search.md) |
++| `secrets` | Phase 4 · native layer | planned | [`../30-specs/Secrets.md`](../30-specs/Secrets.md) |
++| `workspace` | Phase 5 · M5.5 | planned | [`../30-specs/Workspace.md`](../30-specs/Workspace.md) |
++| `manifest` | Phase 5 · M5.5 | planned | [`../30-specs/Manifest.md`](../30-specs/Manifest.md) |
++| `snapshot` | Phase 5 · M5.5 | planned | [`../30-specs/Snapshot.md`](../30-specs/Snapshot.md) |
++| `service` | Phase 5 · M5.5 | planned | [`../30-specs/Workspace.md`](../30-specs/Workspace.md) |
++| `journal` | Phase 5 · core apps | planned | [`../30-specs/Journal.md`](../30-specs/Journal.md) |
++| `vault` | Phase 6 · M6.2 | planned | [`../30-specs/Knowledge.md`](../30-specs/Knowledge.md) |
++| `automation` | Phase 7 · M7.1 | planned | [`../30-specs/Automation.md`](../30-specs/Automation.md) |
++| `plugin` | Phase 8 · M8.1/M8.2 | planned | [`../30-specs/PluginAPI.md`](../30-specs/PluginAPI.md) |
++
++### Representative planned commands
++
++The entries below are representative of each domain's intended surface. They
++are **planned** and their authoritative schemas live in the referenced spec;
++treat the names as indicative until the spec and the registry agree.
++
++| Domain | Representative command | Intent | Milestone |
++|---|---|---|---|
++| `theme` | `theme.set` | switch the active theme | M1.4 |
++| `widget` | `widget.install` | install a Widget | M3.1 |
++| `search` | `search.query` | search filesystem and Context | M4.2 |
++| `secrets` | `secrets.get` | retrieve a stored secret | Phase 4 |
++| `workspace` | `workspace.activate` | perform Workspace Activation | M5.5 |
++| `manifest` | `manifest.validate` | validate a Workspace Manifest | M5.5 |
++| `snapshot` | `snapshot.create` | capture a Workspace Snapshot | M5.5 |
++| `service` | `service.start` | start a Workspace Service | M5.5 |
++| `journal` | `journal.append` | append to the journal | Phase 5 |
++| `vault` | `vault.query` | query the Knowledge Vault | M6.2 |
++| `automation` | `automation.run` | run a workflow | M7.1 |
++| `plugin` | `plugin.install` | install a Plugin | M8.1 |
++
++## Related Documents
++
++- Wire contract mechanics and the command registry:
++  [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Typed IPC contract decision:
++  [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Public event catalog (the Rust → UI push surface):
++  [`Events.md`](Events.md)
++- CLI reference (the scriptable surface of the same commands):
++  [`CLI.md`](CLI.md)
++- Plugin and Widget SDK surface:
++  [`PluginsWidgets.md`](PluginsWidgets.md)
++- Formal contracts per domain:
++  [`../30-specs/`](../30-specs/)
++- Roadmap and milestones:
++  [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- Canonical terminology:
++  [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
+\ No newline at end of file
+diff --git a/docs/70-api/Events.md b/docs/70-api/Events.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..e4f19d3cec3e1c7c263eaf8ec20b9aa89dcc271d
+--- /dev/null
++++ b/docs/70-api/Events.md
+@@ -0,0 +1,137 @@
++# DEX Events — Public Event Catalog
++
++## Purpose
++
++This document is the public catalog of the DEX event surface: the Rust → UI
++push channel by which the Runtime notifies the shell and its extensions of
++state changes. It lists the `EVENTS` registry naming convention, the
++subscription contract, the current state, and the planned events by domain,
++mapped to roadmap milestones.
++
++The protocol details — the registry, the naming rule, payload validation and
++drop semantics — are owned by
++[`24_EventBus.md`](../20-architecture/24_EventBus.md). This document is the
++index; the protocol document is the mechanism. Formal payload schemas per
++domain are owned by the specifications in
++[`../30-specs/`](../30-specs/).
++
++## Why the surface is shaped this way
++
++Commands are pull: the frontend asks, Rust answers. Not everything fits that
++shape. The shell must *react* to things it did not ask for — a window
++gaining focus, a Workspace Service stopping, a snapshot completing — and the
++Rust side is the only side that owns the system access to observe them
++(ADR-0002). The event surface exists for that push direction.
++
++The rules that shape it follow from Strong Typing (principle 8) and from a
++defensive posture toward the Runtime as emitter:
++
++1. **Declared, not guessed.** Every event name is declared in the `EVENTS`
++   registry in `core/api/events.ts` with its payload schema, before any
++   subscription is possible. A name that is not in the registry is not an
++   event.
++2. **Validate and drop.** An invalid payload is logged and dropped — never
++   thrown into the handler. A misbehaving emitter must not crash the shell.
++3. **One emitter.** Only `src-tauri/src/events/` emits. The shell never
++   fabricates system events; the Runtime is the single source of truth for
++   state changes.
++
++## Naming convention
++
++Event names follow the canonical form:
++
++```
++dex.<domain>.<event>
++```
++
++Each segment is lowercase, dot-separated, and matches the domain and event
++identifiers declared in the `EVENTS` registry. The domain segment mirrors the
++command domain of the owning feature (see
++[`Commands.md`](Commands.md)); the event segment names the state transition,
++in the past or simple present tense (`resources.updated`, `window.focused`).
++
++## Subscription contract
++
++Subscriptions use the typed wrapper from `core/api/events.ts`:
++
++```ts
++import { onEvent } from "$lib/core/api/events";
++
++const unlisten = await onEvent("dex.system.resources", schema, (payload) => {
++  // payload is already validated against `schema`
++});
++// later: await unlisten()
++```
++
++| Rule | Behavior |
++|---|---|
++| Name | Must be declared in the `EVENTS` registry (`core/api/events.ts`) |
++| Schema | Payload is validated with `safeParse` before the handler runs |
++| Invalid payload | Logged via the logger facade and dropped; handler never runs |
++| Return | `Promise<UnlistenFn>` — call to unsubscribe |
++| Emitter | Only `src-tauri/src/events/` may emit |
++
++Only the logger facade (`core/utils/logger.ts`) is used for the
++log-and-drop path; the frontend never uses `console.*`.
++
++## Current state
++
++The event surface is **wired but empty**. Phase 0 (M0.3) shipped the
++plumbing — the typed `onEvent` wrapper, the validation-and-drop semantics,
++the `EVENTS` registry — and the only Rust plugin live today is the log
++plugin (`tauri-plugin-log`, granted `log:default`), which writes to stdout
++and the app log directory. No `dex.*` event is emitted yet and the `EVENTS`
++registry declares no entries.
++
++```mermaid
++flowchart LR
++    RUST["src-tauri/src/events/ — emitter"] -->|"emit: dex.&lt;domain&gt;.&lt;event&gt;"| T["Tauri listen"]
++    T --> V["onEvent: schema.safeParse"]
++    V -->|valid| H["handler(payload)"]
++    V -->|invalid| L["logError + drop"]
++```
++
++## Planned events by domain
++
++Each entry below is **planned** and tied to a roadmap milestone. The payload
++schema for each is owned by the referenced specification; an event does not
++exist until its name is declared in the `EVENTS` registry.
++
++| Domain | Planned event | Meaning | Milestone | Spec |
++|---|---|---|---|---|
++| `theme` | `dex.theme.changed` | active theme switched | M1.4 | [`../30-specs/Theme.md`](../30-specs/Theme.md) |
++| `widget` | `dex.widget.installed` | a Widget was installed or updated | M3.1 | [`../30-specs/WidgetAPI.md`](../30-specs/WidgetAPI.md) |
++| `search` | `dex.search.updated` | indexed results changed | M4.2 | [`../30-specs/Search.md`](../30-specs/Search.md) |
++| `secrets` | `dex.secrets.updated` | a stored secret changed | Phase 4 | [`../30-specs/Secrets.md`](../30-specs/Secrets.md) |
++| `workspace` | `dex.workspace.activated` | a Workspace was activated | M5.5 | [`../30-specs/Workspace.md`](../30-specs/Workspace.md) |
++| `workspace` | `dex.workspace.deactivated` | the active Workspace was left | M5.5 | [`../30-specs/Workspace.md`](../30-specs/Workspace.md) |
++| `snapshot` | `dex.snapshot.completed` | a Workspace Snapshot finished | M5.5 | [`../30-specs/Snapshot.md`](../30-specs/Snapshot.md) |
++| `service` | `dex.service.state` | a Workspace Service changed state | M5.5 | [`../30-specs/Workspace.md`](../30-specs/Workspace.md) |
++| `journal` | `dex.journal.appended` | an entry was appended to the journal | Phase 5 | [`../30-specs/Journal.md`](../30-specs/Journal.md) |
++| `vault` | `dex.vault.updated` | Knowledge Vault contents changed | M6.2 | [`../30-specs/Knowledge.md`](../30-specs/Knowledge.md) |
++| `automation` | `dex.automation.started` | a workflow started | M7.1 | [`../30-specs/Automation.md`](../30-specs/Automation.md) |
++| `automation` | `dex.automation.completed` | a workflow completed or failed | M7.1 | [`../30-specs/Automation.md`](../30-specs/Automation.md) |
++| `plugin` | `dex.plugin.loaded` | a Plugin was loaded by the Runtime | M8.1 | [`../30-specs/PluginAPI.md`](../30-specs/PluginAPI.md) |
++
++Consumer rule: a feature subscribes to an event only through `onEvent` with
++the declared name and schema, and never imports `@tauri-apps/api` directly.
++Widgets, which have no IPC access of their own, receive mediated events from
++the shell rather than subscribing directly (see
++[`PluginsWidgets.md`](PluginsWidgets.md)).
++
++## Related Documents
++
++- Event bus protocol and mechanics:
++  [`../20-architecture/24_EventBus.md`](../20-architecture/24_EventBus.md)
++- Typed IPC contract decision (events §5):
++  [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Command catalog (the pull surface that pairs with this push surface):
++  [`Commands.md`](Commands.md)
++- Plugin and Widget SDK surface:
++  [`PluginsWidgets.md`](PluginsWidgets.md)
++- Formal contracts per domain:
++  [`../30-specs/`](../30-specs/)
++- Roadmap and milestones:
++  [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- Canonical terminology:
++  [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
+\ No newline at end of file
+diff --git a/docs/70-api/PluginsWidgets.md b/docs/70-api/PluginsWidgets.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..46918270384c287cc0890147397b86b477313f7d
+--- /dev/null
++++ b/docs/70-api/PluginsWidgets.md
+@@ -0,0 +1,160 @@
++# DEX Plugins & Widgets — Public SDK Surface
++
++## Purpose
++
++This document is the developer-facing index of the DEX extension surface for
++Plugin and Widget authors. It explains what a Plugin declares, what a Widget
++gets, how the two are versioned and kept compatible, and the permission model
++that bounds them. It is an *index*: the formal contracts are owned by
++[`../30-specs/PluginAPI.md`](../30-specs/PluginAPI.md) and
++[`../30-specs/WidgetAPI.md`](../30-specs/WidgetAPI.md), and the security
++boundary is decided in
++[`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md).
++
++## Why the surface is shaped this way
++
++DEX is Plugin First (principle 4): extensibility is designed into the
++platform from the start, bounded by a hard security boundary — never added as
++an afterthought. The consequence is that the extension surface is not a
++loose API but a **boundary**. The shell is a single Tauri webview with full
++typed IPC access; if third-party code ever ran inside that privileged context
++it could reach the filesystem through the same typed surface as the shell
++itself. The boundary is fixed in Phase 0 because it is cheap to set now and
++expensive to retrofit later.
++
++Two extension kinds exist, and they differ in exactly one decisive way —
++where their code runs:
++
++- A **Plugin** is a Rust-hosted extension of the Runtime. It runs in native
++  code, is loaded and versioned by the host, and extends the command and
++  event surface with exactly the capabilities granted to it.
++- A **Widget** is a sandboxed UI extension. It renders in an isolated context
++  with no IPC access of its own; every effect is mediated by the Runtime
++  through shell-mediated commands.
++
++The distinction is the security model: native code is capability-gated and
++reviewed; UI code is sandboxed and mediated. Neither ever runs inside the
++privileged webview.
++
++```mermaid
++flowchart LR
++    AUTHOR["Author"] -->|"writes"| MANIFEST["Manifest (schema-validated)"]
++    AUTHOR -->|"writes"| CODE["Plugin code / Widget bundle"]
++    MANIFEST -->|"declares capabilities"| RUNTIME["Runtime"]
++    CODE -->|"installed"| RUNTIME
++    RUNTIME -->|"validates manifest (zod)"| VALIDATE{"valid?"}
++    VALIDATE -->|"no"| REJECT["reject install"]
++    VALIDATE -->|"yes"| GRANT["grant declared capabilities"]
++    GRANT --> PLUGIN["Plugin: native, capability-gated"]
++    GRANT --> WIDGET["Widget: sandboxed, mediated"]
++    PLUGIN -->|"extends command/event surface"| SURFACE["Runtime surface"]
++    WIDGET -->|"effects via shell-mediated commands"| SURFACE
++```
++
++## What a Plugin declares
++
++A Plugin is declared by a manifest and validated by the host at install and
++update time. Unknown fields in the manifest are rejected, never silently
++ignored (ADR-0005). A Plugin declares:
++
++| Declaration | Description |
++|---|---|
++| Identity | name, version, author, description |
++| Capabilities | the exact permissions the Plugin requires (see [Permission model](#permission-model)) |
++| Commands | the `#[tauri::command]` handlers the Plugin contributes to the Runtime surface |
++| Events | the `dex.<domain>.<event>` names the Plugin emits or subscribes to |
++| Dependencies | other Plugins or Runtime features it requires |
++
++A Plugin's commands and events follow the same contract rules as the core
++surface: commands take exactly one serde struct argument, results are typed,
++and event names are declared in the `EVENTS` registry. A Plugin gets exactly
++the capabilities it declares — no default elevation.
++
++## What a Widget gets
++
++A Widget is a sandboxed UI extension. It renders in an isolated context and
++never imports `@tauri-apps/api`. Its surface is:
++
++| Surface | Description |
++|---|---|
++| Sandbox | isolated render context; no direct IPC, no filesystem, no shell access |
++| Mediated actions | every effect goes through shell-mediated commands provided by the Runtime |
++| Lifecycle | install, activate, render, suspend, remove — managed by the Runtime |
++| Metadata | declared in a manifest, schema-validated at install |
++| State | persisted positions, sizes, and settings (SQLite-backed, Phase 3 M3.3) |
++
++Because a Widget has no IPC of its own, it receives state through mediated
++events from the shell rather than subscribing to the event bus directly (see
++[`Events.md`](Events.md)). The Widget SDK contract is part of the widget
++boundary from day one (Phase 3 M3.1), not an afterthought.
++
++## Versioning and compatibility policy
++
++The extension surface is versioned so that a Plugin or Widget written against
++one Runtime version keeps working across compatible upgrades.
++
++| Policy | Rule |
++|---|---|
++| Manifest version | the manifest declares the schema version it targets |
++| Runtime compatibility | a Plugin/Widget declares the Runtime versions it supports |
++| Validation | manifests are schema-validated at install and update; incompatible versions are rejected |
++| Breaking changes | a breaking change to the SDK is a new major version, not a silent behavior change |
++| Capability changes | a Plugin that needs a new capability must be updated and re-granted; grants are never silently widened |
++
++The exact versioning scheme is owned by
++[`../30-specs/PluginAPI.md`](../30-specs/PluginAPI.md) and
++[`../30-specs/WidgetAPI.md`](../30-specs/WidgetAPI.md).
++
++## Permission model
++
++The permission model is the security boundary (ADR-0005). It is summarized
++here; the full decision is in
++[`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md).
++
++| Rule | Description |
++|---|---|
++| Rust-hosted | Plugins are native extensions of `src-tauri/`, not web code in the privileged webview |
++| Manifest-validated | manifests are schema-validated (zod) at install/update; unknown fields rejected |
++| Capability-gated | per-plugin grants in `src-tauri/capabilities/*.json`; a Plugin gets exactly what it declares |
++| Sandboxed UI | Widgets render in isolated contexts with no IPC access of their own |
++| Mediated effects | all Widget effects go through shell-mediated commands |
++| Strict CSP | the shell ships a strict CSP from Phase 0; dev-mode relaxation never ships |
++
++The blast-radius reducer is the CSP: even a compromised renderer cannot fetch
++arbitrary origins or run inline scripts.
++
++## Current status
++
++The extension surface is **planned**. Phase 0 fixed the boundary (ADR-0005)
++and the security baseline, but no Plugin or Widget SDK ships yet. The Widget
++platform lands in Phase 3 (M3.1 Widget SDK, M3.2 Layout Engine, M3.3
++Persistence, M3.4 Marketplace API); the Plugin platform lands in Phase 8
++(M8.1 SDK, M8.2 API, M8.3 Marketplace, M8.4 Sandboxing). Until those
++milestones land, the contracts in
++[`../30-specs/PluginAPI.md`](../30-specs/PluginAPI.md) and
++[`../30-specs/WidgetAPI.md`](../30-specs/WidgetAPI.md) are the authority for
++the intended surface.
++
++## Related Documents
++
++- Plugin contract:
++  [`../30-specs/PluginAPI.md`](../30-specs/PluginAPI.md)
++- Widget contract:
++  [`../30-specs/WidgetAPI.md`](../30-specs/WidgetAPI.md)
++- Plugin boundary and CSP decision:
++  [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++- Plugin First principle:
++  [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Command catalog (the surface Plugins extend):
++  [`Commands.md`](Commands.md)
++- Event catalog (the surface Plugins emit and subscribe to):
++  [`Events.md`](Events.md)
++- CLI reference (the scriptable surface for managing Plugins and Widgets):
++  [`CLI.md`](CLI.md)
++- Authoring guides:
++  [`../80-guides/CreatingPlugin.md`](../80-guides/CreatingPlugin.md) ·
++  [`../80-guides/CreatingWidget.md`](../80-guides/CreatingWidget.md)
++- Roadmap and milestones:
++  [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- Canonical terminology:
++  [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
+\ No newline at end of file
+diff --git a/docs/80-guides/CreatingPlugin.md b/docs/80-guides/CreatingPlugin.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..7b15e92aa8500c66ccdea3fea3da9bd159a0a304
+--- /dev/null
++++ b/docs/80-guides/CreatingPlugin.md
+@@ -0,0 +1,366 @@
++# Creating a Plugin
++
++## Purpose
++
++A Plugin is a Rust-hosted, capability-gated extension to the Workspace Runtime,
++declared by a manifest, validated by the host, and executed in native code. A
++Plugin extends the Runtime's command and event surface with exactly the
++capabilities granted to it — never more, and never inside the privileged
++webview. This guide walks one Plugin through the complete authoring lifecycle:
++scaffold, manifest, capability declaration, command and event implementation,
++build, install, boundary verification, and unload.
++
++The contracts are authoritative; this guide references them rather than
++redefining them. Manifest fields, lifecycle states, and the capability model:
++[`PluginAPI.md`](../30-specs/PluginAPI.md). The security boundary and CSP
++baseline: [`0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md).
++Typed IPC and the error envelope: [`0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md).
++Command surface: [`CLI.md`](../30-specs/CLI.md) and
++[`../70-api/CLI.md`](../70-api/CLI.md).
++
++## Capability gates
++
++The Plugin platform is **planned, not shipped**. Phase 0 is the current phase
++(M0.4 open) and fixed the boundary (ADR-0005) but ships no Plugin SDK. Per the
++roadmap, the Plugin platform lands in Phase 8: **M8.1** SDK (commands, widgets,
++services), **M8.2** API (permissions, versioning, lifecycle), **M8.3**
++Marketplace (browse, install, update, remove), **M8.4** Sandboxing (permission
++system). The `dex plugin` command domain arrives with M8.1. Until a milestone
++lands, the manifest and SDK surface below are the intended contract, and the
++same commands are driven by the graphical shell when they ship (CLI First,
++principle 3), so the steps transfer unchanged.
++
++## Prerequisites
++
++- DEX built and running. Verification order: `bun run check`, `cargo check`
++  in `src-tauri/`, then `bun run tauri dev` on a Wayland/Hyprland session.
++- A Rust toolchain (`cargo`) able to build `src-tauri/`.
++- The `dex` CLI on `PATH` (after M8.1; see Capability gates).
++- A directory that will become the Plugin source root; the manifest lives there
++  as a file.
++
++## Step 1 — Scaffold the Plugin
++
++**Why.** A Plugin is a native extension of `src-tauri/`, not web code in the
++privileged webview (ADR-0005). Scaffolding a Rust crate keeps the Plugin
++Rust-hosted by construction: it compiles against the same typed surface the
++core uses, and it can never be loaded as renderer code.
++
++1. Create a Rust crate for the Plugin. The crate is a library that the host
++   loads; it declares its surface in the manifest and its handlers in Rust.
++
++```bash
++cargo new --lib dex-plugin-gitflow
++```
++
++2. Add the Plugin SDK as a dependency. The SDK is the typed surface a Plugin
++   author compiles against (manifest types, command registration, event
++   helpers, service hooks, capability access) — see
++   [`PluginAPI.md`](../30-specs/PluginAPI.md).
++
++Expected: a compilable library crate whose only external surface is the
++manifest-declared commands and events. The crate has no entry point of its own;
++the host drives its lifecycle.
++
++## Step 2 — Author the Plugin manifest
++
++**Why.** The manifest is the single source of truth for what a Plugin declares
++and what it may do. It is schema-validated (zod) at install and update; unknown
++fields are rejected, never silently ignored (ADR-0005). Authoring the manifest
++first forces the capability decision before any code exists.
++
++1. Create `dex.plugin.yaml` at the Plugin root. A complete minimal manifest:
++
++```yaml
++id: dev.example.gitflow
++name: Git Flow
++version: 1.2.0
++author: Example
++capabilities:
++  - dex.commands.run
++  - dex.secrets.read:dev.example.gitflow
++commands:
++  - name: gitflow.start
++    args: { branch: string }
++    result: { ok: boolean }
++events:
++  - name: dex.gitflow.merged
++    schema: { branch: string }
++services:
++  - name: gitflow.daemon
++```
++
++2. Check the declared fields against the schema
++   ([`PluginAPI.md`](../30-specs/PluginAPI.md)): `id` is a reverse-DNS
++   identifier, globally unique and immutable; `name` is the display name;
++   `version` is semantic; `author` is the author identity; `capabilities` is
++   the exact grant set the Plugin declares. `commands`, `events`, and
++   `services` are optional. The `id` is immutable once published — a renamed
++   Plugin is a new Plugin.
++
++Expected: the file exists with exactly these top-level fields. The Runtime
++accepts only fields it knows — unknown fields are rejected, never ignored.
++
++## Step 3 — Declare capabilities (exact grants)
++
++**Why.** Capabilities are exact grants. There is no default elevation: a Plugin
++has no capability it did not declare and that was not granted. The grant set is
++the intersection of what the manifest declares and what the host grants; a
++declared-but-ungranted capability is refused at the boundary, never silently
++ignored. This is the security boundary of the extension ecosystem (ADR-0005).
++
++1. List in the manifest exactly the capabilities the Plugin requires. A
++   capability is a string naming a permission; capabilities that carry a scope
++   use the `:` separator (for example `dex.secrets.read:<plugin-id>`).
++
++2. Add the per-Plugin grant in `src-tauri/capabilities/*.json`. The grant names
++   the Plugin `identifier` and the granted capabilities:
++
++```json
++{
++  "identifier": "dev.example.gitflow",
++  "capabilities": ["dex.commands.run", "dex.secrets.read:dev.example.gitflow"]
++}
++```
++
++3. Grant the minimum set. A Plugin that declares `dex.secrets.read` must also
++   be granted it; a Plugin that declares a capability the host does not grant
++   is refused at the boundary. Do not grant capabilities the Plugin does not
++   declare — the grant set is the intersection, and an undeclared grant is
++   inert.
++
++Expected: the manifest and the grant file agree on the capability set. The
++Plugin receives exactly the permissions it declares and that are granted — no
++default elevation.
++
++## Step 4 — Implement commands on the typed surface
++
++**Why.** A Plugin's commands are typed and zod-validated at the boundary,
++exactly as the core IPC surface is (ADR-0002). A Plugin command is invoked
++through the same typed plumbing as a core command; its result is validated
++against the declared result schema. A Plugin command may not shadow a core
++command name, and command names are namespaced by the Plugin `id` to prevent
++collision.
++
++1. Implement each declared command as a `#[tauri::command]` handler. Commands
++   take exactly one serde struct argument — no `#[serde(rename_all = ...)]`;
++   serde defaults (snake_case) are the wire authority — and return
++   `Result<T, AppError>`:
++
++```rust
++use serde::{Deserialize, Serialize};
++
++use crate::utils::errors::AppError;
++
++#[derive(Debug, Deserialize)]
++pub struct GitflowStartArgs {
++    pub branch: String,
++}
++
++#[derive(Debug, Serialize)]
++pub struct GitflowStartOutput {
++    pub ok: bool,
++}
++
++#[tauri::command]
++pub fn gitflow_start(args: GitflowStartArgs) -> Result<GitflowStartOutput, AppError> {
++    // The command runs with exactly the capabilities granted to the Plugin.
++    Ok(GitflowStartOutput { ok: true })
++}
++```
++
++2. Register the handler in the single `generate_handler![...]` in
++   `src-tauri/src/lib.rs`. Exactly one `invoke_handler` call may exist; a
++   second call silently shadows the first (ADR-0002).
++
++3. On the frontend, add a `defineCommand(...)` contract plus zod schemas to
++   `src/lib/core/api/commands.ts` (duplicate names are rejected) and expose a
++   typed async function in `src/lib/core/services/<domain>.ts`. The command
++   name must agree across the Rust handler, the contract, and the grant.
++
++Expected: the command is callable through the typed plumbing, its result is
++validated against the declared result schema, and a mismatch fails the zod
++parse at the boundary with a message naming the command and the offending
++field.
++
++## Step 5 — Emit and subscribe to events
++
++**Why.** A Plugin event is emitted through the Runtime event bus and validated
++against its declared schema; invalid payloads are logged and dropped, never
++thrown (ADR-0002). Event names are `dex.<domain>.<event>` and must be declared
++in the `EVENTS` registry in `src/lib/core/api/events.ts`; only
++`src-tauri/src/events/` emits.
++
++1. Declare each event name in the `EVENTS` registry. For the manifest's
++   `dex.gitflow.merged`, the name follows the `dex.<domain>.<event>` form and
++   the payload schema matches the manifest's `schema: { branch: string }`.
++
++2. Emit the event from the Rust side through the Runtime event bus. The payload
++   is validated against the declared schema at the boundary; an invalid payload
++   is logged and dropped, never delivered.
++
++Expected: subscribers receive only schema-valid payloads. A malformed payload
++is dropped with a log entry, not thrown into the handler.
++
++## Step 6 — Build
++
++**Why.** The Plugin is native code; building it is a compile-time check that the
++surface is consistent. The SDK is a compile-time contract: a Plugin that
++references an undeclared capability fails validation before it is loaded.
++
++1. Build the Plugin crate:
++
++```bash
++cargo build --release
++```
++
++2. Run the verification order: `bun run check` (frontend types), then
++   `cargo check` in `src-tauri/` (Rust).
++
++Expected: the crate compiles and the frontend types pass. A reference to a
++capability the Plugin did not declare fails at compile time, before the Plugin
++is ever loaded.
++
++## Step 7 — Install (validate → grant → load)
++
++**Why.** Installation is the lifecycle entry point: the host validates the
++manifest, checks the declared capabilities against the per-Plugin grants, and
++only then loads the native code. A Plugin that fails validation never proceeds;
++a Plugin whose grant is rejected never loads.
++
++```mermaid
++sequenceDiagram
++    participant U as User / CLI
++    participant H as Runtime host
++    participant V as Validator (zod)
++    participant G as Grant store
++    participant L as Loader
++
++    U->>H: install(manifest)
++    H->>V: validate(manifest)
++    V-->>H: ok | rejected
++    alt rejected
++        H-->>U: error (validation)
++    else ok
++        H->>G: check grants(capabilities)
++        G-->>H: granted set
++        H->>L: load(id, version, grants)
++        L-->>H: loaded
++        H-->>U: ok
++    end
++```
++
++1. Install the Plugin from its manifest:
++
++```
++dex plugin install ./dex.plugin.yaml
++```
++
++Expected: exit code `0`; the lifecycle moves `discovered → validated → granted
++→ loaded → running`. `dex plugin list` reports the Plugin `running`.
++
++2. Confirm the rejection path. Add an unknown top-level field to the manifest
++   and re-install.
++
++Expected: exit code `3`; the error envelope is
++`{ "ok": false, "error": { "type": "validation", "message": "..." } }` and the
++message names the unknown field. This is the documented contract: unknown
++fields are rejected, never ignored.
++
++## Step 8 — Verify the capability boundary
++
++**Why.** The capability boundary is the security boundary. A declared-but-
++ungranted capability is refused at the boundary, never silently ignored; an
++undeclared capability is refused before the Plugin is loaded. Verifying the
++boundary is how you confirm the Plugin has exactly the authority it declared.
++
++1. Invoke a command that requires a capability the Plugin did not declare.
++
++Expected: the call is refused with `permission_denied` (exit code `5` from the
++CLI). The Plugin has no capability it did not declare and that was not granted.
++
++2. Invoke a command that requires a capability the Plugin declared but the host
++   did not grant (remove the grant from `src-tauri/capabilities/*.json` and
++   reinstall).
++
++Expected: the Plugin is refused at the boundary — it never loads with a grant
++it was not given. There is no default elevation.
++
++3. Confirm the shell's strict CSP still applies. The CSP baseline (ADR-0005)
++   constrains the webview regardless of any Plugin; a Plugin cannot relax it.
++
++Expected: the CSP in `tauri.conf.json` is unchanged by the Plugin's presence.
++
++## Step 9 — Unload and uninstall
++
++**Why.** Deactivation removes the Plugin's commands and events from the surface;
++removal revokes its grants. Every transition is observable and recorded in the
++journal.
++
++```mermaid
++stateDiagram-v2
++    [*] --> discovered
++    discovered --> validated: manifest parses
++    discovered --> failed: manifest invalid
++    validated --> granted: capabilities granted
++    validated --> failed: grant rejected
++    granted --> loaded: host loads native code
++    loaded --> running: activation
++    running --> unloaded: deactivation
++    running --> failed: runtime fault
++    unloaded --> updated: new version installed
++    unloaded --> uninstalled: removal
++    updated --> validated: re-validate new manifest
++    failed --> [*]
++    uninstalled --> [*]
++```
++
++1. Unload the Plugin:
++
++```
++dex plugin uninstall dev.example.gitflow
++```
++
++Expected: exit code `0`; the lifecycle moves `running → unloaded → uninstalled`;
++the Plugin's commands and events are removed from the surface and its grants
++are revoked. `dex plugin list` no longer reports it.
++
++2. Confirm the update path. Install a new version of the manifest.
++
++Expected: the lifecycle moves `unloaded → updated → validated → granted →
++loaded → running`; the new manifest is re-validated and re-granted before the
++Plugin returns to `running`. A failed update leaves the previous version
++loaded.
++
++## Common pitfalls
++
++| Pitfall | Cause | Resolution |
++|---|---|---|
++| Install exits `3`, `error.type` is `validation`, message names a field | A top-level or nested field outside the schema — a typo or version drift | Remove the unknown field and re-install. Unknown fields are rejected by contract. |
++| A declared capability is refused with `permission_denied` | The capability is declared in the manifest but not granted in `src-tauri/capabilities/*.json` | Add the grant for the Plugin `identifier`. The grant set is the intersection of declared and granted. |
++| A command is not callable | The command name disagrees across the Rust handler, the contract, and the grant | Align the command name in `generate_handler!`, `core/api/commands.ts`, and the grant. |
++| A second `invoke_handler` call silently shadows the first | A second `tauri::generate_handler!` was added | Append the handler to the single `generate_handler!` in `src-tauri/src/lib.rs`. |
++| A command shadows a core command | The command name collides with the core surface | Namespace the command by the Plugin `id`; a Plugin command may not shadow a core command name. |
++| A Plugin references a capability it did not declare | The SDK is a compile-time contract | Declare the capability in the manifest and grant it; an undeclared reference fails validation before load. |
++| A Secret read is refused | The Plugin lacks `dex.secrets.read:<plugin-id>` or the Secret is out of scope | Grant the scoped capability and keep the Secret Plugin-scoped; a Plugin never reads the keyring directly. |
++
++Every lifecycle transition is recorded in the Journal
++([`Journal.md`](../30-specs/Journal.md)); `dex journal show` reports the prior
++and new state for any failure, including refused grants and aborted installs.
++
++## Related Documents
++
++- Canonical terminology (Plugin, Widget): [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Plugin First principle: [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Plugin API contract (manifest, lifecycle, capability model): [`../30-specs/PluginAPI.md`](../30-specs/PluginAPI.md)
++- Plugin boundary and CSP baseline: [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++- Typed IPC contract and error envelope: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Layer ownership (Rust owns system access): [`../50-adr/0001-layer-ownership.md`](../50-adr/0001-layer-ownership.md)
++- Plugin and Widget architecture: [`../20-architecture/27_Plugins.md`](../20-architecture/27_Plugins.md)
++- Security architecture and threat model: [`../20-architecture/29_Security.md`](../20-architecture/29_Security.md)
++- Secrets contract (Plugin-scoped Secrets): [`../30-specs/Secrets.md`](../30-specs/Secrets.md)
++- Roadmap and milestone gates (Phase 8): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- CLI contract: [`../30-specs/CLI.md`](../30-specs/CLI.md)
++- CLI reference: [`../70-api/CLI.md`](../70-api/CLI.md)
++- Plugin and Widget SDK surface: [`../70-api/PluginsWidgets.md`](../70-api/PluginsWidgets.md)
++- Sibling guides: [`CreatingWidget.md`](CreatingWidget.md), [`CreatingWorkspace.md`](CreatingWorkspace.md), [`CreatingTheme.md`](CreatingTheme.md)
+\ No newline at end of file
+diff --git a/docs/80-guides/CreatingTheme.md b/docs/80-guides/CreatingTheme.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..4c4b41299f18af8f72aa15a1982c12b332636119
+--- /dev/null
++++ b/docs/80-guides/CreatingTheme.md
+@@ -0,0 +1,278 @@
++# Creating and Applying a Theme
++
++## Purpose
++
++Theming is the contract by which users and authors restyle DEX without touching
++the core. A theme is a semantic-layer override: it changes the role tokens that
++components consume, and nothing else. This guide walks one theme through the
++complete lifecycle — understand the layer rule, author the theme manifest,
++validate it, apply it, keep the programmatic palette in sync, and verify it
++against the transparency and motion contracts.
++
++The contract is authoritative; this guide references it rather than redefining
++it. The themeable token set, the manifest format, and the validation rules:
++[`../30-specs/Theme.md`](../30-specs/Theme.md). Token values and motion:
++[`../40-engineering/DesignSystem.md`](../40-engineering/DesignSystem.md).
++Command surface: [`../30-specs/CLI.md`](../30-specs/CLI.md) and
++[`../70-api/CLI.md`](../70-api/CLI.md).
++
++## Capability gates
++
++The theme store and the three built-in themes — **dark** (the default),
++**light**, and **cyber** — are live in Phase 0 (M0.2 Design System and M0.3
++Core Infrastructure are done). What ships later is the authoring surface: the
++`dex theme` command domain, the manifest validator, and theme installation
++arrive with the Phase 1 theming milestone (**M1.4**), which closes live
++switching end to end. Until that milestone lands, the built-in themes are the
++delivered set, and the manifest format below is the intended contract —
++already specified and validated against the Theme specification, so the steps
++transfer unchanged when the CLI ships (CLI First, principle 3).
++
++## Why themes are semantic-layer overrides
++
++Components consume semantic tokens only (`var(--dex-surface-1)`,
++`var(--dex-text-1)`, …) — never primitive ramps and never hardcoded values
++(ADR-0003). Because components are theme-agnostic, restyling DEX is a matter of
++editing the semantic layer. A theme therefore overrides *only* the semantic
++layer; primitives (color ramps, spacing, radii, durations, z-index, blur) are
++shared across themes and are not themeable.
++
++```mermaid
++classDiagram
++    class Primitives {
++        --dex-gray-950
++        --dex-cyan-500
++        --dex-space-4
++        --dex-radius-md
++        --dex-duration-base
++        themeable = no
++    }
++    class Semantic {
++        --dex-surface-1..3
++        --dex-text-1..3
++        --dex-accent
++        --dex-border
++        --dex-background
++        themeable = yes
++    }
++    class Theme["Theme (data-theme)"] {
++        overrides only Semantic
++    }
++    class Component["Component"] {
++        consumes Semantic only
++    }
++
++    Primitives --> Semantic : resolves into
++    Theme --> Semantic : overrides
++    Semantic --> Component : consumed
++```
++
++The layer rule: components consume semantic tokens for every color and
++typography decision. The scale tokens (spacing, radii, duration, z-index, blur)
++are stable by design and may be consumed directly. Never hardcode a hex or
++`rgba` value in a component — that is a code-review failure, not a theme
++override.
++
++## Step 1 — Understand the themeable token set
++
++**Why.** A theme is not a free-form stylesheet. It may override exactly the
++tokens the Theme specification lists; anything else is rejected, never
++silently ignored. Knowing the set up front makes a valid manifest the first
++try.
++
++The themeable set (see [`../30-specs/Theme.md`](../30-specs/Theme.md)):
++
++- Surfaces: `--dex-surface-1`, `--dex-surface-2`, `--dex-surface-3`
++- Text: `--dex-text-1`, `--dex-text-2`, `--dex-text-3`
++- Accent: `--dex-accent`, `--dex-accent-strong`, `--dex-accent-soft`
++- Lines: `--dex-border`, `--dex-border-subtle`, `--dex-grid-line`,
++  `--dex-focus-ring`
++- Backdrop: `--dex-background`, `--dex-on-accent`
++
++A theme may omit tokens it does not override; omitted tokens inherit from the
++default theme. A theme may **not** override a primitive token — an attempt is a
++`validation` error.
++
++## Step 2 — Author the theme manifest
++
++**Why.** A theme is a declaration, not a patch. The manifest is diffable,
++reviewable, and scriptable — the same artifact validates, installs, and
++reproduces the theme anywhere. Authoring by hand is the canonical path.
++
++1. Create a theme manifest — a YAML file named after the theme:
++
++```yaml
++# solar.yaml — theme manifest
++name: solar
++version: 1.0.0
++overrides:
++  --dex-surface-1: rgba(40, 44, 30, 0.35)
++  --dex-surface-2: rgba(40, 44, 30, 0.6)
++  --dex-text-1: "#f4f1de"
++  --dex-text-2: "#d8d5c0"
++  --dex-accent: "#e07a5f"
++  --dex-accent-strong: "#e07a5f"
++  --dex-background: "#1a1d14"
++```
++
++2. Check the declaration against the schema:
++
++| Field | Type | Required | Meaning |
++|---|---|---|---|
++| `name` | string | yes | Theme identifier; must match the `data-theme` value |
++| `version` | string | yes | Semantic version of the theme |
++| `overrides` | object | yes | Semantic-layer token overrides, keyed by token name |
++
++Rules that bind here:
++
++- Every `overrides` key must be in the themeable set from Step 1.
++- Every value must be a valid CSS color.
++- A `name` that collides with a built-in theme (`dark`, `light`, `cyber`) is
++  rejected unless it is an explicit redefinition with a bumped version.
++
++Expected: the file exists with exactly these fields. The Runtime accepts only
++fields it knows — unknown fields are rejected, never ignored.
++
++## Step 3 — Validate the manifest
++
++**Why.** Validation runs before acceptance, at authoring and at install time.
++A manifest that fails validation is rejected with an `AppError` of type
++`validation`; the Runtime never partially applies a theme. Validating before
++installing turns a typo into a typed error instead of a half-themed shell.
++
++1. Run `dex theme validate ./solar.yaml`.
++
++Expected: exit code `0`; with `--json`, stdout is
++`{ "ok": true, "data": { } }`.
++
++2. Confirm the rejection path. Add an override for a primitive token:
++
++```yaml
++  --dex-cyan-500: "#22d3ee"
++```
++
++3. Re-run `dex theme validate ./solar.yaml`.
++
++Expected: exit code `3`; the error envelope is
++`{ "ok": false, "error": { "type": "validation", "message": "..." } }` and the
++message names the unknown token. This is the documented contract: overrides
++outside the themeable set are rejected, never silently ignored.
++
++4. Remove the primitive override, then break a value — for example set
++   `--dex-accent: banana`.
++
++Expected: exit code `3`; `validation`; the message names the invalid color.
++Restore a valid color before continuing.
++
++## Step 4 — Apply the theme
++
++**Why.** Installation is a declaration of intent; applying is a runtime act.
++The theme store owns the switch: it sets `data-theme` on `<html>`, persists
++the choice via `core/utils/storage.ts`, and exposes the current `ThemePalette`
++for JS and the graphics engine. `initTheme()` runs at boot so the attribute is
++set before first paint.
++
++1. Run `dex theme set solar`.
++
++Expected: exit code `0`; the shell re-themes live. The attribute on `<html>`
++is now `data-theme="solar"`, CSS applies the semantic overrides, and every
++component that consumes `var(--dex-*)` picks up the change — no component was
++re-rendered with new values, because components never hardcode colors.
++
++2. Confirm the installed set: `dex theme list`.
++
++Expected: the manifest themes are listed alongside the built-ins; `solar`
++appears with the version from the manifest.
++
++3. Confirm idempotency: `dex theme set solar` again.
++
++Expected: exit code `0`. Setting the theme that is already active is
++idempotent and succeeds without error (CLI scripting contract).
++
++```mermaid
++flowchart LR
++    STORE["theme store (theme.svelte.ts)"]
++    STORE -->|"data-theme on <html>"| CSS["CSS semantic overrides"]
++    STORE -->|"palette"| PALETTE["ThemePalette (themes/*.ts)"]
++    CSS --> RENDER["renderer consumes var(--dex-*)"]
++    PALETTE --> GPU["graphics engine / JS"]
++```
++
++The choice survives restart: the store persists it, and `initTheme()` restores
++it before the first paint of the next boot.
++
++## Step 5 — Keep the ThemePalette mirror in sync
++
++**Why.** CSS custom properties are unreadable to code paths that do not run
++through CSS — WebGL uniforms and canvas fills read a typed record instead.
++`src/lib/ui/themes/types.ts` defines `ThemePalette`; each theme exports one
++const. The mirror is what the graphics engine consumes, so a theme that ships
++without its palette is a theme the GPU half of the shell cannot render.
++
++**Sync rule (ADR-0003):** when a semantic value changes in `tokens.css`,
++update the matching palette file in `themes/`. The comment block at the top of
++`themes/types.ts` states this rule. `ThemePalette` carries only what JS/GPU
++need; role tokens that stay in CSS (`--dex-accent-soft`, `--dex-border-subtle`,
++`--dex-focus-ring`, `--dex-text-3`, `--dex-on-accent`) are not mirrored. The
++CSS is authoritative for the UI; the TS mirror is authoritative for
++programmatic use.
++
++For the `solar` theme, add `src/lib/ui/themes/solar.ts` exporting a
++`ThemePalette` whose values match the manifest's resolved colors. The palette
++`name` must equal the manifest `name`.
++
++## Step 6 — Verify against the transparency and motion contracts
++
++**Why.** A theme that looks right in a browser tab can still break the shell —
++by painting an opaque backdrop, or by animating a property that drops frames.
++The transparent compositing contract (ADR-0004) and the motion contract
++(ADR-0003) survive theme changes and must be re-verified on the desktop.
++
++1. **Run on the desktop, not the tab.** `bun run tauri dev` on a
++   Wayland/Hyprland session. Transparent-window behavior cannot be checked in
++   a browser tab (ADR-0004).
++
++2. **Surfaces stay glass.** Surfaces are translucent
++   (`--dex-surface-*` over the desktop) — the backdrop comes from
++   `backdrop-filter` on glass panels, never from an opaque body/window paint.
++   An opaque `--dex-background` in a theme is not a validation error, but it
++   is a design failure: it hides the desktop and breaks the shell's identity.
++   Keep translucent surfaces and a dark-appropriate backdrop.
++
++3. **Motion is unchanged.** Motion durations are 150–250 ms with the single
++   easing `var(--dex-ease-out)` (`cubic-bezier(.22,.61,.36,1)`), and only
++   `transform`/`opacity` animate — never width, height, top, left, margin, or
++   `background-color`. A theme does not change durations, easing, or z-index;
++   those are primitives and are not themeable. `prefers-reduced-motion` keeps
++   disabling non-essential motion.
++
++4. **No per-frame blur.** `backdrop-filter` is a compositor cost on every
++   repaint; blur radii stay within the token scale and panels never
++   re-blur-every-frame (ADR-0004).
++
++## Troubleshooting
++
++| Symptom | Cause | Resolution |
++|---|---|---|
++| `dex theme validate` exits `3`, message names a token | An override key is outside the themeable set — typically a primitive (`--dex-*` ramp, spacing, duration) | Remove the token; a theme may override only the semantic-layer tokens in Step 1. |
++| `dex theme validate` exits `3`, message names a value | The override value is not a valid CSS color | Use a valid hex, `rgb()`/`rgba()`, or named color; re-validate. |
++| `dex theme set` rejects the theme name | The `name` collides with a built-in theme (`dark`, `light`, `cyber`) without an explicit redefinition | Rename the theme, or declare it as a redefinition with a bumped `version`. |
++| The theme applies in the browser tab but the desktop looks wrong | Transparent-compositing behavior differs outside Tauri | Re-verify on `bun run tauri dev`; check that surfaces are translucent and no opaque layer paints the window (ADR-0004). |
++| The GPU visuals do not pick up the theme | The `ThemePalette` mirror is missing or stale | Add `themes/solar.ts` per Step 5; the CSS is not readable from WebGL/canvas code. |
++| Theme does not survive restart | The choice was not persisted | The store persists via `core/utils/storage.ts`; confirm the store wrote before shutdown and that `initTheme()` runs at boot. |
++
++## Related Documents
++
++- Canonical terminology (Theme): [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Native First, Context over Applications principles:
++  [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Theme contract: [`../30-specs/Theme.md`](../30-specs/Theme.md)
++- Design token architecture decision: [`../50-adr/0003-design-tokens.md`](../50-adr/0003-design-tokens.md)
++- Transparent compositing contract: [`../50-adr/0004-transparent-compositing.md`](../50-adr/0004-transparent-compositing.md)
++- Token reference and values: [`../40-engineering/DesignSystem.md`](../40-engineering/DesignSystem.md)
++- Performance standards (motion contract): [`../40-engineering/Performance.md`](../40-engineering/Performance.md)
++- Token source of truth: `src/lib/ui/styles/tokens.css`
++- Theme store: `src/lib/core/stores/theme.svelte.ts`
++- CLI contract: [`../30-specs/CLI.md`](../30-specs/CLI.md)
++- CLI reference: [`../70-api/CLI.md`](../70-api/CLI.md)
++- Sibling guides: [`CreatingWorkspace.md`](CreatingWorkspace.md), [`UsingAI.md`](UsingAI.md), [`CreatingPlugin.md`](CreatingPlugin.md), [`CreatingWidget.md`](CreatingWidget.md)
+diff --git a/docs/80-guides/CreatingWidget.md b/docs/80-guides/CreatingWidget.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..69d07066f00325e0222beadc88a9198d9bb1e03c
+--- /dev/null
++++ b/docs/80-guides/CreatingWidget.md
+@@ -0,0 +1,306 @@
++# Creating a Widget
++
++## Purpose
++
++A Widget is a sandboxed UI extension, rendered in an isolated context with no
++IPC access of its own. A Widget's every effect is mediated by the Workspace
++Runtime through shell-mediated commands; a Widget never imports
++`@tauri-apps/api`. This guide walks one Widget through the complete authoring
++lifecycle: scaffold, manifest, sandboxed render, mediated effects, Workspace
++attachment, and testing.
++
++The contracts are authoritative; this guide references them rather than
++redefining them. Manifest fields, SDK surface, isolation model, and the
++mediation protocol: [`WidgetAPI.md`](../30-specs/WidgetAPI.md). The security
++boundary and CSP baseline: [`0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md).
++Command surface: [`CLI.md`](../30-specs/CLI.md) and
++[`../70-api/CLI.md`](../70-api/CLI.md).
++
++## Capability gates
++
++The Widget platform is **planned, not shipped**. Phase 0 is the current phase
++(M0.4 open) and fixed the boundary (ADR-0005) but ships no Widget SDK. Per the
++roadmap, the Widget platform lands in Phase 3: **M3.1** Widget SDK (registry,
++metadata, lifecycle), **M3.2** Layout Engine (drag, resize, snap, dock, float),
++**M3.3** Persistence (SQLite-backed positions/sizes/settings), **M3.4** Widget
++Marketplace API (discovery, install, update). The `dex widget` command domain
++arrives with M3.1. Until a milestone lands, the manifest and SDK surface below
++are the intended contract, and the same commands are driven by the graphical
++shell when they ship (CLI First, principle 3), so the steps transfer unchanged.
++
++## Prerequisites
++
++- DEX built and running. Verification order: `bun run check`, `cargo check`
++  in `src-tauri/`, then `bun run tauri dev` on a Wayland/Hyprland session.
++- The `dex` CLI on `PATH` (after M3.1; see Capability gates).
++- A directory that will become the Widget root; the manifest and the entry
++  document live there.
++
++## Step 1 — Scaffold the Widget
++
++**Why.** A Widget is a bundle, not a host extension: an entry document plus a
++manifest, rendered in an isolated context the Runtime provides. Scaffolding the
++bundle with no Tauri dependency keeps the Widget effect-free by construction —
++there is no `@tauri-apps/api` in the bundle to import.
++
++1. Create the Widget root with an entry document and the manifest:
++
++```bash
++mkdir dex-widget-ci-badge
++touch index.html
++touch dex.widget.yaml
++```
++
++2. The entry document is the isolated-context entry (`entry` in the manifest).
++   It loads the Widget SDK bundle and nothing else.
++
++Expected: a self-contained bundle with exactly two declared files — the entry
++document and the manifest. A Widget that declares a capability it will not use
++is a review failure.
++
++## Step 2 — Author the Widget manifest
++
++**Why.** The manifest is schema-validated at install and update; unknown fields
++are rejected. It is the single source of truth for what the Widget may do, and
++the host reads the declared capabilities from it before any render. Authoring
++the manifest first forces the capability decision before any UI code exists.
++
++1. Create `dex.widget.yaml`. A complete minimal manifest:
++
++```yaml
++id: dev.example.ci-badge
++name: CI Badge
++version: 0.4.1
++entry: index.html
++capabilities:
++  - dex.commands.run:dex.gitflow.status
++lifecycle:
++  refresh: 60s
++settings:
++  schema: { repo: string }
++```
++
++2. Check the declared fields against the schema
++   ([`WidgetAPI.md`](../30-specs/WidgetAPI.md)): `id` is a reverse-DNS
++   identifier, globally unique and immutable; `name` is the display name;
++   `version` is semantic; `entry` is the isolated-context entry document;
++   `capabilities` is the exact grant set. `lifecycle` (render-time behavior such
++   as the `refresh` interval) and `settings` (the declared settings schema,
++   validated on write) are optional.
++
++3. Decide the capability set. A Widget that declares no capabilities renders but
++   may perform no effects: every action it requests is refused with
++   `permission_denied`. Declare exactly the mediated actions the Widget will
++   request.
++
++Expected: the file exists with exactly these top-level fields. The Runtime
++accepts only fields it knows — unknown fields are rejected, never ignored.
++
++## Step 3 — Render in the sandboxed context
++
++**Why.** A Widget renders in an isolated context: a sandboxed frame with its
++own origin, distinct from the shell's privileged webview. The Widget's visual
++output is composited into the shell by the Runtime; the Widget never paints
++outside the bounds the shell gives it. Rendering alone grants no capability.
++
++```mermaid
++flowchart LR
++    W["Widget (isolated context)"]
++    M["Shell mediator"]
++    R["Workspace Runtime"]
++    W -->|"render(data)"| M
++    W -->|"action(request)"| M
++    M -->|"capability check"| R
++    R -->|"result"| M
++    M -->|"effect"| W
++```
++
++1. Use the Widget SDK to receive data and drive the UI. The SDK surface is
++   deliberately small and effect-free by construction
++   ([`WidgetAPI.md`](../30-specs/WidgetAPI.md)):
++
++   - **render** — receives the data payload the Runtime grants to the Widget.
++   - **state** — a local state container; state is per-Widget and is not
++     persisted unless the Widget declares a settings schema and writes through
++     the mediated settings action.
++   - **lifecycle hooks** — `onMount`, `onRefresh`, `onDestroy`, called by the
++     Runtime at the corresponding lifecycle transitions.
++   - **mediated action calls** — `request(action, payload)`; every action goes
++     to the shell mediator, never to IPC.
++
++2. The SDK does not export `invoke`, `listen`, or any other Tauri API. There is
++   no path from a Widget to the Runtime other than `request`. A Widget that
++   imports `@tauri-apps/api` fails validation and is not rendered.
++
++Expected: the Widget renders its data payload in the isolated context. It has no
++channel to the Runtime other than `request`, and it paints only inside the
++bounds the shell gives it.
++
++## Step 4 — Mediate every effect through a shell command
++
++**Why.** Every effect a Widget requests is mediated: the Widget asks, the shell
++checks capability, the Runtime performs, the result returns. The Widget never
++performs the effect itself. A Widget that imported `@tauri-apps/api` directly
++would reach the filesystem through the same typed surface as the shell itself
++(ADR-0005); `request` is the only door, and it is capability-gated.
++
++```mermaid
++sequenceDiagram
++    participant W as Widget (isolated)
++    participant M as Shell mediator
++    participant C as Capability check
++    participant R as Runtime command
++
++    W->>M: request(action, payload)
++    M->>C: check(widget.id, action)
++    alt not granted
++        C-->>M: permission_denied
++        M-->>W: error (permission_denied)
++    else granted
++        C-->>M: ok
++        M->>R: invoke(command, payload)
++        R-->>M: result (schema-validated)
++        M-->>W: result
++    end
++```
++
++1. Request every effect — a command, a state write, a navigation, a launch —
++   through `request(action, payload)`.
++
++2. Never import `@tauri-apps/api`. Never call `invoke`, `listen`, or a filesystem
++   or shell API. The mediation protocol is the same typed IPC machinery the
++   shell itself uses (ADR-0002): the action's payload and result are
++   zod-validated at the boundary, invalid payloads are logged and dropped, and
++   the error envelope is the closed set from ADR-0002.
++
++Expected: an effect the Widget is granted succeeds and returns a schema-validated
++result. An effect the Widget is not granted returns the `permission_denied`
++error envelope; the Widget cannot perform it itself.
++
++## Step 5 — Add the Widget to a Workspace
++
++**Why.** A Widget is part of a Workspace's Context, not a standalone window.
++Installing it declares the bundle; enabling it surfaces it in the Workspace
++under the Runtime's lifecycle control. The Widget lifecycle is: `installed →
++rendered → active → hidden → destroyed` — visibility is a shell decision, and a
++Widget may be `active` without being visible.
++
++```mermaid
++stateDiagram-v2
++    [*] --> installed
++    installed --> rendered: manifest validated + rendered in isolated context
++    rendered --> active: user focuses / shell surfaces it
++    rendered --> hidden: shell hides it
++    active --> hidden: shell hides it
++    hidden --> active: shell surfaces it
++    hidden --> destroyed: removal or host shutdown
++    active --> destroyed: removal or host shutdown
++    rendered --> destroyed: removal or host shutdown
++    destroyed --> [*]
++```
++
++1. Install the Widget from its manifest:
++
++```
++dex widget install ./dex.widget.yaml
++```
++
++Expected: exit code `0`; the manifest is validated and the Widget enters
++`installed`, then `rendered` in its isolated context.
++
++2. Enable it in the active Workspace:
++
++```
++dex widget enable dev.example.ci-badge
++```
++
++Expected: exit code `0`; the Widget moves to `active`. The Runtime surfaces it,
++and the shell mediates every action it requests. A hidden Widget receives
++refresh cadence at the declared `lifecycle.refresh` interval or is paused per
++the declared lifecycle policy.
++
++3. Disable it:
++
++```
++dex widget disable dev.example.ci-badge
++```
++
++Expected: exit code `0`; the Widget moves to `hidden`. Disabling is not removal —
++the Widget's state persists until removal or host shutdown.
++
++## Step 6 — Test the mediation boundary
++
++**Why.** A Widget's security contract is negative: it must never reach the
++Runtime except through `request`. Testing the boundary proves the Widget is
++effect-free by construction and grants exactly what it declares.
++
++1. Attempt a direct effect from the Widget bundle — an `@tauri-apps/api` import
++   or a call to a non-mediated API.
++
++Expected: validation at install rejects the bundle and the Widget is not
++rendered.
++
++2. Request an action the Widget is not granted.
++
++Expected: the shell mediator returns the `permission_denied` error envelope. The
++Widget has no capability it did not declare and that was not granted — no
++default elevation.
++
++3. Request an action with a malformed payload.
++
++Expected: the payload is logged and dropped at the boundary; the Widget receives
++no result and no exception is thrown into the handler.
++
++4. Exercise the lifecycle hooks: mount, refresh, destroy.
++
++Expected: `onMount`, `onRefresh`, and `onDestroy` fire at the corresponding
++transitions; state is discarded at `destroyed`.
++
++## Security checklist
++
++The Widget contract has six hard rules
++([`WidgetAPI.md`](../30-specs/WidgetAPI.md)). Review the Widget against all of
++them before install:
++
++1. **No direct IPC.** The Widget never imports `@tauri-apps/api` and never
++   reaches the Runtime except through `request`.
++2. **Isolated context.** The Widget renders in a sandboxed frame with its own
++   origin; it never shares the shell webview's origin or privileges.
++3. **Exact grants.** The Widget receives exactly the capabilities it declares
++   and that are granted — no default elevation.
++4. **No filesystem, no shell, no SQLite.** The Widget cannot reach the
++   filesystem, execute shell commands, or touch SQLite; only the Runtime can,
++   through mediated actions.
++5. **Strict CSP applies.** The shell's CSP baseline (ADR-0005) constrains the
++   Widget context; the Widget cannot relax it.
++6. **Validation at install.** Manifests and entry documents are validated at
++   install and update; unknown fields and forbidden imports are rejected.
++
++## Common pitfalls
++
++| Pitfall | Cause | Resolution |
++|---|---|---|
++| Install rejects the bundle | The entry document imports `@tauri-apps/api` | Remove the import; every effect goes through `request(action, payload)`. |
++| Every effect is refused with `permission_denied` | The action is not in the Widget's granted capability set | Declare and grant exactly the capabilities the Widget needs; a Widget that declares none may render but performs no effects. |
++| State is lost between sessions | State is per-Widget and not persisted by default | Declare a `settings` schema and write through the mediated settings action; positions and sizes persist via SQLite (M3.3). |
++| A Widget paints outside its bounds | The Widget ignores the compositing boundary | Render only inside the bounds the shell gives the Widget; the Runtime composites the output. |
++| An action returns an unexpected error | The payload or result failed schema validation at the boundary | Check the declared action schema; invalid payloads are logged and dropped, never delivered. |
++| A hidden Widget keeps running | The lifecycle policy is not declared | Declare `lifecycle.refresh` (and any pause policy); a hidden Widget follows the declared policy. |
++
++## Related Documents
++
++- Canonical terminology (Widget, Plugin): [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Plugin First principle: [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Widget API contract (manifest, SDK surface, mediation protocol): [`../30-specs/WidgetAPI.md`](../30-specs/WidgetAPI.md)
++- Plugin API contract (a Plugin's UI is a Widget): [`../30-specs/PluginAPI.md`](../30-specs/PluginAPI.md)
++- Plugin boundary and CSP baseline: [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++- Typed IPC contract and error envelope: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Layer ownership (frontend never touches filesystem or SQLite): [`../50-adr/0001-layer-ownership.md`](../50-adr/0001-layer-ownership.md)
++- Plugin and Widget architecture: [`../20-architecture/27_Plugins.md`](../20-architecture/27_Plugins.md)
++- Security architecture and threat model: [`../20-architecture/29_Security.md`](../20-architecture/29_Security.md)
++- Workspace Manifest contract (Widgets attach to a Workspace's Context): [`../30-specs/Manifest.md`](../30-specs/Manifest.md)
++- Roadmap and milestone gates (Phase 3): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- CLI contract: [`../30-specs/CLI.md`](../30-specs/CLI.md)
++- CLI reference: [`../70-api/CLI.md`](../70-api/CLI.md)
++- Plugin and Widget SDK surface: [`../70-api/PluginsWidgets.md`](../70-api/Plugin

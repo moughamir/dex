@@ -1,0 +1,2385 @@
+returns the entry. |
++| `vault.entry.get` | `{ entry_id }` | Fetches one entry. |
++| `vault.entry.update` | `{ entry_id, body?, metadata? }` | Edits body/metadata; bumps `updated_at`. |
++| `vault.entry.delete` | `{ entry_id }` | Soft-deletes an entry. |
++| `vault.entry.search` | `SearchArgs` | Typed query over entries (below). |
++| `vault.context.get_active` | `{ workspace_id }` | Returns the active Context for a Workspace. |
++| `vault.context.set_active` | `ContextArgs` | Sets the active Context for a Workspace. |
++
++### Search and filters
++
++`vault.entry.search` takes typed filters; every filter is optional and
++filters are AND-combined.
++
++```ts
++interface SearchArgs {
++  workspaceId?: string;        // filter by provenance
++  kind?: EntryKind;            // filter by entry type
++  from?: string;               // created_at >= (ISO 8601)
++  to?: string;                 // created_at <= (ISO 8601)
++  query?: string;              // full-text query over title + body
++  limit?: number;              // page size (default 50, max 200)
++  offset?: number;             // pagination cursor
++}
++```
++
++- **Full-text.** `query` runs a full-text search over `title` and `body`.
++- **Pagination.** Results are returned as a page: `{ entries, total, offset }`.
++  Pages are stable for the duration of a query; the Vault does not guarantee
++  snapshot isolation across pages if concurrent writes occur.
++
++## Memory Provider Interface
++
++A Memory Provider is an adapter that connects the Knowledge Vault to a storage
++or model backend — a local database, an embedding store, a model endpoint
++(Glossary). Providers are the seam that keeps the Vault's contract independent
++of any specific backend (Principle 9, Composition over Inheritance).
++
++```mermaid
++classDiagram
++    class MemoryProvider {
++        <<interface>>
++        +get_id() string
++        +read(request) ReadResult
++        +write(entry) WriteResult
++        +search(request) SearchResult
++        +embed(texts) EmbedResult
++    }
++    class VaultRepository {
++        <<core>>
++        +get_entry(id) Entry
++        +query(filters) Page
++    }
++    class LocalDatabaseProvider {
++        +get_id() string
++        +read(request) ReadResult
++        +write(entry) WriteResult
++        +search(request) SearchResult
++        +embed(texts) EmbedResult
++    }
++    class EmbeddingProvider {
++        +get_id() string
++        +read(request) ReadResult
++        +write(entry) WriteResult
++        +search(request) SearchResult
++        +embed(texts) EmbedResult
++    }
++    MemoryProvider <|.. LocalDatabaseProvider
++    MemoryProvider <|.. EmbeddingProvider
++    VaultRepository --> MemoryProvider : delegates
++```
++
++The interface is fixed; adapters implement it. The core Vault (the
++`VaultRepository`) delegates backend operations to a Provider and never
++depends on a concrete implementation.
++
++```ts
++interface MemoryProvider {
++  readonly id: string; // stable provider identifier, e.g. "dex.sqlite"
++
++  read(request: ReadRequest): Promise<ReadResult>;
++  // Resolves stored entries for a query. The core decides query semantics;
++  // the provider returns raw matches for the core to validate and shape.
++
++  write(entry: Entry): Promise<WriteResult>;
++  // Persists an entry. Must be idempotent on entry_id (re-write = update).
++
++  search(request: SearchRequest): Promise<SearchResult>;
++  // Backend-native search (e.g. full-text or vector). The core merges,
++  // deduplicates, and ranks.
++
++  embed(texts: string[]): Promise<EmbedResult>;
++  // Optional for storage-only providers: returns vectors for the given
++  // texts, or a structured "unsupported" result the core treats as absent.
++}
++```
++
++**Rules.**
++
++1. The Vault core owns query semantics and validation; a Provider never sees
++   unvalidated input (ADR-0002 applies at the Provider boundary as well as the
++   IPC boundary).
++2. `embed` is the only AI-adjacent operation and it is optional: a Provider
++   without an embedding backend returns a structured `unsupported`, and the core
++   degrades to full-text search (Principle 12).
++3. Swapping the backend never changes the Vault's contract; providers are
++   registered at Runtime startup and are not user-facing on the core path.
++
++## Privacy Rules
++
++1. **Local by default.** The Vault database is written only to the local data
++   directory. No entry, query, or index leaves the machine as a matter of
++   course.
++2. **Explicit request required for egress.** Anything that leaves the machine —
++   a model endpoint, a sync target, a backup — is an explicit, user-facing
++   action. There is no implicit synchronization, no telemetry, and no
++   background network activity (Non-Goals: "DEX is not a cloud service").
++3. **Workspace-scoped provenance.** Entries carry `workspace_id`; the Vault
++   spans Workspaces, but queries may be scoped by provenance, so an entry is
++   never assumed to be visible to another Workspace.
++4. **Secrets are not knowledge.** Credentials and secrets are governed by the
++   Secrets subsystem ([`Secrets.md`](Secrets.md)), not by the Knowledge Vault.
++   The Vault never stores secret material; a reference to a secret may be
++   stored as a `dex.`-reserved metadata value only via the Secrets subsystem.
++
++## Relationship to other subsystems
++
++- **Context.** The active Context of a Workspace is stored as a `context` entry
++  (`vault.context.*`). Workspace Activation re-establishes Context by reading
++  the active Context entry (see [`Workspace.md`](Workspace.md)).
++- **Journal.** The Journal records *what happened*; the Vault records *what is
++  known*. Activity entries in the Vault are curated memory; Journal entries are
++  the durable, append-only record. The Journal never writes to the Vault, and
++  the Vault never writes to the Journal (see [`Journal.md`](Journal.md)).
++- **Snapshots.** A Snapshot references the active Context record; restore
++  re-establishes Context from the Vault (see [`Snapshot.md`](Snapshot.md)).
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Principles (Offline First, Context over Applications, AI is Optional): [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- System architecture and boundaries: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Workspace contract (Context re-establishment): [`Workspace.md`](Workspace.md)
++- Point-in-time restore (Context reference): [`Snapshot.md`](Snapshot.md)
++- Durable activity record: [`Journal.md`](Journal.md)
++- Secrets subsystem: [`Secrets.md`](Secrets.md)
++- Typed IPC contract: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
+\ No newline at end of file
+diff --git a/docs/30-specs/Manifest.md b/docs/30-specs/Manifest.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..af3f78796d591412d80e7ff2fe629a4b21a7dbd4
+--- /dev/null
++++ b/docs/30-specs/Manifest.md
+@@ -0,0 +1,301 @@
++# Workspace Manifest — Specification
++
++- **Contract version:** 1 (draft)
++- **Status:** Draft
++- **Owner:** Workspace subsystem (`src-tauri/src/services/manifest/`)
++- **Canonical terminology:** [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++
++## Purpose
++
++A Workspace Manifest is the declarative, versioned document that defines a
++Workspace: what it contains, what runs when it is activated, and what state it
++captures (Glossary). It is the contract between a Workspace and the Workspace
++Runtime: the same declaration activates a Workspace on any machine.
++
++**Why a Manifest exists.** The Manifesto's long-term test for DEX is that a
++Workspace can be declared once and recreated anywhere. That promise is only
++kept if the declaration is a document, not a set of runtime actions. A
++Manifest separates *what a Workspace is* from *how any particular Runtime
++instantiates it*: the Runtime reads the Manifest and derives its behavior from
++it, so the same Manifest is valid on a fresh machine, after a reboot, or in a
++different environment. It also makes Workspaces reviewable (a Manifest is a
++diffable artifact) and scriptable (a Manifest is the CLI First surface for
++declaring a Workspace).
++
++**What this contract guarantees.**
++
++1. A Manifest is a complete, self-contained declaration: resolving it requires
++   no external state beyond the file itself and its referenced snapshots.
++2. A Manifest is validated before it is accepted: unknown fields are rejected,
++   required fields are enforced, and the versioning rule is stated.
++3. A Manifest version is immutable once consumed; evolution happens by version
++   increment, never by silent mutation.
++
++The Manifest is a different contract from a Plugin manifest. A Workspace
++Manifest declares a *composition of sessions, services, and apps*; a Plugin
++manifest declares a *native extension surface* (commands, events, capability
++grants). The distinction is enforced at validation time and documented in
++[`PluginAPI.md`](PluginAPI.md).
++
++## Format
++
++- **Canonical form:** YAML. YAML is the authoring and exchange form because it
++  is human-writable, diffable, and commentable.
++- **Documented and versioned:** every Manifest carries an explicit `manifest` /
++  `version` field identifying the schema version it conforms to. A Runtime
++  accepts a Manifest only if it understands the declared schema version.
++- **Alternative forms:** the Runtime may accept JSON as an equivalent
++  serialization of the same schema (YAML 1.2 is a superset of JSON). Both
++  forms parse into the same validated model; there is no third wire format.
++- **Location:** Manifests live as files (e.g. `dex.workspace.yaml` at a
++  project root) and are resolved by the Runtime's manifest resolver. A
++  Workspace record references a Manifest by `manifest_ref` (see
++  [`Workspace.md`](Workspace.md)).
++
++## Top-Level Schema
++
++The top level of a Manifest has the following fields.
++
++| Field | Type | Required | Description |
++|---|---|---|---|
++| `manifest` | `string` | yes | Schema marker, always the literal `dex.workspace`. |
++| `version` | `semver` | yes | Schema version this Manifest conforms to. |
++| `id` | `string` | yes | Declared identifier for the Workspace; a stable slug (lowercase, `[a-z0-9-]`). The Runtime derives the registry `workspace_id` from it plus a machine-local suffix. |
++| `name` | `string` | yes | Human-readable display name. |
++| `description` | `string` | no | Human-readable summary. |
++| `services` | `list` | no | Workspace Services to start, supervise, and stop (see below). |
++| `sessions` | `list` | no | Terminal and application sessions to launch on Activation. |
++| `apps` | `list` | no | Desktop applications to launch on Activation. |
++| `snapshot_policy` | `object` | no | Scheduling policy for Workspace Snapshots (see [`Snapshot.md`](Snapshot.md)). |
++| `hooks` | `object` | no | Declared lifecycle hooks (see below). |
++| `metadata` | `object` | no | Free-form key/value metadata; opaque to the Runtime. |
++
++### Field semantics
++
++- **`services`** — each entry declares one Workspace Service: `id`, `name`,
++  `kind` (the service backend, e.g. `process`), `command` (argv for the
++  process), `health_check` (`type`, `probe`, `interval_ms`, `timeout_ms`,
++  `grace_period_ms`), and `restart_policy` (`mode` ∈ `always` |
++  `on_failure` | `never`, `max_restarts`, `backoff_ms`). Lifecycle semantics
++  are specified in [`Workspace.md`](Workspace.md).
++- **`sessions`** — each entry declares a session to launch: `id`, `kind`
++  (e.g. `terminal`), `command` (the program and argv), `cwd`, `env` (variable
++  overrides), and `workspace_dir`. A session is launched during Activation,
++  before Context re-establishment.
++- **`apps`** — each entry declares a desktop application to launch: `id`,
++  `exec` (the application launcher entry or executable), `args`, `workspace`
++  (the target window-manager workspace), and `env`. Apps are launched during
++  Activation; their windows are arranged by the window manager and restored per
++  the Snapshot policy.
++- **`snapshot_policy`** — declares whether and when Snapshots are taken:
++  `enabled` (`boolean`), `periodic` (`interval` or `cron`), `on_leave`
++  (`boolean`), `retention` (number of Snapshots kept). Semantics in
++  [`Snapshot.md`](Snapshot.md).
++- **`hooks`** — declared lifecycle hooks the Runtime may invoke:
++  `pre_activate`, `post_activate`, `pre_leave`, `post_leave`. Each is a command
++  specification (`command`, `args`, `timeout_ms`). Hooks are advisory
++  extension points; a failing hook is logged to the Journal and does not abort
++  the lifecycle transition.
++- **`metadata`** — arbitrary key/value data, treated as opaque by the Runtime.
++  It is persisted with the Workspace record and never interpreted. Reserved
++  keys starting with `dex.` are not permitted (namespace is reserved for the
++  Runtime).
++
++## Validation Rules
++
++Validation runs at declaration and at every resolution. A Manifest that fails
++validation is rejected with an `AppError` of type `validation`; the Runtime
++never partially applies a Manifest.
++
++1. **Unknown fields are rejected, never ignored.** A Manifest containing a
++   top-level field outside the schema (or an unknown field inside a known
++   object) fails validation. This is the ADR-0005 stance applied to Workspace
++   Manifests: silent tolerance of unknown fields hides typos and version drift.
++2. **Required fields are enforced.** `manifest`, `version`, `id`, and `name`
++   must be present and well-typed. A Manifest without a name or identifier is
++   not a Workspace.
++3. **`id` must be a stable slug** (`[a-z0-9-]`), because it becomes part of the
++   derived `workspace_id` and of snapshot and journal keys.
++4. **`version` must be a valid semver** matching a schema version the Runtime
++   declares support for. Unknown schema versions are rejected with a
++   `validation` error naming the supported range.
++5. **`services[].id` and `sessions[].id` must be unique** within the Manifest.
++6. **`snapshot_policy` references must be internally consistent**: `periodic`
++   is required when `enabled` is `true` and `on_leave` is `false`.
++7. **Hooks and commands must be well-formed argv** (non-empty arrays of
++   strings) when present.
++
++### Versioning and migration rule
++
++- The Manifest schema itself is versioned by the `version` field (currently
++  `1.0.0`). A new schema version is additive and backward-compatible: fields
++  may be added, but no existing field may change meaning or be removed without
++  a major version bump.
++- A Manifest's declared `version` is immutable once consumed: the Workspace
++  record captures `manifest_version` at declaration and never silently upgrades
++  it. To adopt a new schema version, a developer edits the Manifest and
++  re-declares or re-resolves the Workspace; the change is recorded in the
++  Journal.
++- A major schema change is carried by the versioning rule itself: the Runtime
++  rejects Manifests whose major `version` it does not support, and the
++  migration path is "author a Manifest for the current schema version". No
++  silent reinterpretation of an old Manifest under a new schema is ever
++  performed.
++
++## Illustrative Example
++
++The following is a complete, valid Manifest. It is illustrative of the schema,
++not of a specific product feature set.
++
++```yaml
++manifest: dex.workspace
++version: 1.0.0
++
++id: arcade-engine
++name: Arcade Engine
++description: Core development workspace for the arcade engine project.
++
++services:
++  - id: database
++    name: Postgres
++    kind: process
++    command: [postgres, -D, .dex/data/postgres]
++    health_check:
++      type: tcp
++      probe: 127.0.0.1:5432
++      interval_ms: 2000
++      timeout_ms: 500
++      grace_period_ms: 10000
++    restart_policy:
++      mode: on_failure
++      max_restarts: 3
++      backoff_ms: 1500
++  - id: build-daemon
++    name: Cargo Watch
++    kind: process
++    command: [cargo, watch, -x, check]
++    cwd: .
++    health_check:
++      type: process
++      probe: alive
++      interval_ms: 5000
++      timeout_ms: 1000
++      grace_period_ms: 5000
++    restart_policy:
++      mode: always
++      max_restarts: 5
++      backoff_ms: 2000
++
++sessions:
++  - id: terminal-main
++    kind: terminal
++    command: [fish]
++    cwd: .
++    env:
++      DEX_WORKSPACE: arcade-engine
++    workspace_dir: true
++  - id: editor
++    kind: terminal
++    command: [nvim, -S, Session.vim]
++    cwd: .
++
++apps:
++  - id: browser-docs
++    exec: firefox
++    args: [--new-window, https://docs.example.org/arcade-engine]
++    workspace: 2
++  - id: gpu-debug
++    exec: renderdoc
++    args: []
++    workspace: 3
++
++snapshot_policy:
++  enabled: true
++  periodic:
++    interval: 30m
++  on_leave: true
++  retention: 12
++
++hooks:
++  pre_activate:
++    command: [./scripts/prepare-env.sh]
++    args: []
++    timeout_ms: 30000
++  post_leave:
++    command: [./scripts/teardown-env.sh]
++    args: []
++    timeout_ms: 30000
++
++metadata:
++  team: engine-core
++  prd_ref: "docs/arcade-engine/PRODUCT.md"
++```
++
++## Relationship to Plugin Manifests
++
++A Workspace Manifest and a Plugin manifest are different contracts with
++different validation domains. A Workspace Manifest is consumed by the Workspace
++subsystem and declares a composition of runtime artifacts; a Plugin manifest
++is consumed by the plugin host and declares a native extension surface bounded
++by capability grants (ADR-0005). The two never merge: a Workspace cannot
++declare a Plugin, and a Plugin cannot declare a Workspace. A Plugin may expose
++a command or event that a Workspace session or hook invokes, but the boundary
++between the two manifests is fixed. See [`PluginAPI.md`](PluginAPI.md).
++
++```mermaid
++classDiagram
++    class WorkspaceManifest {
++        +string manifest
++        +string version
++        +string id
++        +string name
++        +string description
++    }
++    class ServiceDecl {
++        +string id
++        +string kind
++        +string[] command
++        +HealthCheck health_check
++        +RestartPolicy restart_policy
++    }
++    class SessionDecl {
++        +string id
++        +string kind
++        +string[] command
++        +string cwd
++    }
++    class AppDecl {
++        +string id
++        +string exec
++        +string[] args
++        +int workspace
++    }
++    class SnapshotPolicy {
++        +boolean enabled
++        +Periodic periodic
++        +boolean on_leave
++        +int retention
++    }
++    class Hooks {
++        +Hook pre_activate
++        +Hook post_activate
++        +Hook pre_leave
++        +Hook post_leave
++    }
++    WorkspaceManifest --> "0..*" ServiceDecl : services
++    WorkspaceManifest --> "0..*" SessionDecl : sessions
++    WorkspaceManifest --> "0..*" AppDecl : apps
++    WorkspaceManifest --> "0..1" SnapshotPolicy : snapshot_policy
++    WorkspaceManifest --> "0..1" Hooks : hooks
++    WorkspaceManifest --> "0..1" Metadata : metadata
++```
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Workspace contract (lifecycle, services, persistence): [`Workspace.md`](Workspace.md)
++- Point-in-time restore (snapshot policy semantics): [`Snapshot.md`](Snapshot.md)
++- Durable activity record (manifest changes): [`Journal.md`](Journal.md)
++- Plugin manifest (different contract): [`PluginAPI.md`](PluginAPI.md)
++- Plugin boundary decision: [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++- Product roadmap (Workspace Manager milestone): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
+\ No newline at end of file
+diff --git a/docs/30-specs/PluginAPI.md b/docs/30-specs/PluginAPI.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..144825a1d4f8e88c6f7844378c07d44ebdf1cbb5
+--- /dev/null
++++ b/docs/30-specs/PluginAPI.md
+@@ -0,0 +1,214 @@
++# DEX Plugin API Specification
++
++Contract version 1 (draft).
++
++## Purpose
++
++A Plugin is a Rust-hosted, capability-gated extension to the Workspace Runtime,
++declared by a manifest, validated by the host, and executed in native code. A
++Plugin extends the Runtime's command and event surface with exactly the
++capabilities granted to it — never more, and never inside the privileged
++webview. This follows the Plugin First principle (principle 4) and the plugin
++boundary fixed in ADR-0005.
++
++This document is the normative contract for authoring, installing, validating,
++granting, loading, and versioning Plugins. The security boundary is decided in
++[`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md); this
++specification states the contract that boundary implies.
++
++## Why the boundary is Rust-hosted
++
++The shell is a single Tauri webview with full typed IPC access. If third-party
++code ever ran inside that privileged context, it could reach the filesystem
++through the same typed surface as the shell itself. The boundary is therefore
++fixed in Phase 0: a Plugin is native code hosted by `src-tauri/`, not arbitrary
++web code in the privileged webview. A Plugin's UI, where it has one, is a Widget
++and is governed by the Widget contract ([`WidgetAPI.md`](WidgetAPI.md)).
++
++## Plugin manifest
++
++A Plugin is declared by a manifest. The manifest is schema-validated (zod) at
++install and update; unknown fields are rejected, never silently ignored
++(ADR-0005). The manifest is the single source of truth for what a Plugin
++declares and what it may do.
++
++```yaml
++# plugin manifest (illustrative)
++id: dev.example.gitflow
++name: Git Flow
++version: 1.2.0
++author: Example
++capabilities:
++  - dex.commands.run
++  - dex.secrets.read:dev.example.gitflow
++commands:
++  - name: gitflow.start
++    args: { branch: string }
++    result: { ok: boolean }
++events:
++  - name: dex.gitflow.merged
++    schema: { branch: string }
++services:
++  - name: gitflow.daemon
++```
++
++### Manifest fields
++
++| Field | Type | Required | Meaning |
++|---|---|---|---|
++| `id` | string | yes | Reverse-DNS identifier; globally unique, immutable |
++| `name` | string | yes | Human-readable display name |
++| `version` | string | yes | Semantic version of the Plugin |
++| `author` | string | yes | Author identity |
++| `capabilities` | string[] | yes | Exact capability grants the Plugin declares |
++| `commands` | object[] | no | The command surface the Plugin exposes |
++| `events` | object[] | no | The events the Plugin emits or subscribes to |
++| `services` | object[] | no | Long-running services the Plugin hosts |
++
++The `id` is immutable once published; a renamed Plugin is a new Plugin. The
++`version` follows semantic versioning and drives the compatibility rules below.
++
++## Lifecycle
++
++A Plugin moves through a fixed lifecycle. Every transition is observable and
++recorded in the journal.
++
++```mermaid
++stateDiagram-v2
++    [*] --> discovered
++    discovered --> validated: manifest parses
++    discovered --> failed: manifest invalid
++    validated --> granted: capabilities granted
++    validated --> failed: grant rejected
++    granted --> loaded: host loads native code
++    loaded --> running: activation
++    running --> unloaded: deactivation
++    running --> failed: runtime fault
++    unloaded --> updated: new version installed
++    unloaded --> uninstalled: removal
++    updated --> validated: re-validate new manifest
++    failed --> [*]
++    uninstalled --> [*]
++```
++
++- **discovered** — the manifest is found on disk or in the install location.
++- **validated** — the manifest parses against the schema; unknown fields are
++  rejected. A Plugin that fails validation never proceeds.
++- **granted** — the declared capabilities are checked against the per-Plugin
++  grants in `src-tauri/capabilities/*.json`. A Plugin receives exactly the
++  permissions it declares and that are granted — no default elevation.
++- **loaded** — the host loads the Plugin's native code.
++- **running** — the Plugin is active and its commands and events are live.
++- **unloaded** — the Plugin is deactivated; its commands and events are removed
++  from the surface.
++- **updated** — a new version is installed; the new manifest is re-validated and
++  re-granted before the Plugin returns to `running`.
++- **uninstalled** — the Plugin is removed and its grants are revoked.
++- **failed** — a terminal fault (validation, grant, or runtime). A failed
++  Plugin is not loaded.
++
++## Capability model
++
++Capabilities are exact grants. There is no default elevation: a Plugin has no
++capability it did not declare and that was not granted. Grants live per-Plugin
++in `src-tauri/capabilities/*.json` and are reviewed at install time.
++
++```json
++{
++  "identifier": "dev.example.gitflow",
++  "capabilities": ["dex.commands.run", "dex.secrets.read:dev.example.gitflow"]
++}
++```
++
++A capability is a string naming a permission. Capabilities that carry a scope
++use the `:` separator (for example `dex.secrets.read:<plugin-id>`). The grant
++set is the intersection of what the manifest declares and what the host grants;
++a declared-but-ungranted capability is refused at the boundary, never silently
++ignored.
++
++## Command and event surface
++
++A Plugin's commands and events are typed and zod-validated at the boundary,
++exactly as the core IPC surface is (ADR-0002). A Plugin command is invoked
++through the same typed plumbing as a core command; its result is validated
++against the declared result schema. A Plugin event is emitted through the
++Runtime event bus and validated against its declared schema; invalid payloads
++are logged and dropped.
++
++A Plugin command may not shadow a core command name. Command and event names are
++namespaced by the Plugin `id` to prevent collision.
++
++## Versioning and compatibility
++
++- The Plugin `version` is semantic. The host records the installed version and
++  the manifest schema version it was validated against.
++- A Plugin declares the minimum host API version it requires. A Plugin whose
++  requirement exceeds the host's API version is refused with an `unsupported`
++  error.
++- An update re-validates the new manifest and re-checks grants before the
++  Plugin returns to `running`. A failed update leaves the previous version
++  loaded.
++- The manifest schema itself is versioned. A manifest written against a newer
++  schema than the host understands is refused, not partially parsed.
++
++## Sandbox rules
++
++- A Plugin is native code hosted by the Runtime; it never runs inside the
++  privileged webview.
++- A Plugin's UI, if any, is a Widget and renders in an isolated context with no
++  IPC access of its own (see [`WidgetAPI.md`](WidgetAPI.md)).
++- A Plugin reaches system resources only through the capabilities granted to it.
++  It never reads the host's keyring directly; it receives a Secret only through
++  a granted capability (see [`Secrets.md`](Secrets.md)).
++- The shell's strict CSP (ADR-0005) applies to the webview regardless of any
++  Plugin; a Plugin cannot relax it.
++
++## SDK surface summary
++
++The Plugin SDK is the typed surface a Plugin author compiles against. It
++provides:
++
++- **Manifest authoring** — schema-validated manifest types.
++- **Command registration** — typed command handlers with declared arg and result
++  schemas.
++- **Event emission and subscription** — typed event helpers.
++- **Service hosting** — long-running service lifecycle hooks.
++- **Capability access** — the granted capability set, enforced at the boundary.
++
++The SDK is a compile-time contract; a Plugin that references an undeclared
++capability fails validation before it is loaded.
++
++## Install → validate → grant → load
++
++```mermaid
++sequenceDiagram
++    participant U as User / CLI
++    participant H as Runtime host
++    participant V as Validator (zod)
++    participant G as Grant store
++    participant L as Loader
++
++    U->>H: install(manifest)
++    H->>V: validate(manifest)
++    V-->>H: ok | rejected
++    alt rejected
++        H-->>U: error (validation)
++    else ok
++        H->>G: check grants(capabilities)
++        G-->>H: granted set
++        H->>L: load(id, version, grants)
++        L-->>H: loaded
++        H-->>U: ok
++    end
++```
++
++## Related Documents
++
++- Plugin boundary decision: [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++- Plugin First principle: [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Plugin definition: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Typed IPC contract: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Widget contract: [`WidgetAPI.md`](WidgetAPI.md)
++- Secrets contract: [`Secrets.md`](Secrets.md)
++- CLI surface for Plugins: [`CLI.md`](CLI.md)
++- Plugin subsystem architecture: [`../20-architecture/27_Plugins.md`](../20-architecture/27_Plugins.md)
+\ No newline at end of file
+diff --git a/docs/30-specs/Search.md b/docs/30-specs/Search.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..703911da8af4fe8f993fd7b40f1122b8518f87e0
+--- /dev/null
++++ b/docs/30-specs/Search.md
+@@ -0,0 +1,157 @@
++# DEX Search Specification
++
++Contract version 1 (draft).
++
++## Purpose
++
++Search is the capability by which the Workspace Runtime finds things across the
++domains it owns: Workspaces, commands, files, the Knowledge Vault, and Widgets.
++Search is a capability within the Workspace Runtime, not the identity of DEX
++(see [`../00-vision/04_NonGoals.md`](../00-vision/04_NonGoals.md)). It is
++offline-first (principle 2): the index is local and the machine searches fully
++without a network.
++
++This document is the normative contract for the index model, the index
++lifecycle, the query syntax, the result model, and the validation and limits
++that keep search bounded. The search architecture and its domains are decided in
++[`../20-architecture/28_Search.md`](../20-architecture/28_Search.md); this
++specification states the contract that architecture implies.
++
++## Why an offline embedded index
++
++The machine must work fully without a network (principle 2). Search therefore
++runs against a local, embedded index owned by the Runtime — never against a
++remote service. The index is built from local state and updated incrementally as
++that state changes. Synchronization is layered on top, never required.
++
++## Index model
++
++The index is partitioned into domains. Each domain indexes a distinct kind of
++entity and has its own fields and ranking signals.
++
++| Domain | Indexes | Primary fields |
++|---|---|---|
++| Workspaces | Workspace Manifests | name, id, description, tags |
++| Commands | Runtime command surface | command name, domain, help text |
++| Files | filesystem paths | path, basename, extension |
++| Knowledge Vault | Vault notes and Context | title, body, tags, timestamps |
++| Widgets | installed Widgets | name, id, description |
++
++The index is embedded in the Runtime's local store. It is built from the same
++sources of truth the Runtime already owns — Manifests, the command registry, the
++filesystem, the Knowledge Vault, and the Widget registry — so it never holds a
++separate, divergent copy of state.
++
++## Index lifecycle
++
++```mermaid
++stateDiagram-v2
++    [*] --> empty
++    empty --> building: initial build
++    building --> ready: build completes
++    ready --> updating: source change detected
++    updating --> ready: incremental update applies
++    ready --> rebuilding: schema change or corruption
++    rebuilding --> ready: rebuild completes
++    updating --> rebuilding: update fails
++    rebuilding --> [*]: fatal
++```
++
++- **build** — the initial construction of the index from all domains. Runs once
++  on first use and is offline.
++- **incremental update** — the normal path. When a source changes (a Manifest is
++  edited, a command is registered, a file is written, a Vault note is added, a
++  Widget is installed), the affected domain updates incrementally. Updates are
++  cheap and do not require a full rebuild.
++- **rebuild** — a full reconstruction, triggered by an index schema change or
++  by detected corruption. A rebuild is a maintenance operation, not the normal
++  path.
++
++## Query syntax contract
++
++A query is a sequence of terms with optional filters. The syntax is stable and
++documented here.
++
++- **Terms** — space-separated tokens. Each token is matched against the indexed
++  fields of the target domain. Terms are case-insensitive.
++- **Domain filter** — `domain:<name>` restricts the search to one domain. The
++  valid domain names are `workspaces`, `commands`, `files`, `vault`, `widgets`.
++- **Workspace filter** — `workspace:<id>` restricts the search to entities
++  within a named Workspace. It is valid for the `files` and `vault` domains.
++- **Ranking signals** — results are ranked by relevance: exact field matches
++  outrank substring matches; matches in the primary name field outrank matches
++  in description or body; recency is a tie-breaker for the `vault` domain.
++
++```text
++# illustrative queries
++dex vault query "activation restore"
++dex vault search "snapshot domain:workspaces"
++dex vault search "notes workspace:web"
++```
++
++The query syntax is parsed and validated before execution. A malformed filter
++or an unknown domain name is a `validation` error, not a silent fallback.
++
++## Result model
++
++A search result is a typed record identifying the matched entity and its
++relevance. The result shape is stable and is the same whether the search is
++issued from the CLI or the shell.
++
++```json
++{
++  "domain": "workspaces",
++  "id": "web",
++  "title": "Web Platform",
++  "snippet": "…activation restores the web platform…",
++  "score": 0.92
++}
++```
++
++Results are returned in descending score order. The result set is bounded by the
++limits below.
++
++## Validation and limits
++
++- **Query length** — a query is limited to a maximum token count and a maximum
++  length; longer queries are rejected with a `validation` error rather than
++  truncated silently.
++- **Result cap** — a search returns at most a fixed number of results per
++  domain. The cap is a documented constant and is applied per domain, so a
++  single domain cannot crowd out the others.
++- **Unknown domains** — a `domain:` filter naming a domain outside the closed
++  set is rejected.
++- **Offline guarantee** — search never requires a network; a search issued with
++  no network succeeds against the local index.
++
++## Relationship to Vault search
++
++The Knowledge Vault has its own search surface for its own content
++([`Knowledge.md`](Knowledge.md)). The Search capability indexes the Vault as one
++of its domains, so a cross-domain search can find Vault notes alongside
++Workspaces, commands, files, and Widgets. The Vault's own search is the
++domain-specific surface; Search is the unified surface across domains. The two
++share the same index source and the same ranking signals for the `vault` domain.
++
++## Query flow
++
++```mermaid
++flowchart TD
++    Q["query string"]
++    P["parse + validate"]
++    P -->|invalid| ERR["validation error"]
++    P -->|valid| F["apply domain / workspace filters"]
++    F --> I["query embedded index"]
++    I --> R["rank by signals"]
++    R --> C["apply per-domain result cap"]
++    C --> OUT["typed result set"]
++```
++
++## Related Documents
++
++- Search architecture and domains: [`../20-architecture/28_Search.md`](../20-architecture/28_Search.md)
++- Offline First principle: [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Search as a capability, not identity: [`../00-vision/04_NonGoals.md`](../00-vision/04_NonGoals.md)
++- Knowledge Vault contract: [`Knowledge.md`](Knowledge.md)
++- CLI surface for search: [`CLI.md`](CLI.md)
++- Workspace Manifest: [`Manifest.md`](Manifest.md)
+\ No newline at end of file
+diff --git a/docs/30-specs/Secrets.md b/docs/30-specs/Secrets.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..16ad4f0d2345c0e926ad1ef4928299bca4c9e004
+--- /dev/null
++++ b/docs/30-specs/Secrets.md
+@@ -0,0 +1,133 @@
++# DEX Secrets Specification
++
++Contract version 1 (draft).
++
++## Purpose
++
++Secrets — API keys, tokens, credentials — never live in Manifests and never
++live in plaintext. The Secrets subsystem is the single, Rust-owned store for
++sensitive material, encrypted at rest, scoped to a Workspace or a Plugin, and
++readable only through granted capabilities. This follows the Offline First
++principle (principle 2): Secrets stay local and anything that leaves the machine
++does so by explicit request.
++
++This document is the normative contract for Secret storage, scoping, access
++rules, lifecycle, and the interaction with the plugin boundary.
++
++## Why Secrets are separate from Manifests
++
++A Workspace Manifest is a declarative, versioned document that is meant to be
++shared and recreated anywhere ([`Manifest.md`](Manifest.md)). A Secret is the
++opposite: it is sensitive, machine-local, and must never be committed, shared,
++or serialized into a Manifest. Keeping Secrets in a separate, Rust-owned,
++encrypted store makes the boundary explicit: a Manifest can be copied freely
++because it contains no Secrets; a Secret can be rotated or revoked without
++touching the Manifest.
++
++## Storage
++
++- Secrets are stored in the OS keyring, owned by the Rust side of the Runtime.
++- Secrets are encrypted at rest. The keyring is the encryption boundary; the
++  Runtime never writes a Secret to a plaintext file.
++- The frontend never touches the keyring. All Secret access flows through typed
++  services → Tauri IPC → Rust, per the layer model (ADR-0001).
++- Secrets are local by default (principle 2). Nothing leaves the machine except
++  by explicit request.
++
++## Scoping
++
++A Secret is bound to exactly one scope: a Workspace or a Plugin.
++
++- **Workspace-scoped** — a Secret belongs to a named Workspace and is available
++  to operations within that Workspace.
++- **Plugin-scoped** — a Secret belongs to a named Plugin and is available only
++  to that Plugin through its granted capability.
++
++Scoping is enforced at the boundary. A Secret is never global; a request for a
++Secret outside its scope is refused with `permission_denied`.
++
++## Access rules
++
++- Only granted capabilities may read a Secret. A capability that reads a Secret
++  names the scope it may read (for example `dex.secrets.read:<plugin-id>`).
++- The CLI surface is `dex secrets …` (see [`CLI.md`](CLI.md)): `set`, `get`,
++  `rotate`, `revoke`.
++- A read of a Secret is an auditable event recorded in the journal
++  ([`Journal.md`](Journal.md)); the Secret's value is never logged.
++- The frontend receives a Secret value only as the result of a granted,
++  mediated read; it never reads the keyring directly.
++
++## Lifecycle
++
++```mermaid
++stateDiagram-v2
++    [*] --> created: set(key, value, scope)
++    created --> active: stored encrypted
++    active --> read: granted capability reads
++    read --> active
++    active --> rotated: rotate(key)
++    rotated --> active: new value stored
++    active --> revoked: revoke(key)
++    revoked --> [*]
++```
++
++- **create** — `dex secrets set <key> --workspace <id>` (or `--plugin <id>`)
++  stores a new Secret, encrypted, in the keyring.
++- **read** — a granted capability reads the Secret value. Reads are mediated and
++  audited.
++- **rotate** — `dex secrets rotate <key>` replaces the value with a new one. The
++  old value is discarded; rotation is the supported way to change a Secret.
++- **revoke** — `dex secrets revoke <key>` removes the Secret and its grants. A
++  revoked Secret cannot be read.
++
++## No-secret-in-log rule
++
++A Secret value never appears in any log, journal entry, error message, or
++diagnostic output. This is a hard rule:
++
++- Logging never includes a Secret value, in whole or in part.
++- Error messages reference a Secret by key, never by value.
++- `--verbose` output and the journal record that a read or rotation occurred,
++  not the material.
++
++## Interaction with the plugin boundary
++
++A Plugin receives a Secret only through a granted capability; it never reads the
++host's keyring directly. The plugin boundary (ADR-0005) and the Secrets scope
++rules together mean:
++
++- A Plugin declares the Secret capability it needs in its manifest
++  ([`PluginAPI.md`](PluginAPI.md)).
++- The host grants that capability per-Plugin in `src-tauri/capabilities/*.json`.
++- When the Plugin requests the Secret through its granted capability, the host
++  reads the keyring and hands the value to the Plugin. The Plugin has no direct
++  keyring access.
++- A Plugin-scoped Secret is readable only by that Plugin; a Workspace-scoped
++  Secret is readable only by capabilities granted within that Workspace.
++
++```mermaid
++sequenceDiagram
++    participant P as Plugin
++    participant H as Runtime host
++    participant K as OS keyring
++
++    P->>H: request secret (granted capability)
++    H->>H: check scope + grant
++    alt not granted
++        H-->>P: permission_denied
++    else granted
++        H->>K: read encrypted value
++        K-->>H: value
++        H-->>P: value (audited, never logged)
++    end
++```
++
++## Related Documents
++
++- Offline First principle: [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Layer model and Rust ownership of system access: [`../50-adr/0001-layer-ownership.md`](../50-adr/0001-layer-ownership.md)
++- Plugin boundary: [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++- Plugin contract: [`PluginAPI.md`](PluginAPI.md)
++- CLI surface for Secrets: [`CLI.md`](CLI.md)
++- Journal: [`Journal.md`](Journal.md)
++- Workspace Manifest: [`Manifest.md`](Manifest.md)
+\ No newline at end of file
+diff --git a/docs/30-specs/Snapshot.md b/docs/30-specs/Snapshot.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..f4b28d26bb719b1f6d1eaef2433164d2a2617f20
+--- /dev/null
++++ b/docs/30-specs/Snapshot.md
+@@ -0,0 +1,231 @@
++# Workspace Snapshot — Specification
++
++- **Contract version:** 1 (draft)
++- **Status:** Draft
++- **Owner:** Workspace subsystem (`src-tauri/src/services/snapshot/`)
++- **Canonical terminology:** [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++
++## Purpose
++
++A Workspace Snapshot is a point-in-time capture of a Workspace's runtime state
++(Glossary). It makes it possible to restore a Workspace to exactly where work
++left off — after a reboot, on another machine, or after a failed experiment.
++
++**Why Snapshots exist.** A Workspace is declared by a Manifest, but the
++declaration alone does not capture where work actually left off: which files
++are open, which sessions have which history, what a Workspace Service was
++doing. The Manifest is the reproducible floor; the Snapshot is the recoverable
++ceiling. Snapshots are what turn "the same declaration activates a Workspace on
++any machine" (Manifest purpose) into "the same declaration restores the same
++state on any machine". They are also the mechanism for the recovery the
++Workspace lifecycle needs: a `failed` Workspace can be restored from a Snapshot
++rather than re-assembled by hand.
++
++**What this contract guarantees.**
++
++1. A Snapshot is an immutable, versioned capture; it is never mutated after
++   writing.
++2. Capture and restore follow a defined protocol with explicit ordering; both
++   are observable and journaled.
++3. Restore semantics are precise about what is restored exactly and what is
++   re-derived — a Snapshot is not a magic time machine, and the contract says
++   so.
++4. The snapshot store is local, versioned, and Rust-owned; it survives reboots
++   and is the source of truth for restores.
++
++## Capture Scope
++
++A Snapshot captures the runtime state of a Workspace. The capture scope is
++fixed by this specification and is the same on every platform.
++
++| Scope | What is captured | How |
++|---|---|---|
++| Sessions | Open sessions, their working directories, environment, and command state | Session state serialized by the session backend; process state captured at the shell level |
++| Window layout | Window positions, sizes, and arrangement on the window-manager workspaces | Queried from the window manager during quiesce |
++| Workspace Service state | Service instances, their health at capture time, and their declared configuration | Read from the Workspace Service supervision state |
++| Open files | Files open in editors and session buffers | Reported by the session backends (e.g. editor session files, terminal `cwd`) |
++| Context | The active Context for the Workspace: what was in progress, pinned notes, current focus | Read from the Knowledge Vault via the Context record |
++
++The Snapshot does **not** capture the contents of the filesystem or the
++working tree. Code is versioned by the developer's own tools (git); capturing
++tree contents would duplicate a system the developer already owns and would
++make Snapshots enormous. Files are captured by *reference* — paths and open
++states — never by content.
++
++### What is stored in a Snapshot
++
++```yaml
++snapshot:
++  snapshot_id: uuid
++  workspace_id: uuid
++  manifest_ref: string
++  manifest_version: string
++  captured_at: timestamp
++  scope:
++    sessions: [ ... serialized session state ... ]
++    windows: [ ... window layout records ... ]
++    services: [ ... service instance records ... ]
++    files: [ ... open file references ... ]
++    context: { ... context record reference ... }
++  schema_version: int
++```
++
++Every Snapshot carries `schema_version`; a Snapshot whose schema version the
++Runtime does not support is refused at restore time with a `validation` error.
++
++## Storage Model
++
++The snapshot store is a versioned, local store owned by Rust. Snapshots are
++written as immutable objects keyed by `snapshot_id`; a Snapshot is never
++overwritten.
++
++```mermaid
++erDiagram
++    SNAPSHOT {
++        uuid snapshot_id PK
++        uuid workspace_id FK
++        string manifest_ref
++        string manifest_version
++        timestamp captured_at
++        string trigger
++        int schema_version
++    }
++    SNAPSHOT_OBJECT {
++        uuid object_id PK
++        uuid snapshot_id FK
++        string kind
++        blob payload
++        string checksum
++    }
++    WORKSPACE ||--o{ SNAPSHOT : "captured_by"
++    SNAPSHOT ||--o{ SNAPSHOT_OBJECT : contains
++```
++
++- **Registry.** The `snapshots` table records Snapshot metadata; the payload is
++  stored as immutable snapshot objects (`snapshot_objects`) with a checksum for
++  integrity verification at restore time.
++- **Immutability.** Once written, a Snapshot is immutable. The
++  `schema_version` is fixed at write time. A restore reads the Snapshot and
++  validates it; it never rewrites it.
++- **Retention.** The snapshot store is pruned by the policy in effect at capture
++  time (see Scheduling). Pruning deletes whole Snapshots (metadata + objects)
++  oldest-first; it never partially deletes a Snapshot.
++- **Versioning.** `schema_version` increments when the capture scope or the
++  payload layout changes. Snapshots written under an older schema version are
++  rejected at restore by a Runtime that no longer supports that version; the
++  error names the supported range.
++
++## Scheduling
++
++A Snapshot is captured on one of three triggers.
++
++| Trigger | Source | Notes |
++|---|---|---|
++| Manual | User command (`workspace.snapshot` from CLI or shell) | Always available, regardless of policy. |
++| On-demand | A lifecycle transition (e.g. `pre_leave`, `pre_pause`) | Governed by `snapshot_policy.on_leave` and `snapshot_policy.on_pause` in the Manifest. |
++| Periodic | A timer | Governed by `snapshot_policy.periodic` (`interval` or `cron`); the timer belongs to the Runtime, not to a cron daemon. |
++
++Scheduling is declared in the Workspace Manifest's `snapshot_policy`
++(`enabled`, `periodic`, `on_leave`, `retention`); the Runtime enforces the
++policy. A periodic capture never runs concurrently with an Activation or
++teardown; it is skipped (and journaled) if the Workspace is not `active`.
++
++## Capture and Restore Protocol
++
++Capture and restore are ordered protocols executed by the Runtime.
++
++```mermaid
++sequenceDiagram
++    participant R as Workspace Runtime
++    participant S as Workspace Services
++    participant WM as Window Manager
++    participant K as Knowledge Vault
++    participant ST as Snapshot Store
++
++    Note over R,ST: Capture
++    R->>R: trigger (manual | on_leave | periodic)
++    R->>S: quiesce(services)
++    S-->>R: service state captured
++    R->>WM: query(window_layout)
++    WM-->>R: layout records
++    R->>S: capture(sessions, files)
++    S-->>R: session/file state
++    R->>K: read(context, workspace_id)
++    K-->>R: context record
++    R->>R: assemble snapshot object
++    R->>ST: write(snapshot)
++    ST-->>R: snapshot_id
++    R->>R: journal(snapshot_captured)
++    R->>S: resume(services)
++
++    Note over R,ST: Restore
++    R->>ST: load(snapshot_id)
++    ST-->>R: snapshot payload
++    R->>R: validate(schema_version, checksum, manifest_ref)
++    R->>R: resolve(manifest_ref) -> Manifest
++    R->>R: state := activating
++    R->>S: start(services) from manifest
++    R->>S: restore(session_state, files)
++    R->>WM: restore(window_layout)
++    R->>K: restore(context)
++    R->>R: state := active
++```
++
++### Capture ordering
++
++1. **Quiesce.** Workspace Services are quiesced (graceful suspension, not
++   termination) so the captured state is stable.
++2. **Capture service state and window layout** while quiesced.
++3. **Capture sessions, open files, and Context.**
++4. **Write** the immutable Snapshot object and verify its checksum.
++5. **Journal** the capture.
++6. **Resume** services.
++
++### Restore semantics
++
++Restore is exact where the captured state is authoritative and re-derived where
++it is not. The contract is explicit:
++
++| Artifact | Restored exactly | Re-derived |
++|---|---|---|
++| Session state (cwd, env, command) | yes | — |
++| Window layout | yes (positions/sizes/arrangement) | — |
++| Workspace Services | configuration from the Manifest | process state (restarted fresh, then health-checked) |
++| Open files | references restored as "open these files in these sessions" | file *contents* come from the filesystem / developer's VCS |
++| Context | yes (restored as the active Context) | — |
++
++Two consequences follow. First, a restore never claims to reproduce
++unserializable state (in-memory buffers, unsaved keystrokes, network
++connections); those are re-established by the developer's own tools. Second,
++Workspace Service *processes* are re-derived: the Runtime starts the declared
++service and health-checks it, rather than restoring a process image. This keeps
++Snapshots portable across machines and architectures.
++
++A restore is atomic in effect: it either completes and leaves the Workspace
++`active`, or it fails and leaves the Workspace `failed` with the failure
++journaled. There is no partially-restored Workspace.
++
++## Snapshot Lifecycle
++
++```mermaid
++stateDiagram-v2
++    [*] --> capturing : trigger fires
++    capturing --> written : store write + checksum verified
++    capturing --> aborted : quiesce or write error
++    aborted --> [*] : journaled, nothing retained
++    written --> retained : policy retention
++    retained --> restored : load + validate + activate
++    retained --> pruned : retention policy
++    restored --> [*]
++    pruned --> [*]
++```
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Workspace contract (lifecycle, services): [`Workspace.md`](Workspace.md)
++- Workspace Manifest (snapshot policy declaration): [`Manifest.md`](Manifest.md)
++- Durable activity record (capture/restore events): [`Journal.md`](Journal.md)
++- Durable local memory (restored Context): [`Knowledge.md`](Knowledge.md)
++- System architecture and boundaries: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Product roadmap (Workspace Manager milestone): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
+\ No newline at end of file
+diff --git a/docs/30-specs/Theme.md b/docs/30-specs/Theme.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..36849c240a0ed55a35eb959472dc8411dfed7ff6
+--- /dev/null
++++ b/docs/30-specs/Theme.md
+@@ -0,0 +1,222 @@
++# DEX Theme Specification
++
++Contract version 1 (draft).
++
++## Purpose
++
++Theming is the contract by which users and authors create themes without
++touching the core. A theme is a semantic-layer override: it changes the role
++tokens that components consume, and nothing else. The token architecture and the
++sync rule are decided in ADR-0003; the exact token values and the semantic token
++reference live in [`../40-engineering/DesignSystem.md`](../40-engineering/DesignSystem.md)
++and in `src/lib/ui/styles/tokens.css`. This specification states the authoring
++and switching contract that they imply.
++
++This document deliberately does not duplicate the value table. The value table
++is owned by the DesignSystem reference; this specification owns the contract for
++what a theme is, how it is declared, how it is validated, and how it reaches the
++renderer.
++
++## Why themes are semantic-layer overrides
++
++Components consume semantic tokens only (`var(--dex-surface-1)`,
++`var(--dex-text-1)`, …) — never primitive ramps and never hardcoded values
++(ADR-0003). Because components are theme-agnostic, restyling DEX is a matter of
++editing the semantic layer. A theme therefore overrides *only* the semantic
++layer; primitives (color ramps, spacing, radii, durations, z-index, blur) are
++shared across themes and are not themeable.
++
++## Token architecture
++
++```mermaid
++classDiagram
++    class Primitives {
++        --dex-gray-950
++        --dex-cyan-500
++        --dex-space-4
++        --dex-radius-md
++        --dex-duration-base
++        --dex-z-modal
++        --dex-blur-glass
++        themeable = no
++    }
++    class Semantic {
++        --dex-surface-1..3
++        --dex-text-1..3
++        --dex-accent
++        --dex-accent-strong
++        --dex-accent-soft
++        --dex-border
++        --dex-border-subtle
++        --dex-grid-line
++        --dex-focus-ring
++        --dex-background
++        --dex-on-accent
++        themeable = yes
++    }
++    class ThemeOverride["Theme (data-theme)"] {
++        dark
++        light
++        cyber
++        overrides only Semantic
++    }
++    class Component["Component"] {
++        consumes Semantic only
++    }
++
++    Primitives --> Semantic : resolves into
++    ThemeOverride --> Semantic : overrides
++    Semantic --> Component : consumed
++```
++
++The layer rule: components consume semantic tokens for every color and
++typography decision. The scale tokens (spacing, radii, duration, z-index, blur)
++are stable by design and may be consumed directly. Never hardcode a hex or rgba
++value in a component.
++
++## The themeable token set
++
++A theme may override exactly the following semantic tokens:
++
++- Surfaces: `--dex-surface-1`, `--dex-surface-2`, `--dex-surface-3`
++- Text: `--dex-text-1`, `--dex-text-2`, `--dex-text-3`
++- Accent: `--dex-accent`, `--dex-accent-strong`, `--dex-accent-soft`
++- Lines: `--dex-border`, `--dex-border-subtle`, `--dex-grid-line`,
++  `--dex-focus-ring`
++- Backdrop: `--dex-background`, `--dex-on-accent`
++
++A theme may not override a primitive token. An attempt to override a token
++outside the themeable set is a `validation` error.
++
++## data-theme switching contract
++
++Themes are driven by a `data-theme` attribute on `<html>`. CSS owns the switch;
++there are no inline styles.
++
++- The default theme is `dark` and lives in `:root` (the semantic layer without a
++  `data-theme` qualifier).
++- `[data-theme="light"]` and `[data-theme="cyber"]` override the semantic layer
++  only.
++- The attribute is managed by `src/lib/core/stores/theme.svelte.ts`: a rune
++  store that sets the attribute, persists the choice via
++  `core/utils/storage.ts`, and exposes the current `ThemePalette` for JS and the
++  graphics engine.
++- `initTheme()` runs at boot so the attribute is set before first paint.
++
++```mermaid
++flowchart LR
++    STORE["theme store (theme.svelte.ts)"]
++    STORE -->|"data-theme on <html>"| CSS["CSS semantic overrides"]
++    STORE -->|"palette"| PALETTE["ThemePalette (themes/*.ts)"]
++    CSS --> RENDER["renderer consumes var(--dex-*)"]
++    PALETTE --> GPU["graphics engine / JS"]
++```
++
++## ThemePalette TS mirror and the sync rule
++
++`src/lib/ui/themes/types.ts` defines `ThemePalette`, a typed record of concrete
++color strings for programmatic and GPU use (WebGL uniforms, canvas fills — code
++that cannot read CSS custom properties). `src/lib/ui/themes/{dark,light,cyber}.ts`
++export one `ThemePalette` const per theme.
++
++```ts
++// src/lib/ui/themes/types.ts (illustrative shape; the real file is the contract)
++interface ThemePalette {
++  name: string;
++  accent: string;
++  accentStrong: string;
++  surface1: string;
++  surface2: string;
++  surface3: string;
++  text1: string;
++  text2: string;
++  border: string;
++  gridLine: string;
++  background: string;
++}
++```
++
++**Sync rule (ADR-0003):** when a semantic value changes in `tokens.css`, update
++the matching palette file in `themes/`. The comment block at the top of
++`themes/types.ts` states this rule. `ThemePalette` carries only what JS/GPU
++need; role tokens that stay in CSS (`--dex-accent-soft`, `--dex-border-subtle`,
++`--dex-focus-ring`, `--dex-text-3`, `--dex-on-accent`) are not mirrored. The CSS
++is authoritative for the UI; the TS mirror is authoritative for programmatic
++use.
++
++## Theme authoring format
++
++A theme is declared by a manifest. A theme manifest contains a name, a version,
++and semantic-layer overrides. The override keys must be drawn from the themeable
++token set.
++
++```yaml
++# theme manifest (illustrative)
++name: solar
++version: 1.0.0
++overrides:
++  --dex-surface-1: rgba(40, 44, 30, 0.35)
++  --dex-surface-2: rgba(40, 44, 30, 0.6)
++  --dex-text-1: "#f4f1de"
++  --dex-accent: "#e07a5f"
++  --dex-accent-strong: "#e07a5f"
++  --dex-background: "#1a1d14"
++```
++
++| Field | Type | Required | Meaning |
++|---|---|---|---|
++| `name` | string | yes | Theme identifier; must match the `data-theme` value |
++| `version` | string | yes | Semantic version of the theme |
++| `overrides` | object | yes | Semantic-layer token overrides, keyed by token name |
++
++A theme may omit tokens it does not override; omitted tokens inherit from the
++default theme. An installed theme is applied by setting `data-theme` to the
++theme's `name`.
++
++## Validation
++
++- A theme manifest is schema-validated at authoring and install time.
++- Unknown tokens are rejected: an override key outside the themeable set is a
++  `validation` error, never silently ignored.
++- An override value that is not a valid CSS color is rejected.
++- A theme name that collides with a built-in theme (`dark`, `light`, `cyber`)
++  is rejected unless it is an explicit redefinition with a bumped version.
++
++## Default themes
++
++Three themes ship with the shell:
++
++- **dark** — the default identity; the semantic layer in `:root`.
++- **light** — bright glass over a light desktop.
++- **cyber** — electric dark variant: brighter cyan with violet/magenta-tinted
++  hairlines; still dark, still glass.
++
++Each has a matching palette in `src/lib/ui/themes/`. Their resolved values are
++in `tokens.css` and the DesignSystem reference; this specification does not
++repeat them.
++
++## How a theme reaches the renderer
++
++```mermaid
++flowchart TD
++    A["author writes theme manifest"]
++    V["validate: keys in themeable set, values are colors"]
++    V -->|invalid| REJ["rejected (validation)"]
++    V -->|valid| I["install theme"]
++    I --> S["theme store (persisted choice)"]
++    S --> ATTR["data-theme on <html>"]
++    ATTR --> CSS2["CSS applies semantic overrides"]
++    CSS2 --> UI["components consume var(--dex-*)"]
++    S --> PAL["ThemePalette mirror (sync rule)"]
++    PAL --> G["graphics engine / JS"]
++```
++
++## Related Documents
++
++- Design token architecture decision: [`../50-adr/0003-design-tokens.md`](../50-adr/0003-design-tokens.md)
++- Token reference and values: [`../40-engineering/DesignSystem.md`](../40-engineering/DesignSystem.md)
++- Token source of truth: `src/lib/ui/styles/tokens.css`
++- ThemePalette mirror: `src/lib/ui/themes/types.ts` and `src/lib/ui/themes/{dark,light,cyber}.ts`
++- Theme store and bootstrapping: `src/lib/core/stores/theme.svelte.ts`
++- Transparency and compositing contract: [`../50-adr/0004-transparent-compositing.md`](../50-adr/0004-transparent-compositing.md)
++- CLI surface for themes: [`CLI.md`](CLI.md)
+\ No newline at end of file
+diff --git a/docs/30-specs/WidgetAPI.md b/docs/30-specs/WidgetAPI.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..b243ca6f67052f15f359a77f87fe6e0771d64b51
+--- /dev/null
++++ b/docs/30-specs/WidgetAPI.md
+@@ -0,0 +1,183 @@
++# DEX Widget API Specification
++
++Contract version 1 (draft).
++
++## Purpose
++
++A Widget is a sandboxed UI extension, rendered in an isolated context with no
++IPC access of its own. A Widget's every effect is mediated by the Workspace
++Runtime through shell-mediated commands; a Widget never imports
++`@tauri-apps/api`. This follows the Plugin First principle (principle 4) and
++the plugin boundary fixed in ADR-0005.
++
++This document is the normative contract for authoring, installing, rendering,
++and mediating Widgets. The Widget contract is part of the plugin boundary: it
++exists so that third-party UI can extend the shell without ever gaining the
++privileged surface of the shell's own webview.
++
++## Why every effect is shell-mediated
++
++The shell is a single Tauri webview with full typed IPC access. A Widget's code
++is third-party code; if it ran inside that privileged context it could reach
++the filesystem through the same typed surface as the shell itself (ADR-0005).
++The Widget contract therefore has one non-negotiable rule:
++
++> A Widget has no IPC access of its own. Every effect — a command, a state
++> write, a navigation, a launch — is a *mediated action* that the Workspace
++> Runtime performs on the Widget's behalf, subject to the Widget's granted
++> capabilities.
++
++A Widget that imports `@tauri-apps/api` fails validation and is not rendered.
++
++## Isolation model
++
++- A Widget renders in an isolated context: a sandboxed frame with its own
++  origin, distinct from the shell's privileged webview.
++- The Widget receives its data through the mediated surface below; it has no
++  direct channel to the Runtime.
++- The Widget's visual output is composited into the shell by the Runtime; the
++  Widget never paints outside the bounds the shell gives it.
++
++```mermaid
++flowchart LR
++    W["Widget (isolated context)"]
++    M["Shell mediator"]
++    R["Workspace Runtime"]
++    W -->|"render(data)"| M
++    W -->|"action(request)"| M
++    M -->|"capability check"| R
++    R -->|"result"| M
++    M -->|"effect"| W
++```
++
++## Manifest fields
++
++A Widget is declared by a manifest, schema-validated at install and update.
++Unknown fields are rejected.
++
++```yaml
++# widget manifest (illustrative)
++id: dev.example.ci-badge
++name: CI Badge
++version: 0.4.1
++entry: index.html
++capabilities:
++  - dex.commands.run:dex.gitflow.status
++lifecycle:
++  refresh: 60s
++settings:
++  schema: { repo: string }
++```
++
++| Field | Type | Required | Meaning |
++|---|---|---|---|
++| `id` | string | yes | Reverse-DNS identifier; globally unique, immutable |
++| `name` | string | yes | Human-readable display name |
++| `version` | string | yes | Semantic version of the Widget |
++| `entry` | string | yes | The isolated-context entry document |
++| `capabilities` | string[] | yes | Exact capability grants the Widget declares |
++| `lifecycle` | object | no | Render-time behavior (refresh interval, …) |
++| `settings` | object | no | Declared settings schema, validated on write |
++
++A Widget that declares no capabilities renders but may perform no effects; every
++action it requests is refused with `permission_denied`.
++
++## SDK surface
++
++The Widget SDK is the only API surface a Widget author compiles against. It is
++deliberately small and effect-free by construction:
++
++- **render** — receives the data payload the Runtime grants to the Widget.
++- **state** — a local state container; state is per-Widget and is not persisted
++  unless the Widget declares a settings schema and writes through the mediated
++  settings action.
++- **lifecycle hooks** — `onMount`, `onRefresh`, `onDestroy`, called by the
++  Runtime at the corresponding lifecycle transitions.
++- **mediated action calls** — `request(action, payload)`; every action goes to
++  the shell mediator, never to IPC.
++
++The SDK does not export `invoke`, `listen`, or any other Tauri API. There is no
++path from a Widget to the Runtime other than `request`.
++
++## Lifecycle
++
++```mermaid
++stateDiagram-v2
++    [*] --> installed
++    installed --> rendered: manifest validated + rendered in isolated context
++    rendered --> active: user focuses / shell surfaces it
++    rendered --> hidden: shell hides it
++    active --> hidden: shell hides it
++    hidden --> active: shell surfaces it
++    hidden --> destroyed: removal or host shutdown
++    active --> destroyed: removal or host shutdown
++    rendered --> destroyed: removal or host shutdown
++    destroyed --> [*]
++```
++
++- **installed** — the Widget manifest is installed and validated.
++- **rendered** — the Widget's entry document is rendered in the isolated
++  context. Rendering alone grants no capability.
++- **active** — the Widget is visible and interactive. A Widget may be active
++  without being visible; visibility is a shell decision.
++- **hidden** — the Widget is not visible. A hidden Widget receives refresh
++  cadence at the declared `lifecycle.refresh` interval or is paused per the
++  declared lifecycle policy.
++- **destroyed** — the Widget is removed or the host shuts down; its state is
++  discarded.
++
++## Command mediation protocol
++
++Every effect a Widget requests is mediated: the Widget asks, the shell checks
++capability, the Runtime performs, the result returns. The Widget never performs
++the effect itself.
++
++```mermaid
++sequenceDiagram
++    participant W as Widget (isolated)
++    participant M as Shell mediator
++    participant C as Capability check
++    participant R as Runtime command
++
++    W->>M: request(action, payload)
++    M->>C: check(widget.id, action)
++    alt not granted
++        C-->>M: permission_denied
++        M-->>W: error (permission_denied)
++    else granted
++        C-->>M: ok
++        M->>R: invoke(command, payload)
++        R-->>M: result (schema-validated)
++        M-->>W: result
++    end
++```
++
++The mediation protocol is the same typed IPC machinery the shell itself uses
++(ADR-0002): the action's payload and result are zod-validated at the boundary,
++invalid payloads are logged and dropped, and the error envelope is the closed
++set from ADR-0002.
++
++## Security rules
++
++1. **No direct IPC.** A Widget never imports `@tauri-apps/api` and never reaches
++   the Runtime except through `request`.
++2. **Isolated context.** A Widget renders in a sandboxed frame with its own
++   origin; it never shares the shell webview's origin or privileges.
++3. **Exact grants.** A Widget receives exactly the capabilities it declares and
++   that are granted — no default elevation.
++4. **No filesystem, no shell, no SQLite.** A Widget cannot reach the
++   filesystem, execute shell commands, or touch SQLite; only the Runtime can,
++   through mediated actions.
++5. **Strict CSP applies.** The shell's CSP baseline (ADR-0005) constrains the
++   Widget context; a Widget cannot relax it.
++6. **Validation at install.** Manifests and entry documents are validated at
++   install and update; unknown fields and forbidden imports are rejected.
++
++## Related Documents
++
++- Plugin boundary decision: [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++- Widget definition: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Typed IPC contract: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Plugin contract: [`PluginAPI.md`](PluginAPI.md)
++- CLI surface for Widgets: [`CLI.md`](CLI.md)
++- Widget subsystem architecture: [`../20-architecture/27_Plugins.md`](../20-architecture/27_Plugins.md)
+\ No newline at end of file
+diff --git a/docs/30-specs/Workspace.md b/docs/30-specs/Workspace.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..53bf042c2d7b9ef033b9d3cb8174f5f7ab4717bd
+--- /dev/null
++++ b/docs/30-specs/Workspace.md
+@@ -0,0 +1,330 @@
++# Workspace — Contract Specification
++
++- **Contract version:** 1 (draft)
++- **Status:** Draft
++- **Owner:** Workspace subsystem (`src-tauri/src/services/workspace/`)
++- **Product narrative:** [`../10-product/15_Workspace_Runtime.md`](../10-product/15_Workspace_Runtime.md)
++
++## Purpose
++
++A Workspace is the atomic unit of a developer's work (Glossary). It is a
++declared, self-contained environment that bundles the configuration, tooling,
++and state for one development effort. This specification is the formal
++contract for the Workspace as a first-class object of the Workspace Runtime:
++its identity, its data model, its lifecycle, and the rules by which the
++Runtime activates, supervises, and stops it.
++
++**Why Workspaces are first-class objects.** The Manifesto states that a
++developer's work does not live in applications but in Workspaces. If the
++Workspace were merely a convenience — a saved list of windows — then starting
++work would remain a manual assembly job, and the state of a project's
++supporting processes would be an accident of what happened to be running. By
++making the Workspace a first-class object with an explicit lifecycle and a
++durable registry, the Runtime can treat "activate this Workspace" as a single,
++recoverable, scriptable operation. This is the difference between a launcher
++and a Workspace Runtime (Principle 1, Workspace First).
++
++**What this contract guarantees.**
++
++1. A Workspace has a stable identity independent of any single machine or
++   process lifetime.
++2. A Workspace moves through a defined lifecycle; every transition is
++   observable and every terminal state is explicit.
++3. Workspace Services declared by the Workspace are started, supervised, and
++   stopped by the Runtime — never left to chance.
++4. The Workspace registry is durable, local, and Rust-owned; it survives
++   reboots and is the source of truth for what exists.
++
++The product narrative — what it feels like to activate a Workspace — lives in
++[`../10-product/15_Workspace_Runtime.md`](../10-product/15_Workspace_Runtime.md).
++This document is the implementation contract.
++
++## Data Model
++
++A Workspace is a record in the Workspace registry. Its identity and metadata
++are stable; its runtime state is transient and owned by the live Runtime.
++
++### Identity
++
++- **`workspace_id`** — a globally unique identifier, generated by the Runtime
++  at declaration time. Canonical form is a UUIDv7 string. It is immutable for
++  the life of the Workspace and is the foreign key used by every other
++  subsystem (Snapshots, Journal, Knowledge Vault entries) that references a
++  Workspace.
++- **`manifest_ref`** — a reference to the Workspace Manifest that declares
++  this Workspace. The reference is a path or a manifest identifier resolved by
++  the Runtime's manifest resolver. The Manifest is the declarative contract;
++  the Workspace record is the runtime instance of that contract.
++
++### Fields
++
++| Field | Type | Mutability | Description |
++|---|---|---|---|
++| `workspace_id` | `uuid` | immutable | Stable identity (UUIDv7). |
++| `name` | `string` | mutable | Human-readable display name. Defaults to the Manifest `name`. |
++| `description` | `string` | mutable | Optional human-readable summary. |
++| `manifest_ref` | `string` | immutable | Reference to the declaring Workspace Manifest. |
++| `manifest_version` | `semver` | immutable | The Manifest version captured at declaration. |
++| `state` | `enum` | runtime | Current lifecycle state (see below). |
++| `service_instances` | `list` | runtime | Live Workspace Service instances (see Workspace Service model). |
++| `created_at` | `timestamp` | immutable | UTC instant of declaration. |
++| `updated_at` | `timestamp` | runtime | UTC instant of the last state or metadata change. |
++| `last_activated_at` | `timestamp` | runtime | UTC instant of the most recent Activation. |
++| `last_deactivated_at` | `timestamp` | runtime | UTC instant of the most recent stop. |
++
++Timestamps are stored as UTC RFC 3339 instants. SQLite integers arrive as
++`i64`/`u64`; per ADR-0001, values beyond 2^53 lose precision in JS, so
++timestamps and identifiers are serialized as strings across the IPC boundary.
++
++## Lifecycle State Machine
++
++A Workspace exists in exactly one state at a time. The Runtime is the only
++actor that may transition a Workspace between states; the frontend and CLI
++request transitions through typed commands, never by mutating state directly.
++
++```mermaid
++stateDiagram-v2
++    [*] --> declared : declare(manifest_ref)
++    declared --> activating : activate()
++    activating --> active : activation complete
++    activating --> failed : activation error
++    active --> pausing : pause()
++    pausing --> paused : quiesce complete
++    pausing --> failed : quiesce error
++    paused --> activating : activate()
++    paused --> leaving : leave()
++    active --> leaving : leave()
++    leaving --> stopped : teardown complete
++    leaving --> failed : teardown error
++    failed --> declared : recover() / redeclare
++    stopped --> declared : reactivate
++    stopped --> [*]
++```
++
++### State semantics
++
++- **`declared`** — the Workspace exists in the registry and is bound to a
++  Manifest, but nothing is running. This is the resting state of a Workspace
++  that has never been activated or has been fully stopped.
++- **`activating`** — the Runtime is executing the Workspace Activation
++  protocol (below). Transient; the Workspace is not yet usable.
++- **`active`** — the Workspace is live: sessions are running, Workspace
++  Services are supervised, windows and state are restored, Context is
++  re-established. This is the only state in which the Workspace is usable.
++- **`pausing`** — the Runtime is quiescing Workspace Services and suspending
++  sessions in preparation for a pause. Transient.
++- **`paused`** — the Workspace's processes are suspended but its state is
++  retained in memory and on disk; it can resume without a full Activation.
++- **`leaving`** — the Runtime is tearing down the Workspace: stopping Workspace
++  Services, closing sessions, and persisting state. Transient.
++- **`stopped`** — the Workspace is fully torn down; its runtime state is
++  released. The registry record and any Snapshots persist. A stopped Workspace
++  may be reactivated.
++- **`failed`** — a transition aborted with an error. The Workspace is not
++  usable. Recovery is explicit: `recover()` returns it to `declared` (or to
++  `paused` if the failure occurred during resume), and the failure is recorded
++  in the Journal.
++
++**Transition rules.**
++
++- Only the Runtime may transition state; requests arrive as typed commands
++  (`workspace.activate`, `workspace.pause`, `workspace.leave`, …) and are
++  validated against the current state. An invalid transition is rejected with
++  an `AppError` of type `conflict`.
++- Every transition is recorded in the Journal (see
++  [`Journal.md`](Journal.md)) with the prior and new state.
++- A transition that raises an error moves the Workspace to `failed`; the
++  Runtime never leaves a Workspace in a transient state.
++
++## Workspace Activation Protocol
++
++Activation is the central act of DEX (Glossary: Workspace Activation) — the
++transition from "declared" to "live". The Runtime executes the protocol in
++order; a step that fails aborts Activation and moves the Workspace to
++`failed`.
++
++```mermaid
++sequenceDiagram
++    participant C as Client (CLI / Shell)
++    participant R as Workspace Runtime
++    participant M as Manifest Resolver
++    participant S as Workspace Services
++    participant A as Sessions / Apps
++    participant W as Window Manager
++    participant K as Context / Knowledge Vault
++
++    C->>R: activate(workspace_id)
++    R->>R: validate state == declared|paused|stopped
++    R->>R: state := activating
++    R->>M: resolve(manifest_ref)
++    M-->>R: Manifest (versioned)
++    R->>S: start(services) per manifest
++    S-->>R: service instances (supervised)
++    R->>A: launch(sessions, apps) per manifest
++    A-->>R: session handles
++    R->>W: restore(window_layout) from snapshot/state
++    W-->>R: windows restored
++    R->>K: reestablish(context) for workspace_id
++    K-->>R: context ready
++    R->>R: state := active
++    R-->>C: activated(workspace_id)
++```
++
++**Protocol guarantees.**
++
++1. **Manifest resolution precedes any process launch.** The Runtime never
++   starts a session or service without first resolving and validating the
++   declaring Manifest.
++2. **Workspace Services start before sessions.** Sessions may depend on
++   services (a database, a build daemon); the Runtime guarantees service
++   availability before launching dependent sessions.
++3. **Window and state restoration is best-effort and non-blocking.** If a
++   window cannot be restored (the application is absent), Activation continues
++   and the failure is recorded in the Journal. Restoration never blocks the
++   Workspace from becoming `active`.
++4. **Context re-establishment is the final step.** Context is the developer's
++   working state; it is re-established only once the Workspace is otherwise
++   live, so the restored Context reflects the actual running state.
++5. **Activation is idempotent in effect.** Re-activating an `active` Workspace
++   is rejected (`conflict`); activating a `paused` Workspace resumes rather
++   than re-launches.
++
++## Workspace Service Model
++
++A Workspace Service is a managed subsystem that a Workspace declares and
++depends on (Glossary). The Manifest declares services; the Runtime owns their
++lifecycle.
++
++```mermaid
++classDiagram
++    class WorkspaceService {
++        +string service_id
++        +string name
++        +string kind
++        +string command
++        +HealthCheck health_check
++        +RestartPolicy restart_policy
++        +ServiceState state
++        +int restart_count
++    }
++    class HealthCheck {
++        +string type
++        +string probe
++        +int interval_ms
++        +int timeout_ms
++        +int grace_period_ms
++    }
++    class RestartPolicy {
++        +string mode
++        +int max_restarts
++        +int backoff_ms
++    }
++    class ServiceState {
++        <<enumeration>>
++        starting
++        running
++        unhealthy
++        stopping
++        stopped
++        failed
++    }
++    WorkspaceService --> HealthCheck
++    WorkspaceService --> RestartPolicy
++    WorkspaceService --> ServiceState
++```
++
++**Lifecycle rules.**
++
++- **Start.** The Runtime starts each declared service during Activation, in
++  declaration order. A service that fails to start aborts Activation.
++- **Supervision.** While the Workspace is `active`, the Runtime supervises each
++  service: it runs the declared health check on its interval and applies the
++  restart policy. A service that exhausts its restart budget is marked
++  `failed` and the Workspace is notified; the Runtime does not silently leave a
++  dead dependency running.
++- **Stop.** On `leave`, the Runtime stops services in reverse declaration order
++  (dependents before dependencies). On `pause`, services are quiesced but not
++  terminated.
++- **Restart policy.** `mode` is one of `always`, `on_failure`, `never`.
++  `max_restarts` bounds restarts within a supervision window; `backoff_ms`
++  spaces retries. Restart counts reset on a successful health check.
++
++A service instance is a runtime artifact: it exists only while the Workspace is
++`active` or `paused`. It is not persisted as a first-class record; its
++declaration lives in the Manifest and its runtime state lives in the
++`service_instances` field of the Workspace record.
++
++## Persistence
++
++The Workspace registry is a SQLite database owned by Rust (ADR-0001: SQLite is
++accessed only by Rust; schema truth lives in `database/migrations/`). The
++frontend and CLI reach it only through typed contract clients in
++`core/services/workspace.ts`; they never touch SQLite directly.
++
++- **Registry.** The `workspaces` table stores the durable fields of the data
++  model above. It is the source of truth for what Workspaces exist.
++- **Migrations.** Schema changes are append-only migrations (ADR-0001). Each
++  migration ships with the Rust model and the zod schema in one slice.
++- **Runtime state.** The `state` and `service_instances` fields are written on
++  every transition. On Runtime startup, any Workspace left in a transient state
++  (`activating`, `pausing`, `leaving`) by a crash is reconciled to `failed` and
++  recorded in the Journal.
++
++```mermaid
++erDiagram
++    WORKSPACE ||--o{ SERVICE_INSTANCE : owns
++    WORKSPACE ||--o{ SNAPSHOT : captured_by
++    WORKSPACE ||--o{ JOURNAL_ENTRY : referenced_by
++    WORKSPACE ||--o{ VAULT_ENTRY : context_of
++    WORKSPACE {
++        uuid workspace_id PK
++        string name
++        string description
++        string manifest_ref
++        string manifest_version
++        string state
++        timestamp created_at
++        timestamp updated_at
++        timestamp last_activated_at
++        timestamp last_deactivated_at
++    }
++    SERVICE_INSTANCE {
++        uuid instance_id PK
++        uuid workspace_id FK
++        string service_id
++        string state
++        int restart_count
++    }
++    SNAPSHOT {
++        uuid snapshot_id PK
++        uuid workspace_id FK
++        timestamp captured_at
++    }
++    JOURNAL_ENTRY {
++        bigint sequence PK
++        uuid workspace_id FK
++        timestamp occurred_at
++    }
++    VAULT_ENTRY {
++        uuid entry_id PK
++        uuid workspace_id FK
++        timestamp created_at
++    }
++```
++
++The relationships to Snapshot, Journal, and Knowledge Vault are owned by their
++respective specifications; this diagram states only that a Workspace is the
++referenced subject of each.
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Product narrative: [`../10-product/15_Workspace_Runtime.md`](../10-product/15_Workspace_Runtime.md)
++- System architecture and boundaries: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Database access layer: [`../20-architecture/23_Database.md`](../20-architecture/23_Database.md)
++- Layer ownership and SQLite rule: [`../50-adr/0001-layer-ownership.md`](../50-adr/0001-layer-ownership.md)
++- Typed IPC contract: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- The Workspace Manifest (declarative contract): [`Manifest.md`](Manifest.md)
++- Point-in-time restore: [`Snapshot.md`](Snapshot.md)
++- Durable activity record: [`Journal.md`](Journal.md)
++- Durable local memory: [`Knowledge.md`](Knowledge.md)
+\ No newline at end of file
+diff --git a/docs/40-engineering/Accessibility.md b/docs/40-engineering/Accessibility.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..a4b3dbca94060aa0b46ff87f3ae56e9f303eb74c
+--- /dev/null
++++ b/docs/40-engineering/Accessibility.md
+@@ -0,0 +1,150 @@
++# DEX Accessibility Standard
++
++## Purpose
++
++This document is the canonical accessibility standard for DEX. It owns the
++full standard; the accessibility section in `DesignSystem.md` states the
++rules in compact form and points here for the detail. It exists because DEX is
++a keyboard-first, native shell over the operating system (Native First,
++Principle 5) — accessibility is not an accommodation bolted on to a mouse-first
++UI, it is the baseline the shell is built on. A developer who cannot use a
++mouse must be able to drive the entire Workspace Runtime from the keyboard.
++
++## Why these rules
++
++- **Keyboard-first is native.** DEX orchestrates a developer's tools. The
++  developer's hands are on the keyboard. If the shell is not fully keyboard
++  operable, it is not usable by its primary audience.
++- **Accessibility is correctness.** A control that cannot be focused, named,
++  or read by a screen reader is a control that does not exist for a class of
++  users. The rules below are the definition of "the control exists".
++- **Token-governed contrast.** Contrast is a design-token property, not a
++  per-component choice. Keeping it token-governed means a theme change cannot
++  silently break readability.
++
++## Keyboard operability
++
++Everything in the shell is reachable and operable by keyboard.
++
++- **Interactive elements are real `<button>`s and `<a>`s — never clickable
++  divs.** A real button is focusable, activatable with Enter and Space, and
++  announced by screen readers for free. A clickable div is none of those.
++- **Every control is reachable by Tab** in a logical order, and every control
++  is activatable with the keyboard.
++- **No keyboard traps.** Focus never gets stuck; a modal can always be closed
++  and focus returned to its origin.
++- **Focus is never removed without replacement.** Removing a focus style
++  without providing a visible alternative is a regression.
++
++## Visible focus
++
++Keyboard users must always see where focus is.
++
++- **`:focus-visible` renders the `var(--dex-focus-ring)` ring.** This is the
++  token-governed focus indicator; it is never removed and never replaced with
++  an invisible style.
++- The focus ring is visible on every interactive element, including the
++  primitives (`Button`, `GlassPanel` when interactive, `Tooltip`'s trigger).
++- Focus styles are not shown for mouse clicks (`:focus-visible` handles this
++  distinction) but are always shown for keyboard navigation.
++
++## Accessible names
++
++Every control has an accessible name.
++
++- **Icon-only controls carry `aria-label`.** A button that shows only an icon
++  must name itself. The `Button` primitive forwards `aria-label`, and the
++  `Dock` labels every launcher.
++- **Icons are `aria-hidden`.** The `Icon` primitive is `aria-hidden`; the
++  owning control supplies the accessible name. This prevents a screen reader
++  from announcing "zap" instead of "New session".
++- **Text controls are named by their visible text** or by an explicit
++  `aria-label` when the visible text is insufficient.
++
++## Contrast
++
++Contrast is token-governed and meets WCAG AA for body copy.
++
++- **`--dex-text-1` on `--dex-surface-1` passes AA for body copy.** This is the
++  default pairing and it is enforced by the token values, not by hand.
++- **Muted text (`--dex-text-3`) is reserved for non-critical chrome** (the
++  status bar). It is not used for body copy.
++- **Never lower text contrast by hand.** A component that needs more contrast
++  uses a higher-contrast token; it never hardcodes a color.
++
++## Reduced motion
++
++Users who prefer reduced motion get a static shell.
++
++- **`prefers-reduced-motion` disables all non-essential animation.** Every
++  interactive component wraps its transitions in
++  `@media (prefers-reduced-motion: reduce)` and disables them.
++- **Tooltips and hovers do not animate** when the user prefers reduced motion.
++- The motion contract (transform/opacity only, 150–250 ms) is in
++  `DesignSystem.md`; the accessibility rule here is that reduced motion wins
++  over the motion contract.
++
++## Tooltips
++
++Tooltips are reachable by keyboard, not just by hover.
++
++- **Tooltips appear on `:hover` and `:focus-within`.** A keyboard user who
++  tabs to a control gets the tooltip for free, because focus is within the
++  tooltip's trigger.
++- The `Tooltip` primitive implements this; it is pure CSS with no floating-ui
++  dependency.
++
++## Screen-reader basics
++
++The shell is readable by a screen reader.
++
++- **Real semantics.** Use real elements (`button`, `a`, `nav`, `main`,
++  `aside`, `footer`) so the accessibility tree is correct without ARIA
++  gymnastics. The `GlassPanel` primitive accepts an `element` prop for this.
++- **Landmarks.** The HUD chrome uses semantic landmarks (`TopBar`, `Dock`,
++  `StatusBar`) so a screen reader user can navigate the shell structure.
++- **No emojis in UI copy.** Emojis are announced unpredictably by screen
++  readers; UI copy is technical and grounded (see `DesignSystem.md`).
++- **ARIA only where semantics fall short.** Prefer native semantics; add ARIA
++  only when a native element cannot express the role.
++
++## Automated and manual checks
++
++Accessibility is verified by both automated and manual checks. The automated
++checks are not yet wired into CI (roadmap M0.4); until then, the manual checks
++below are the gate, and the desktop check in the verification order includes
++them.
++
++```mermaid
++flowchart TD
++    A["Change touches UI?"] -->|no| PASS["No a11y gate"]
++    A -->|yes| B["Automated: axe-core scan (M0.4)"]
++    B --> C["Manual: full keyboard walk — Tab order, focus ring, no traps"]
++    C --> D["Manual: screen reader pass — names, landmarks, icon-only labels"]
++    D --> E["Manual: reduced-motion check — no animation when preferred"]
++    E -->|pass| PASS2["A11y gate passed"]
++    E -->|fail| F["Fix and re-verify"]
++    F --> E
++```
++
++**Automated checks (once M0.4 lands):** an axe-core scan in CI catches
++missing labels, contrast violations, and non-semantic interactive elements.
++
++**Manual checks (always):**
++
++- **Keyboard walk.** Tab through the entire shell. Every control is reachable,
++  the focus ring is visible, and no focus is trapped.
++- **Screen reader pass.** Navigate with a screen reader. Every icon-only
++  control is named, landmarks are present, and no element is announced as
++  "image" or "group" when it is a button.
++- **Reduced-motion check.** Enable `prefers-reduced-motion` and confirm the
++  shell is static.
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Design system (a11y rules, tokens, primitives): [`DesignSystem.md`](DesignSystem.md)
++- Design tokens (focus ring, contrast): [`../50-adr/0003-design-tokens.md`](../50-adr/0003-design-tokens.md)
++- Coding standards: [`CodingStandards.md`](CodingStandards.md)
++- Testing strategy (a11y in the test layers): [`Testing.md`](Testing.md)
++- Frontend subsystem: [`../20-architecture/21_Frontend.md`](../20-architecture/21_Frontend.md)
+\ No newline at end of file
+diff --git a/docs/40-engineering/CI.md b/docs/40-engineering/CI.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..5a446eabcd06826d7a4f0d49cbd741ee509758bf
+--- /dev/null
++++ b/docs/40-engineering/CI.md
+@@ -0,0 +1,114 @@
++# DEX CI Design
++
++## Purpose
++
++This document defines the continuous-integration design for DEX: the pipeline
++stages, the artifact strategy, the branch-protection intent, and the roadmap
++that delivers it. It exists because a shell that grows to 100,000 lines of
++code cannot be held together by local verification alone. CI is the machine
++that runs the verification order on every commit, so a red check is caught the
++moment it is pushed, not the moment it is deployed.
++
++## Current state — honest
++
++**No CI is configured.** The workflow files (`.github/workflows/ci.yml`,
++`lint.yml`, `release.yml`) are empty scaffolding, `scripts/*.ts` are empty
++scaffolding, and the repository has no remote. The verification order —
++`bun run check` → `cargo check` → `bun run tauri dev` — is run locally.
++
++This gap is tracked by roadmap milestone **M0.4 (Development Tooling)**, which
++is open. M0.4 delivers ESLint, Prettier, Rustfmt, Clippy, a test runner, git
++hooks, and the CI skeleton. This document describes the **intended** pipeline
++as the design that M0.4 and the Phase 9 production milestones will implement.
++It does not claim the pipeline is live.
++
++## Why CI
++
++- **The verification order must be enforceable, not voluntary.** A reviewer
++  cannot trust a diff that was not checked. CI makes the checks objective and
++  machine-run.
++- **Rust and TypeScript fail differently.** A type error in the frontend and a
++  borrow-check error in the Rust crate are caught by different tools. CI runs
++  both on every commit.
++- **The milestone gate requires green checks.** The roadmap's phase gate is a
++  working vertical slice with green checks. CI is what makes "green" a
++  verifiable claim.
++
++## Pipeline design
++
++The pipeline is a linear sequence of stages. Each stage must pass before the
++next runs; a failure stops the pipeline and reports the failing stage.
++
++```mermaid
++flowchart LR
++    A["push / pull request"] --> B["bun install"]
++    B --> C["bun run check (svelte-check)"]
++    C --> D["cargo check (src-tauri)"]
++    D --> E["lint — ESLint, Prettier, Rustfmt, Clippy (M0.4)"]
++    E --> F["tests — bun test, cargo test (M0.4)"]
++    F --> G["build — vite build"]
++    G --> H["artifacts"]
++```
++
++### Stage details
++
++1. **`bun install`** — install dependencies with Bun, never npm. Lockfile
++   changes are validated (a PR that adds a dependency without justification is
++   caught at review, not by CI).
++2. **`bun run check`** — `svelte-kit sync && svelte-check`. The frontend type
++   gate.
++3. **`cargo check`** — inside `src-tauri/`. The Rust type gate.
++4. **Lint** (M0.4) — ESLint + Prettier for the frontend, Rustfmt + Clippy for
++   the Rust crate. Formatting and lint are enforced by the machine so style
++   disputes never reach review.
++5. **Tests** (M0.4) — the automated suites defined in `Testing.md`: frontend
++   unit/integration via the test runner, Rust via `cargo test`.
++6. **Build** — `vite build` produces the static SPA bundle (adapter-static,
++   SPA mode). A build failure is a hard gate.
++7. **Artifacts** — build outputs and (at release milestones) installable
++   packages are stored as pipeline artifacts.
++
++### What CI does not run
++
++The manual desktop check (`bun run tauri dev`) is **not** part of CI. It
++requires Wayland/Hyprland and a real compositor (ADR-0004), which CI runners
++do not provide. CI covers every check that can run headless; the desktop check
++remains a manual gate at review and at milestone gates.
++
++## Artifact strategy
++
++- **Every successful build stores the SPA bundle** as an artifact for
++  inspection and debugging.
++- **At release milestones** (M9.x), the build stage produces the packaging
++  targets defined in `Release.md` — Arch, AppImage, Flatpak (M9.3) — and
++  stores them as release artifacts.
++- Artifacts are ephemeral for ordinary builds and permanent for releases.
++
++## Branch protection intent
++
++Branch protection is a goal for `develop` and `main` once CI is live:
++
++- **`main` requires CI green** and a release gate; it is not pushed directly.
++- **`develop` requires CI green** and at least one review; feature branches
++  merge through pull requests (see `GitWorkflow.md`).
++- **No force-push** to either protected branch.
++
++The exact settings land with M0.4; the intent is that a red pipeline blocks a
++merge, and a merge without the pipeline is impossible.
++
++## Roadmap
++
++- **M0.4 (open):** the CI skeleton with the stages above, plus the lint and
++  test tooling the pipeline runs. This is the first CI slice.
++- **M9.x (Production):** the pipeline is hardened — packaging artifacts
++  (M9.3), performance and testing gates (M9.1, M9.2) — as part of the road to
++  v1.0 at M9.5.
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Coding standards: [`CodingStandards.md`](CodingStandards.md)
++- Testing strategy: [`Testing.md`](Testing.md)
++- Git workflow: [`GitWorkflow.md`](GitWorkflow.md)
++- Release process: [`Release.md`](Release.md)
++- Product roadmap (M0.4, M9.x): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
+\ No newline at end of file
+diff --git a/docs/40-engineering/CodingStandards.md b/docs/40-engineering/CodingStandards.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..e505fcb7211972a107c9cf6fd6218c7c861f7959
+--- /dev/null
++++ b/docs/40-engineering/CodingStandards.md
+@@ -0,0 +1,229 @@
++# DEX Coding Standards
++
++## Purpose
++
++This document is the canonical engineering standard for writing code in the
++DEX repository. It exists because DEX crosses a language boundary — TypeScript
++and Rust — at every IPC call, and because the repository is designed to hold
++past 100,000 lines of code. At that scale, consistency is not a style
++preference; it is what keeps the codebase navigable, reviewable, and safe to
++change.
++
++The rules here are binding. They are the concrete form of the Principles
++(`02_Principles.md`) and the layer model (ADR-0001). Where this document and
++AGENTS.md both state a rule, they agree; AGENTS.md is the operational ground
++truth for commands and repo mechanics, and this document is the reasoning and
++the detail behind the coding rules.
++
++This standard covers the frontend (Svelte 5 + TypeScript) and the Rust crate
++(`src-tauri/`). It does not re-state the design-token or motion rules — those
++live in `DesignSystem.md`. It does not re-state the IPC contract mechanics —
++those live in ADR-0002.
++
++## Why these rules exist
++
++Every rule below traces to a failure mode DEX is designed to avoid:
++
++- **Strong Typing (Principle 8).** The UI and the Runtime are different
++  languages. A seam without a typed contract rots silently. Strict TypeScript
++  and schema-validated IPC are the same rule applied at two scales.
++- **Feature First Architecture (Principle 10).** The repository must mirror
++  the product so a new engineer finds the feature they are asked to change.
++  Feature-first layout is that rule made concrete.
++- **Lightweight Core (Principle 7).** Every dependency carried in the core is
++  carried forever. Dependency discipline is the cost of keeping the core
++  small.
++- **Native First (Principle 5).** Performance and Linux integration come
++  first. No-magic-values and token-governed styling are what keep the shell
++  compositor-safe and themeable.
++
++## Language and type discipline
++
++### TypeScript is strict
++
++The `tsconfig.json` runs in strict mode. This is not negotiable and is not
++relaxed per-file. Strict mode is the frontend half of Strong Typing: it turns
++a class of runtime failures into editor errors.
++
++- **No `any`.** If a value is genuinely unknown, type it as `unknown` and
++  narrow it with a type guard or a zod schema. `any` disables the compiler at
++  exactly the boundary where it is most needed.
++- **No `@ts-ignore`.** If a line does not type-check, fix the type. A
++  suppression hides a real contract problem.
++- **No untyped IPC.** Features never call `@tauri-apps/api` directly; they
++  call typed contract clients in `core/services/` (ADR-0002). The only place
++  `@tauri-apps/api` may be imported is `core/api/`.
++
++### No magic values
++
++A magic value is a literal whose meaning is not self-evident and that is not
++governed by a named constant or token. DEX forbids them in both languages.
++
++- **Colors, radii, durations, z-index, spacing** come from the design tokens
++  (`--dex-*`) — see `DesignSystem.md`. Never hardcode a hex or `rgba` value in
++  a component.
++- **Domain constants** (event names, storage keys, command names, error codes)
++  live in named constants or registries. The IPC command names live in
++  `core/api/commands.ts`; event names live in the `EVENTS` registry in
++  `core/api/events.ts`; the closed error-code set lives in
++  `src-tauri/src/utils/errors.rs` and its zod mirror in `core/api/tauri.ts`.
++- **Repeated literals** are promoted to a constant in `core/config/` or the
++  nearest owning module. If a value would be needed twice more, it is a
++  constant now.
++
++### Rust
++
++- The crate compiles under the default `cargo check` with no warnings treated
++  as acceptable. Clippy is not yet wired into CI (roadmap M0.4); until then,
++  `cargo check` is the gate and reviewers watch for the obvious lints.
++- Serde wire models use serde defaults (snake_case). No
++  `#[serde(rename_all = ...)]` on command args or results — ADR-0002.
++- `AppError` is the only error type surfaced across IPC; its `Serialize` impl
++  is hand-written and must never be replaced with a derived impl (ADR-0002).
++
++## Svelte 5 runes only
++
++Svelte 5 runes are the state mechanism. The legacy `svelte/store` API
++(`writable`, `readable`, `derived`) is forbidden.
++
++- State is declared with `$state`, derived values with `$derived`, and
++  side effects with `$effect`.
++- Stores are `.svelte.ts` files. Cross-cutting state lives in
++  `core/stores/`; feature state lives in `features/<feature>/stores/`.
++- Rune stores are module singletons by convention (the Svelte 5 idiom). The
++  `theme.svelte.ts` store is the reference pattern: module state is not
++  exported directly (Svelte rejects `state_invalid_export`); it is exposed
++  through getter functions so reads stay reactive inside `$derived`/`$effect`.
++- Logic that needs injection accepts dependencies explicitly rather than
++  reaching for globals. No globals beyond rune state.
++
++## Logging
++
++The frontend logs only through the facade in `core/utils/logger.ts`
++(`logTrace`, `logDebug`, `logInfo`, `logWarn`, `logError`). This facade wraps
++`@tauri-apps/plugin-log` (the Rust plugin writes to stdout and the app log
++dir) and falls back to the browser console when running outside Tauri.
++
++- **No `console.*` in new code.** The facade exists so log output is
++  consistent and so the frontend never depends on the browser console.
++- Log at the level that matches the event. Do not log sensitive data —
++  secrets and knowledge stay local (Offline First, Principle 2).
++- The Rust side logs through `src-tauri/src/utils/logger.rs`.
++
++## Feature-first layout and dependency rules
++
++The repository is organized around product features (ADR-0001). The dependency
++direction is one-way and acyclic:
++
++```
++ui → features → core → IPC → src-tauri
++```
++
++- **Features never import other features.** Shared logic moves to `core/`
++  (infrastructure) or `ui/` (reusable visuals). A cross-feature import breaks
++  the acyclic graph and couples two vertical slices.
++- **`core` never imports `features` or `ui`.** Infrastructure is independent
++  of the product.
++- **`graphics

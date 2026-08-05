@@ -1,16 +1,65 @@
-.DS_Store
-node_modules
-/build
-/.svelte-kit
-/package
-.env
-.env.*
-!.env.example
-vite.config.js.timestamp-*
-vite.config.ts.timestamp-*
+```
+# Temporary files and logs
+*.tmp
+*.log
 
-# Deepwork session state (git-local, OpenCode-readable)
-.slim/deepwork/
-.ignore
-.obsidian/
-AGENTS.md AUDIT_FIXES_PROMPT.md README.md
+# Patch and diff files
+*.patch
+
+# Archive files
+*.zip
+*.z
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+
+# Base64 encoded files
+*.b64
+
+# Build artifacts
+build/
+dist/
+
+# Dependencies
+node_modules/
+venv/
+.venv/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+target/
+.gradle/
+
+# Editors
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
+.env
+.env.local
+*.env.*
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+```

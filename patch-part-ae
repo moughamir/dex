@@ -1,0 +1,2108 @@
+` is consumed by `ui`/`features`; it never imports business
++  logic.**
++- **Features own their business logic** under
++  `features/<feature>/{components,services,stores,types,utils}`. Feature
++  `services/` composes contract clients and feature state; it never makes raw
++  IPC calls.
++- **The frontend never touches the filesystem, SQLite, or the shell.** All
++  system access flows through `core/services` → IPC → Rust (ADR-0001). No
++  `fetch` to local resources, no `fs`, no SQL in the frontend.
++
++### The IPC wiring checklist
++
++Adding a command follows the five-step checklist in AGENTS.md and ADR-0002.
++The wire contract for any command lives in exactly two places:
++`core/api/commands.ts` (registry entry) and `src-tauri/src/lib.rs`
++(`invoke_handler`). A command not in both is not callable. There is exactly
++one `invoke_handler` call; a second silently shadows the first.
++
++## Design tokens, not hardcoded values
++
++Components consume semantic tokens (`--dex-*`) for every color and typography
++decision, and the scale tokens for spacing, radii, durations, z-index, and
++blur. The full rule and the token reference are in `DesignSystem.md`. The
++coding-standard consequence is simple: **a component that contains a literal
++color, radius, duration, or z-index is wrong.** When a semantic value changes
++in `tokens.css`, update the matching palette in `ui/themes/` (ADR-0003).
++
++## Component size limits
++
++A component is a unit of presentation. When it grows past the point where one
++person can hold it in their head, it stops being composable.
++
++- **Components stay under 300 lines.** A component that exceeds this is a
++  signal to extract a child component or a composable.
++- **Functions are focused and pure where possible.** A function that does one
++  thing is testable; a function that does five is not.
++- **Composition over inheritance (Principle 9).** Reuse by composing small
++  pieces, never by subclassing into a hierarchy.
++- **No duplicated logic.** If a pattern would be needed twice more, promote it
++  to `core/` or `ui/primitives/` — never copy-paste it (ADR-0001).
++- **No unnecessary abstractions.** A layer of indirection with one caller is
++  not an abstraction; it is a detour.
++
++## Dependency policy
++
++New dependencies require justification. Every dependency is carried in every
++build, on every user, forever (Lightweight Core, Principle 7).
++
++- **Prefer platform features and existing dependencies.** The approved set is
++  `zod` (schema validation), `cva` + `clsx` (variant styling), and the Tauri
++  plugins already granted. Do not add icon libraries, `floating-ui`, or
++  utility frameworks.
++- **A new dependency must be justified in the PR** with the problem it solves
++  and why the existing set cannot solve it. A dependency added "because it is
++  convenient" is rejected.
++- **Frontend dependencies are minimized** because the shell ships a strict CSP
++  (ADR-0005) and a small core. Rust dependencies are minimized for the same
++  reason.
++
++## Conventional commits
++
++Every commit uses the conventional-commits format. The allowed types are
++`feat:`, `fix:`, `refactor:`, `perf:`, `docs:`, `test:`, `style:`. The full
++workflow — branch model, commit hygiene, review — is in `GitWorkflow.md`.
++
++## File naming conventions
++
++- **Svelte components** are `PascalCase.svelte` (`Button.svelte`,
++  `GlassPanel.svelte`).
++- **Rune stores** are `kebab-case.svelte.ts` (`theme.svelte.ts`,
++  `notification.svelte.ts`).
++- **Plain TypeScript modules** are `kebab-case.ts` (`commands.ts`,
++  `logger.ts`, `tokens.css`).
++- **Rust modules** are `snake_case.rs` (`errors.rs`, `app_state.rs`).
++- **SQL migrations** are zero-padded, append-only, and never edited after
++  commit (`001_init.sql`, `002_settings.sql`). Each schema change is a new
++  migration + Rust model + zod schema in one slice (ADR-0001).
++
++## Verification
++
++The verification order is fixed and is the gate for every change:
++
++1. `bun run check` — frontend types (`svelte-kit sync && svelte-check`).
++2. `cargo check` — Rust, inside `src-tauri/`.
++3. `bun run tauri dev` — desktop, manual, requires Wayland/Hyprland.
++
++A change that fails `bun run check` or `cargo check` is not ready for review.
++The manual desktop check is required for any change that touches the shell
++surface, because transparent-window and compositor behavior cannot be verified
++in a browser tab (ADR-0004).
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- The twelve values: [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Layer model and folder ownership: [`../50-adr/0001-layer-ownership.md`](../50-adr/0001-layer-ownership.md)
++- Typed IPC contract: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Design tokens: [`../50-adr/0003-design-tokens.md`](../50-adr/0003-design-tokens.md)
++- System architecture: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Design system (tokens, motion, primitives): [`DesignSystem.md`](DesignSystem.md)
++- Git workflow: [`GitWorkflow.md`](GitWorkflow.md)
++- Testing strategy: [`Testing.md`](Testing.md)
++- Performance standards: [`Performance.md`](Performance.md)
+\ No newline at end of file
+diff --git a/docs/40-engineering/DesignSystem.md b/docs/40-engineering/DesignSystem.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..5b569082c026f9a929bebefec3b167529c2a316e
+--- /dev/null
++++ b/docs/40-engineering/DesignSystem.md
+@@ -0,0 +1,272 @@
++# DEX Design System
++
++## Purpose
++
++Engineering-facing design-system standard for the DEX desktop shell. Read this
++before writing any UI. It defines the token architecture, the semantic token
++reference, the theme model, the reusable primitives, and the motion and
++accessibility rules that keep the shell visually consistent and compositor-safe.
++
++The system lives in `src/lib/ui/`:
++
++- `styles/tokens.css` — the single source of truth for design values
++- `themes/*.ts` — programmatic mirror for the graphics engine / JS
++- `primitives/` — reusable components (glass, button, icon, tooltip, divider)
++- `layout/` — the HUD chrome (topbar, viewport, dock, statusbar)
++
++## Background
++
++DEX is a transparent, GPU-composited shell. Its visual consistency depends on
++a single source of truth for design values and a hard rule that components
++consume semantic tokens rather than raw values. This standard fixes those
++rules so the shell reads as one system rather than a collection of screens.
++
++## Token architecture and the layer rule
++
++Tokens.css is a three-layer CSS custom-property architecture. Plain CSS only —
++no preprocessors, no `@apply`, safe to `@import`.
++
++| Layer | Selector | Contents | Themeable? |
++|---|---|---|---|
++| Primitives | `:root` | raw values: color ramps, alpha variants, fonts, type scale, spacing, radii, motion, z-index, glass blur, chrome dimensions | no |
++| Semantic | `:root` | role mapping for the **default (dark)** theme: `--dex-surface-*`, `--dex-text-*`, `--dex-accent*`, `--dex-border*`, `--dex-grid-line`, `--dex-focus-ring`, `--dex-background`, `--dex-on-accent` | yes |
++| Theme overrides | `[data-theme="light"]`, `[data-theme="cyber"]` | override **only** the semantic layer | — |
++
++**The layer rule:** components consume *semantic* tokens for every color and
++typography decision. They must never reach for primitives (ramps, alpha
++variants) directly. The exceptions are the scale tokens — spacing, radii,
++duration, z-index, blur — which are stable by design and may be consumed
++directly. **Never hardcode a hex or rgba value in a component.**
++
++Example:
++
++```css
++/* correct */
++background: var(--dex-surface-1);
++border-bottom: 1px solid var(--dex-border);
++
++/* wrong */
++background: rgba(15, 20, 30, 0.35);
++border-bottom: 1px solid rgba(0, 212, 255, 0.2);
++```
++
++## Semantic token reference (dark / default)
++
++| Token | Value | Role |
++|---|---|---|
++| `--dex-surface-1` | `rgba(15, 20, 30, 0.35)` | panel glass |
++| `--dex-surface-2` | `rgba(15, 20, 30, 0.6)` | elevated glass (tooltips, modals) |
++| `--dex-surface-3` | `rgba(255, 255, 255, 0.08)` | raised fill (dock buttons, chips) |
++| `--dex-text-1` | `#ffffff` | primary text |
++| `--dex-text-2` | `#9ecad8` | secondary text (captions) |
++| `--dex-text-3` | `#8eaab7` | muted text (status bar) |
++| `--dex-accent` | `#5ddcff` | brand text / glyphs |
++| `--dex-accent-strong` | `#00d4ff` | fills, borders, strong accents |
++| `--dex-accent-soft` | `rgba(0, 212, 255, 0.15)` | soft accent fill (hovers, washes) |
++| `--dex-border` | `rgba(0, 212, 255, 0.2)` | prominent hairline |
++| `--dex-border-subtle` | `rgba(255, 255, 255, 0.06)` | faint hairline |
++| `--dex-grid-line` | `rgba(0, 212, 255, 0.05)` | background grid |
++| `--dex-focus-ring` | `rgba(0, 212, 255, 0.4)` | keyboard focus ring |
++| `--dex-background` | `#05070b` | shell backdrop tint |
++| `--dex-on-accent` | `#05070b` | text on a filled accent surface |
++
++CSS-only roles (not mirrored in TS): `--dex-accent-soft`, `--dex-accent-magenta`
++(secondary/violet accent, used by the cyber theme), `--dex-border-subtle`,
++`--dex-focus-ring`, `--dex-text-3`, `--dex-on-accent`.
++
++## Scales
++
++### Spacing — `--dex-space-*` (px)
++`1: 2` · `2: 4` · `3: 8` · `4: 12` · `5: 16` · `6: 20` · `7: 24` · `8: 32` ·
++`9: 40` · `10: 48` · `11: 64`
++
++Prefer the scale over ad-hoc numbers. `gap`, `padding`, `margin` should all come
++from it.
++
++### Radii — `--dex-radius-*` (px)
++`sm: 8` · `md: 12` · `lg: 16` · `xl: 20` · `2xl: 24`
++
++Buttons/dock tiles use `md`–`lg`; panels use `lg`; small chrome (tooltips,
++chips) uses `sm`.
++
++### Motion — `--dex-duration-*`, `--dex-ease-out`
++- `--dex-duration-fast: 150ms` (hover, small state changes)
++- `--dex-duration-base: 200ms` (standard transitions)
++- `--dex-duration-slow: 250ms` (bigger reveals)
++- `--dex-ease-out: cubic-bezier(.22, .61, .36, 1)` — the only easing, ever.
++
++### Z-index — `--dex-z-*`
++`topbar: 100` · `dock: 200` · `statusbar: 300` · `overlay: 400` · `modal: 500` ·
++`tooltip: 600`
++
++Never invent z-index values; always reference a token.
++
++### Layout — HUD chrome dimensions
++`--dex-layout-topbar: 64px` · `--dex-layout-dock: 72px` ·
++`--dex-layout-statusbar: 28px` · `--dex-layout-dock-button: 52px` ·
++`--dex-layout-grid: 40px`
++
++### Glass
++`--dex-blur-glass: 20px` — the only backdrop blur. Panels use
++`backdrop-filter: blur(var(--dex-blur-glass))`.
++
++## Theme model
++
++Themes are **semantic-layer overrides** driven by a `data-theme` attribute on
++`<html>`:
++
++```
++:root              → dark (default identity)
++[data-theme=light] → bright glass
++[data-theme=cyber] → electric dark (brighter cyan, violet/magenta hairlines)
++```
++
++- CSS owns the switch (`data-theme` on `<html>`).
++- `src/lib/core/stores/theme.svelte.ts` manages the attribute, persists the
++  choice, and exposes `palette` (the current `ThemePalette`) for JS/GPU.
++- `src/lib/ui/themes/{dark,light,cyber}.ts` export `ThemePalette` consts that
++  **mirror the resolved semantic values** in tokens.css. The graphics engine
++  and any JS that can't read CSS custom properties consumes these strings.
++
++**Sync rule (ADR-0003):** when a semantic value changes in tokens.css, update
++the matching palette file in `themes/`. The comment block at the top of
++`themes/types.ts` states this. `ThemePalette` carries only what JS/GPU need;
++role tokens that stay in CSS are not mirrored.
++
++## Primitives
++
++All primitives: Svelte 5 runes, strict TS, no `any`, real elements with real
++semantics. Import them from the barrel:
++
++```ts
++import { GlassPanel, Button, Icon, Tooltip, Divider, type IconName } from "$lib/ui/primitives";
++```
++
++### GlassPanel — canonical glass surface
++Props: `element?` (`"div" | "section" | "aside" | "nav" | "header" | "footer" | "main"`, default `"div"`),
++`variant?` (`"panel" | "elevated" | "raised"`, default `"panel"`), `glow?: boolean`,
++`class?: string`; forwards rest props (events, id, aria, ...).
++
++```svelte
++<GlassPanel variant="elevated" glow>
++  <h2>Status</h2>
++</GlassPanel>
++```
++
++### Button
++Props: `variant?` (`"primary" | "ghost" | "glass"`, default `"glass"`),
++`size?` (`"sm" | "md" | "lg"`, default `"md"`), `type?` (default `"button"`),
++`class?: string`; forwards native button props (`onclick`, `disabled`,
++`aria-label`, ...). Uses `cva` + `clsx`.
++
++```svelte
++<Button variant="primary" onclick={run}>Launch</Button>
++<Button variant="ghost" aria-label="Close"><Icon name="close" /></Button>
++```
++
++Icon-only buttons **must** pass `aria-label`.
++
++### Icon + icons registry
++`icons.ts` exports static, stroke-based SVG path groups (24px viewBox,
++`currentColor`). `IconName = keyof typeof icons`. Available: `home`, `display`,
++`file-text`, `zap`, `bot`, `settings`, `close`, `chevron-right`.
++
++Props: `name: IconName`, `size?: number` (default 20), `class?: string`.
++Icons are `aria-hidden` — the interactive owner supplies the accessible name.
++
++```svelte
++<Icon name="zap" size={24} />
++```
++
++To add a glyph: extend `icons.ts` with a stroke-based path string. No icon
++library.
++
++### Tooltip — pure CSS, no floating-ui
++Props: `label: string` (required), `side?` (`"top" | "bottom" | "left" | "right"`,
++default `"top"`), `class?: string`.
++
++Appears on `:hover` and `:focus-within` (keyboard users get it free). Shows with
++a 150ms delay, fades via opacity/transform only, honors
++`prefers-reduced-motion`.
++
++```svelte
++<Tooltip label="New session">
++  <Button variant="ghost" aria-label="New session"><Icon name="zap" /></Button>
++</Tooltip>
++```
++
++### Divider
++Props: `orientation?` (`"horizontal" | "vertical"`, default `"horizontal"`),
++`class?: string`. Renders an `<hr>` with `aria-orientation`.
++
++```svelte
++<Divider />
++```
++
++## Motion policy
++
++- Durations 150–250ms, the single easing `var(--dex-ease-out)`.
++- **Transform and opacity only.** Never animate layout properties (width,
++  height, top, left, margin). This keeps every animation on the compositor.
++- Hover *color* changes are implemented as an opacity-faded pseudo-element
++  wash (`::before`) — see `Button.svelte` / `Dock.svelte`. Reuse that pattern;
++  do not transition `background-color`.
++- **Reduced motion:** every interactive component wraps its transitions in
++  `@media (prefers-reduced-motion: reduce)` and disables them. Tooltips and
++  hovers must not animate when the user prefers reduced motion.
++- No scroll-triggered or page-load animation churn in Phase 0. If you add a
++  reveal, keep it to one opacity/transform pass.
++
++## Accessibility rules
++
++- Interactive elements are real `<button>`s / `<a>`s — never clickable divs.
++- Icon-only controls carry `aria-label` (see Dock, which labels every launcher).
++- Icons are `aria-hidden`; the owning control owns the name.
++- Keyboard focus is always visible: `:focus-visible` renders the
++  `var(--dex-focus-ring)` ring. Never remove focus styles without replacing
++  them.
++- Tooltips are reachable via keyboard (`:focus-within`).
++- Contrast is token-governed: text-1 on surface-1 passes AA for body copy;
++  muted text (`text-3`) is reserved for non-critical chrome (status bar).
++  Don't lower text contrast by hand.
++- No emojis in UI copy. No invented marketing language — keep copy technical
++  and grounded.
++
++## Do / Don't
++
++**Do**
++- Use `var(--dex-*)` for everything; semantic tokens for color/typography.
++- Use `GlassPanel` for chrome surfaces; `Button` for actions; `Icon` for glyphs.
++- Keep motion to transform/opacity, 150–250ms, `--dex-ease-out`.
++- Label every icon-only control.
++- Mirror CSS semantic changes into `themes/*.ts` (ADR-0003).
++
++**Don't**
++- Don't hardcode colors, radii, durations, z-index, or spacing numbers.
++- Don't import primitives from individual files — use the barrel.
++- Don't paint an opaque window background (ADR-0004) — the window is
++  transparent; the desktop shows through the glass.
++- Don't touch primitive tokens for theme changes — override the semantic layer.
++- Don't add icon libraries, floating-ui, or new npm dependencies.
++
++## Wiring
++
++- `src/app.css` must `@import "./lib/ui/styles/tokens.css";` **as its first
++  statement** (CSS requires imports before other rules). The global lane owns
++  `app.css`; this import is a required handoff.
++- The mono face (`--dex-font-sans` falls back to Inter) — ensure a mono face
++  (`JetBrains Mono` preferred) is available at runtime (system font or bundled
++  fontsource); graceful fallbacks are already in place.
++- `initTheme()` from `core/stores/theme.svelte.ts` must run at boot so the
++  `data-theme` attribute is set before first paint.
++
++## Related Documents
++
++- Design tokens and transparency decisions: `50-adr/` (ADR-0003, ADR-0004)
++- System architecture: `20-architecture/20_System_Architecture.md`
++- Frontend subsystem: `20-architecture/21_Frontend.md`
++- Graphics subsystem: `20-architecture/25_Graphics.md`
++- Theme specification: `30-specs/Theme.md`
++- Accessibility standard: `40-engineering/Accessibility.md`
++- Performance standard: `40-engineering/Performance.md`
++- Coding standards: `40-engineering/CodingStandards.md`
+\ No newline at end of file
+diff --git a/docs/40-engineering/GitWorkflow.md b/docs/40-engineering/GitWorkflow.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..c5c911b2cd59c6ac35b97f7b12e8dff715d6bba4
+--- /dev/null
++++ b/docs/40-engineering/GitWorkflow.md
+@@ -0,0 +1,163 @@
++# DEX Git Workflow
++
++## Purpose
++
++This document defines how DEX uses Git: the branch model, the commit format,
++commit hygiene, the pull-request flow, and the review checklist. It exists
++because the repository is designed to hold past 100,000 lines of code across
++ten roadmap phases, and a repository that large is only navigable if its
++history is legible. A commit that says "fix stuff" is a dead end for the next
++engineer; a commit that says `fix: validate IPC result before use` is a
++searchable record of intent.
++
++The commit format and the review checklist are the operational form of the
++engineering rules in `CodingStandards.md`. The branch model is the operational
++form of the roadmap's phase gates.
++
++## Why this workflow
++
++- **Legible history.** Conventional commits make `git log` a changelog and a
++  blame trail. When a regression appears, the commit that introduced it should
++  be findable by reading the message, not by bisecting blindly.
++- **Reviewable change.** A focused commit is a reviewable commit. A commit
++  that mixes a refactor with a feature change cannot be reviewed fairly and
++  cannot be reverted safely.
++- **Safe collaboration.** The repository has no remote today and two branches
++  (`develop`, `main`). The workflow below is the contract that keeps that
++  structure sound as contributors and CI arrive (roadmap M0.4).
++
++## Branch model
++
++The repository uses a two-branch trunk with feature branches:
++
++```mermaid
++gitGraph
++    commit id: "init"
++    branch develop
++    checkout develop
++    commit id: "feat: Phase 0 foundation"
++    branch feat/typed-ipc
++    commit id: "feat: add greet contract"
++    commit id: "test: cover greet schema"
++    checkout develop
++    merge feat/typed-ipc
++    branch fix/logger-fallback
++    commit id: "fix: logger fallback outside Tauri"
++    checkout develop
++    merge fix/logger-fallback
++    checkout main
++    merge develop tag: "v0.1.0"
++```
++
++- **`main`** is the release branch. It always reflects a shippable state and
++  advances only at a milestone gate or a release.
++- **`develop`** is the integration branch. Feature branches merge here; it is
++  the default working branch.
++- **Feature branches** are named `feat/<slug>`, `fix/<slug>`,
++  `refactor/<slug>`, `docs/<slug>`, `test/<slug>`, `perf/<slug>`,
++  `style/<slug>` — matching the commit type. They are short-lived and merge
++  back to `develop` when their vertical slice is complete and green.
++
++## Conventional commits
++
++Every commit message uses the conventional-commits format:
++
++```
++<type>: <imperative summary>
++
++<body — why, not what>
++```
++
++The allowed types are `feat:`, `fix:`, `refactor:`, `perf:`, `docs:`,
++`test:`, `style:`. The summary is imperative and under ~72 characters. The
++body explains **why** the change exists, not what the diff already shows.
++
++Examples:
++
++```
++feat: add greet IPC contract and contract client
++
++The greet command is the first end-to-end IPC slice. It proves the
++two-edge schema validation (ADR-0002) before business features land.
++```
++
++```
++fix: logger fallback outside Tauri
++
++isTauri() is false under plain `bun run dev`, so the facade must
++fall back to the browser console or logs vanish in dev.
++```
++
++## Commit hygiene
++
++- **Focused commits.** One logical change per commit. A refactor and a feature
++  are two commits. If a commit needs "and also", split it.
++- **No secrets.** Never commit credentials, API keys, or local state. The
++  `.gitignore` excludes `.env` and `.env.*`; keep secrets out of committed
++  files entirely. Secrets and knowledge stay local (Offline First, Principle 2).
++- **No force-push to shared branches.** `main` and `develop` are never
++  force-pushed. History on a shared branch is immutable; rewriting it breaks
++  every other contributor's view. Force-push is reserved for a feature branch
++  that has never been shared.
++- **No empty commits.** A commit carries a real change.
++- **Stage intentionally.** Stage only the files that belong to the commit.
++  `git add -A` on a dirty tree stages unrelated changes.
++- **Verify before committing.** The change must pass `bun run check` and
++  `cargo check` before the commit is made (see `CodingStandards.md`).
++
++## Pull-request flow
++
++A pull request is the unit of review. It maps to a vertical slice: one command
++domain + contract client + feature module + tests, per ADR-0001.
++
++1. Branch from `develop` with a `feat/`-style name.
++2. Make focused commits with conventional messages.
++3. Open a pull request against `develop`. The description states the problem,
++   the approach, and the verification performed.
++4. The PR must pass the verification order before review: `bun run check` →
++   `cargo check` → `bun run tauri dev` (manual, desktop).
++5. Reviewers approve, the branch is merged, and the branch is deleted.
++
++## Review checklist
++
++The reviewer is the last gate before a change reaches `develop`. The checklist
++is the concrete form of the engineering rules:
++
++- **Read the ADRs before touching cross-cutting code.** A change that touches
++  the IPC boundary, the layer model, the design tokens, transparency, or the
++  plugin boundary must be checked against ADR-0001 through ADR-0005. A change
++  that violates an ADR is rejected with a citation.
++- **Diff review.** Read the diff, not just the summary. Verify the change does
++  what the message says and nothing else.
++- **Boundary compliance.** No `@tauri-apps/api` imports outside `core/`. No
++  `fetch`/`fs`/SQL in the frontend. No cross-feature imports. No opaque
++  full-window background (ADR-0004).
++- **Typed seams.** Every new IPC command is registered in both
++  `core/api/commands.ts` and `src-tauri/src/lib.rs`, with a contract client in
++  `core/services/`. No `any`. No magic values.
++- **Tokens, not literals.** No hardcoded colors, radii, durations, or z-index.
++- **Dependency policy.** Any new dependency is justified in the PR.
++- **Tests.** The change is covered at the appropriate layer (see
++  `Testing.md`). A behavior change without a test is a review blocker once the
++  test runner exists (roadmap M0.4); until then, the reviewer verifies the
++  change manually.
++
++## Merge strategy
++
++- **Squash-merge** feature branches into `develop`. A feature branch's
++  intermediate commits are implementation noise; the squash produces one
++  conventional commit that reads as a unit of work.
++- **Merge (or fast-forward)** `develop` into `main` at a milestone gate or
++  release, preserving the milestone history.
++- **No merge of a red branch.** A branch that fails `bun run check` or
++  `cargo check` is not merged, regardless of review approval.
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Coding standards: [`CodingStandards.md`](CodingStandards.md)
++- Testing strategy: [`Testing.md`](Testing.md)
++- CI design: [`CI.md`](CI.md)
++- Release process: [`Release.md`](Release.md)
++- Product roadmap (phase gates): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- Layer model and folder ownership: [`../50-adr/0001-layer-ownership.md`](../50-adr/0001-layer-ownership.md)
+\ No newline at end of file
+diff --git a/docs/40-engineering/Performance.md b/docs/40-engineering/Performance.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..27e707f645db60cd69d59d5ccad86e757737000b
+--- /dev/null
++++ b/docs/40-engineering/Performance.md
+@@ -0,0 +1,125 @@
++# DEX Performance Standards
++
++## Purpose
++
++This document defines the performance contract for DEX: the budgets, the
++motion contract, the allocation discipline, the lazy-loading rules, and the
++measurement and review gates. It exists because DEX is a native layer over the
++operating system (Native First, Principle 5), not a web surface. The shell is
++transparent and GPU-composited (ADR-0004); every frame the compositor cannot
++handle is a frame the user sees as lag. Performance is not an optimization
++phase — it is a contract enforced from Phase 0.
++
++The budgets here are the technical success criteria of the roadmap. The motion
++values are owned by `DesignSystem.md`; this document states the performance
++rationale and the enforcement gates.
++
++## Why these budgets
++
++- **Cold start < 500 ms.** DEX is the layer the developer reaches for first.
++  A shell that takes seconds to appear is a shell the developer avoids. The
++  SPA boots with no heavy work; theme init is synchronous and cheap; heavy
++  features lazy-load.
++- **60 FPS sustained.** The shell is composited over the desktop. Motion on
++  compositor-only properties keeps every animation on the GPU; layout thrash
++  drops frames.
++- **< 200 MB idle RAM.** DEX is a lightweight core (Principle 7). A shell that
++  idles at half a gigabyte is not lightweight, and it competes with the very
++  tools it orchestrates.
++
++## The motion contract
++
++The motion contract is a performance rule first and a design rule second.
++Animating layout properties forces the browser to reflow and repaint on every
++frame; animating `transform` and `opacity` keeps the work on the compositor.
++
++- **Transform and opacity only.** Never animate width, height, top, left,
++  margin, or `background-color`. Hover color changes are an opacity-faded
++  pseudo-element wash, not a `background-color` transition.
++- **Durations 150–250 ms**, single easing `var(--dex-ease-out)`
++  (`cubic-bezier(.22,.61,.36,1)`).
++- **`prefers-reduced-motion`** disables non-essential motion entirely.
++- **Blur is not animated.** `backdrop-filter` is a compositor cost on every
++  repaint; blur radii stay within the token scale and panels never
++  re-blur-every-frame (ADR-0004).
++
++## Allocation discipline
++
++The IPC boundary validates every call with zod (ADR-0002). Validation is
++cheap only if the schemas are not re-created per call.
++
++- **Module-level singleton schemas.** A zod schema is constructed once at
++  module load and reused. Never construct a schema inside a function that runs
++  per call.
++- **No per-call schema construction.** The `defineCommand` registry in
++  `core/api/commands.ts` builds each contract once.
++- **Reuse arrays on hot paths.** The renderer (Phase 2) and any per-frame loop
++  reuse buffers instead of allocating per frame.
++- **No unnecessary allocations in effects.** A `$effect` that allocates on
++  every reactive change is a leak waiting to happen.
++
++## Lazy loading
++
++The core stays small by loading only what is needed, when it is needed.
++
++- **Features load on demand** at route/plugin boundaries. A feature the user
++  has not opened is not in memory.
++- **`graphics/` initializes on first visual need.** The Three.js renderer
++  (Phase 2) is not created at boot; it is created when the first GPU visual
++  requires it. Nothing outside `graphics/` touches WebGL.
++- **Theme init is synchronous and cheap** so the `data-theme` attribute is set
++  before first paint without delaying it.
++
++## Measurement
++
++Performance is enforced by measurement, not by hope. The measurement guide
++lives in [`../90-dev/Profiling.md`](../90-dev/Profiling.md): the procedures for
++each budget and the review gates. Automated profiling tooling is scheduled for
++roadmap M9.1 (Performance); until then, the budgets are verified manually at
++the desktop check and by code review against the rules above.
++
++The three budgets are measured as follows:
++
++- **Cold start:** time from process launch to first interactive frame, on a
++  representative Hyprland desktop.
++- **Frame rate:** sustained FPS during the shell's motion, verified on the
++  compositor, not in a browser tab (ADR-0004).
++- **Idle RAM:** resident memory with the shell idle and no features active.
++
++## Performance review gates
++
++Every change that touches the shell surface passes a performance review. The
++gates are ordered so that cheap checks run first and expensive ones run only
++when the cheap ones pass.
++
++```mermaid
++flowchart TD
++    A["Change touches shell / motion / IPC?"] -->|no| PASS["No perf gate"]
++    A -->|yes| B["Review: transform/opacity only, token motion values"]
++    B --> C["Review: no per-call schema construction, no hot-path allocation"]
++    C --> D["Review: lazy-loaded where appropriate, no boot-time heavy work"]
++    D --> E["Manual: 60 FPS sustained on Hyprland"]
++    E -->|pass| PASS2["Perf gate passed"]
++    E -->|fail| F["Fix and re-verify"]
++    F --> E
++```
++
++## Graphics performance roadmap
++
++The graphics engine (Phase 2) has its own performance milestone:
++
++- **M2.4 (Performance):** object pooling, texture cache, and an FPS monitor.
++  This is where the renderer's per-frame allocation discipline is enforced and
++  measured. The renderer owns its frame loop, resources, and lifecycle; it
++  never reaches into features (ADR-0001).
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Design system (motion values, tokens): [`DesignSystem.md`](DesignSystem.md)
++- Transparent compositing contract: [`../50-adr/0004-transparent-compositing.md`](../50-adr/0004-transparent-compositing.md)
++- Design tokens (motion contract): [`../50-adr/0003-design-tokens.md`](../50-adr/0003-design-tokens.md)
++- System architecture (performance contract): [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Graphics subsystem: [`../20-architecture/25_Graphics.md`](../20-architecture/25_Graphics.md)
++- Profiling guide: [`../90-dev/Profiling.md`](../90-dev/Profiling.md)
++- Product roadmap (M2.4, M9.1): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
+\ No newline at end of file
+diff --git a/docs/40-engineering/Release.md b/docs/40-engineering/Release.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..190a5fb525ae7b667b0f191f0b041924e6551d72
+--- /dev/null
++++ b/docs/40-engineering/Release.md
+@@ -0,0 +1,380 @@
++# DEX Release Process
++
++## Purpose
++
++This document defines how DEX ships: the versioning decision, the changelog
++practice, and the staged release pipeline — code freeze, verification gates,
++packaging, supply-chain verification and signing, distribution, and rollback
++and incident handling. It exists because a release is the one moment the
++repository leaves the repository. A native desktop binary — a Rust crate and a
++TypeScript shell in a privileged webview with a strict CSP and minimal
++capability grants (ADR-0005) — is trusted by users only if it can be verified
++as built from the repository and traced back to a tag.
++
++This document is the release-time counterpart of `CodingStandards.md`
++(how code is written) and `GitWorkflow.md` (how code is merged). It does not
++restate the branch model or the review checklist; it states the rules that
++turn a green `develop` into a signed, distributed, recoverable artifact.
++
++## Current state — honest
++
++Release tooling is not yet configured. Roadmap milestone **M0.4 (Development
++Tooling)** is open: there is no CI, no lint or test runner, no commit hooks,
++and no remote. `.github/workflows/release.yml` and `scripts/release.ts` are
++empty scaffolding, and no `CHANGELOG.md` exists yet. The repository has two
++branches (`develop`, `main`) and no tag; the version `0.1.0` is current in
++`package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
++
++Until M0.4 and the Phase 9 production milestones land, a release is executed
++manually by the release engineer following the stages below. Each stage names
++the milestone that delivers its tooling; nothing in this document depends on
++tooling that does not exist. The stages are the process; the tooling only
++makes the process machine-enforced.
++
++## Why this process
++
++- **The verification order is the release ticket.** The same gates that guard
++  a commit guard the release, but on the exact candidate commit. A change that
++  passed review on `develop` and passes the gates on the tagged source is
++  releasable; anything less is not.
++- **A release ships a trust boundary, not just code.** The shell runs under a
++  strict CSP (ADR-0005) as the blast-radius reducer, Plugins are Rust-hosted
++  and capability-gated, and the window is transparent (ADR-0004). The
++  release-specific gates exist because none of these properties is checked by
++  a type checker.
++- **Recovery is part of the process.** A release that fails in the field must
++  have a named response before it is needed. The previous tag is always a
++  valid state; the process says how to get back to it.
++
++## The release pipeline
++
++```mermaid
++flowchart TD
++    GATE["milestone gate: develop green"] --> RD{"release required?"}
++    RD -- no --> GATE
++    RD -- yes --> S1["Stage 1 - version decision"]
++    S1 --> S2["Stage 2 - code freeze"]
++    S2 --> S3["Stage 3 - verification gates"]
++    S3 --> ACC{"candidate accepted?"}
++    ACC -- no --> FIX["fix on develop, re-freeze"]
++    FIX --> S3
++    ACC -- yes --> S4["Stage 4 - packaging"]
++    S4 --> S5["Stage 5 - supply-chain verification and signing"]
++    S5 --> S6["Stage 6 - tag, merge, distribute"]
++    S6 --> INC{"post-release incident?"}
++    INC -- no --> DONE["done"]
++    INC -- yes --> S7["Stage 7 - rollback and incident handling"]
++    S7 --> S1
++```
++
++Every stage has entry criteria and exit criteria. A stage may not be entered
++until its entry criteria hold and may not be left until its exit criteria
++hold. A failed gate sends the release back to the freeze, never forward by
++waiver.
++
++## Stage 1 — Version decision
++
++**Why:** The version is the contract the user sees and the tag that incidents
++refer back to. It must be derivable from history, so no two people can
++disagree about what the next number is, and it must be recorded in every place
++an installer reads it.
++
++**Entry criteria:**
++
++- A milestone gate is reached (roadmap phase gate), or a defect requires a
++  release on a released version (patch path, Stage 7).
++- `develop` passes `bun run check` and `cargo check`, so the decision is made
++  on a sane base.
++
++**Process — the versioning decision:**
++
++- DEX uses semantic versioning, tagged `vMAJOR.MINOR.PATCH`
++  (`GitWorkflow.md`). The bump is read off the conventional-commit history
++  since the last tag (`git log <last-tag>..develop`):
++  - a breaking change (conventional-commits footer `BREAKING CHANGE:` or `!`
++    after the type) bumps the **MAJOR** version;
++  - a `feat:` commit bumps the **MINOR** version;
++  - a `fix:` commit bumps the **PATCH** version;
++  - `refactor:`, `perf:`, `docs:`, `test:`, `style:` are not user-visible and
++    never justify a release on their own.
++- Before v1.0 (`0.x.y`, semver initial development) the public API is not
++  stable: a breaking change or a `feat:` bumps the **MINOR** version and
++  resets `PATCH`. The first release of the repository is `v0.1.0`, matching
++  the version already current in all three manifests.
++- The version is recorded in exactly three places, bumped in one commit:
++  `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
++  A release whose manifests disagree is not a release.
++- The changelog draft is opened at this stage from the conventional-commit
++  history and curated for users (see below).
++
++**Changelog practice:**
++
++- The repository keeps a curated `CHANGELOG.md` at the root, updated at every
++  release with the user-visible changes since the previous tag, grouped by
++  conventional-commit type: **Added** (`feat:`), **Changed** (`refactor:`,
++  `perf:`), **Fixed** (`fix:`), **Removed** (breaking changes). Entries are
++  written for users, not for the diff: what changed, why it matters, and any
++  migration a breaking change requires.
++- The commit history is the draft and the changelog is the curation. Commit
++  messages say why a change exists; the changelog says what it means to a
++  user. `git log` with conventional-commit subjects is the reliable draft
++  source (`GitWorkflow.md`).
++- M0.4 delivers the commit-lint hooks and the CI skeleton that make the
++  draft machine-reliable; until then the release engineer curates the
++  changelog at this stage and the reviewer checks it at Stage 3.
++
++**Exit criteria:**
++
++- A version string is decided and recorded against the candidate release.
++- The changelog draft lists the user-visible changes since the last tag.
++
++## Stage 2 — Code freeze
++
++**Why:** A moving base cannot be verified. The freeze fixes the candidate set
++so the verification gates test exactly the commit that ships, and a failed
++gate can be answered with a specific fix rather than a resync.
++
++**Entry criteria:**
++
++- Stage 1 complete: version decided, changelog draft opened.
++- `develop` is green.
++
++**Process:**
++
++- The candidate commit SHA is recorded. All later stages run against that SHA.
++- During the freeze, only `fix:`, `test:`, `docs:`, and `style:` commits may
++  merge to `develop`, each through the normal pull-request flow
++  (`GitWorkflow.md`). A `feat:` during a freeze invalidates the release
++  decision and restarts Stage 1.
++- A defect found by a later gate is fixed on `develop`, the candidate SHA
++  moves to the new merge commit, and the affected stages re-run.
++
++**Exit criteria:**
++
++- `develop` is at the recorded candidate commit, green, and no further change
++  is planned except defects found by the gates.
++
++## Stage 3 — Verification gates
++
++**Why:** The verification order (`AGENTS.md`) is the entry ticket to any
++release. The release-specific gates exist because a native, transparent,
++capability-gated binary breaks in ways a type checker cannot see — a loosened
++CSP, a `console.*` in shipped code, an opaque window background, an
++over-granted capability.
++
++**Entry criteria:**
++
++- The candidate commit is frozen (Stage 2).
++
++**Process — the verification order, on the exact candidate commit, from a
++clean checkout:**
++
++1. `bun install` against the committed lockfile — a new frontend dependency
++   enters only with justification (`CodingStandards.md` dependency policy).
++2. `bun run check` — the frontend type gate.
++3. `cargo check` in `src-tauri/` — the Rust type gate, with no new warnings.
++4. Lint and tests, once M0.4 lands: ESLint + Prettier, Rustfmt + Clippy, and
++   the test suites defined in `Testing.md`. Until then the release engineer
++   and the reviewer perform this step by hand.
++5. `bun run tauri dev` — the manual desktop pass on Wayland/Hyprland.
++   Transparent-window and compositor behavior cannot be verified headless
++   (ADR-0004). The release engineer exercises shell boot, theme switching,
++   the HUD surface, and the feature slice the release ships.
++
++**Release-specific gates** (each is a diff review against the last release):
++
++- **CSP unchanged (ADR-0005).** The `security.csp` in `tauri.conf.json` must
++  equal the baseline `default-src 'self'; style-src 'self' 'unsafe-inline';
++  img-src 'self' data:; connect-src ipc: http://ipc.localhost`. Any deviation
++  is a release blocker. Dev-mode HMR relaxation is for development only and is
++  never committed or shipped.
++- **No `console.*` in new code.** Only `core/utils/logger.ts` may touch the
++  browser console, as its out-of-Tauri fallback. New or changed files carry
++  no `console.*`; logging goes through the facade.
++- **No opaque window background (ADR-0004).** No new opaque background on
++  `html` or `body`. The window stays transparent; the backdrop is glass
++  (`backdrop-filter` + translucent surface tokens, `DesignSystem.md`).
++- **Capability grants minimal (ADR-0005).** `src-tauri/capabilities/*.json`
++  is reviewed as a diff. A release ships no grant beyond what the shipped code
++  declares, and every grant traces to a manifest and a review.
++- **Migrations append-only (ADR-0001).** A release may add migrations; it may
++  not edit committed ones.
++- **Version fields in sync.** `package.json`, `src-tauri/Cargo.toml`, and
++  `src-tauri/tauri.conf.json` agree with the decided version.
++
++**Exit criteria:**
++
++- Every gate passes on the candidate SHA. A failed gate returns the release to
++  the freeze; the fix lands on `develop` through review, the candidate SHA
++  moves, and the gates re-run. No gate is waived for a release.
++
++## Stage 4 — Packaging
++
++**Why:** Packaging is where the shell and the Rust crate become an artifact an
++operating system will install. Packaging automation is a Phase 9 production
++milestone (roadmap M9.3, targets: Arch, AppImage, Flatpak); Tauri bundling is
++already active (`bundle.active: true` in `tauri.conf.json`), so the same
++discipline applies today by hand.
++
++**Entry criteria:**
++
++- Stage 3 green on the candidate SHA.
++
++**Process:**
++
++- Build from the tagged candidate source with `tauri build`, never from a
++  local working tree with uncommitted changes. The `beforeBuildCommand`
++  (`bun run build`) produces the SPA bundle as part of the same build.
++- Every packaging target for the release is built and launched on a clean
++  machine before the release is accepted. A target that cannot be installed
++  and started is a release blocker.
++- When CI is live (M0.4 and M9.x), the pipeline builds the packages from the
++  tag as release artifacts per `CI.md`; the manual step remains the
++  install-and-launch check that CI runners cannot do headless.
++
++**Exit criteria:**
++
++- Every packaging target for the release builds from the tagged source and
++  launches. The artifacts are recorded against the candidate SHA.
++
++## Stage 5 — Supply-chain verification and signing
++
++**Why (ADR-0005):** DEX's security model is the strict CSP, Rust-hosted
++capability-gated Plugins, and manifest validation at install/update. A release
++is the moment that model is exposed to users: an artifact that cannot be
++verified as built from the repository, with its security configuration
++byte-equal to what was reviewed, is not a DEX release.
++
++**Entry criteria:**
++
++- Stage 4 artifacts exist for the candidate SHA.
++
++**Process:**
++
++- **Lockfile integrity.** `bun.lock` and `src-tauri/Cargo.lock` are committed
++  and their diffs reviewed against the dependency policy
++  (`CodingStandards.md`). A release ships only pinned, reviewed dependencies.
++- **Packaged security configuration.** The CSP and capability files inside the
++  packaged artifact are re-verified against the baseline reviewed at Stage 3 —
++  the packaged `tauri.conf.json` is the shipped one, and it is byte-equal to
++  the reviewed file.
++- **Artifact signing.** Release artifacts are signed with the release key and
++  a checksum file is published alongside. Signatures and checksums are
++  verified before announcement. The signing step lands with M0.4/CI and the
++  Phase 9 hardening milestones; until then the release engineer signs with the
++  release key and records the signatures with the artifacts.
++- **Manifest validation** is enforced at Plugin install/update time
++  (ADR-0005). The release gate is that no mechanism ships that can install a
++  Plugin without schema validation.
++
++**Exit criteria:**
++
++- Artifacts signed and checksums published; the packaged CSP and capability
++  set are byte-equal to the reviewed baseline; every dependency in the shipped
++  binaries is pinned and reviewed.
++
++## Stage 6 — Tag, merge, distribution
++
++**Why:** The release becomes observable. The tag is the contract users and
++incidents refer to; the merge is the branch-model rule (`GitWorkflow.md`); the
++distribution is the moment the artifact reaches users — under a process that
++never adds a network or telemetry dependence (Offline First, Principle 2).
++
++**Entry criteria:**
++
++- Stages 1–5 complete.
++
++**Process:**
++
++1. Create the release commit on `develop`: the version bump across
++   `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, plus
++   the `CHANGELOG.md` entry. This commit is the one documented exception to
++   the allowed conventional-commit types — its message is
++   `chore(release): vX.Y.Z` — because a version bump is the act of releasing,
++   not a product change. The exception is scoped to this commit; nothing else
++   may use `chore:`.
++2. Merge `develop` into `main` at the release (`GitWorkflow.md`: merge or
++   fast-forward, preserving the milestone history). `main` advances only
++   here; it is never pushed to directly.
++3. Tag `vX.Y.Z` on the merge commit. A tag that has been pushed is never
++   moved or deleted.
++4. Push the tag and publish the signed artifacts with their checksums and the
++   changelog entry. The intended channel is a GitHub release driven by
++   `.github/workflows/release.yml` once the remote and CI exist (M0.4); today
++   the release engineer publishes the signed artifacts manually.
++5. Distribution adds no telemetry and no network requirement. The artifact
++   behaves identically with no network (Offline First, Principle 2; the
++   Non-Goals).
++
++**Exit criteria:**
++
++- Tag `vX.Y.Z` pushed, `main` at the release commit, artifacts published with
++  signatures, checksums, and the changelog entry. A user can verify the
++  artifact against the tag.
++
++## Stage 7 — Rollback and incident handling
++
++**Why:** Releases fail in the field. The response must be named before it is
++needed, and it must never require rewriting history — the previous tag is the
++rollback target, and the buggy version keeps its tag and its changelog entry.
++
++**Entry criteria:**
++
++- A released version is reported defective: a regression, a security issue, or
++  a packaging defect.
++
++**Process — severity triage:**
++
++- **P0 — security or data loss:** users must leave the affected version.
++  Mitigation is announced immediately, distribution of the affected artifact
++  stops, and a patch release is cut.
++- **P1 — functional regression:** a `fix:` patch release follows Stages 1–6.
++  Gates the fix does not touch may be re-run at the release engineer's
++  discretion, but `bun run check`, `cargo check`, and the manual desktop pass
++  are never skipped.
++- **P2 — cosmetic or non-blocking:** fixed in the next scheduled release.
++
++**Rollback:**
++
++- The previous tag is the rollback target. Because the distribution channel
++  publishes signed artifacts keyed to tags, rollback is: stop distributing the
++  affected artifact, point users at the previous tag, cut the patch release.
++  The buggy version's tag and changelog entry remain, annotated with the
++  incident, so the history stays legible.
++
++**Incident record:**
++
++- Every incident closes with a root-cause entry in the changelog. Where the
++  defect touches a seam — the IPC contract (ADR-0002), the plugin boundary or
++  CSP (ADR-0005), the transparent surface (ADR-0004), the layer model
++  (ADR-0001) — the fix is reviewed against the ADR it implicates. A release
++  that needs rollback is a process failure to fix, not a label on a person.
++
++**Exit criteria:**
++
++- Users are on a known-good version, distribution of the defective artifact
++  has stopped, the root cause is recorded, and a patch release is underway.
++
++## Roadmap
++
++- **M0.4 (open):** lint and test tooling, commit hooks, the CI skeleton, and
++  the remote. This is when the verification gates in Stage 3 become
++  machine-run and the distribution channel in Stage 6 becomes real.
++- **M9.3 (Production):** packaging automation for Arch, AppImage, and Flatpak —
++  the Stage 4 targets become pipeline-built.
++- **M9.5 (Production):** v1.0. The release process above, hardened by M0.4 and
++  the M9.x milestones, is the gate that makes v1.0 a signed, distributed,
++  recoverable release.
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Coding standards: [`CodingStandards.md`](CodingStandards.md)
++- Git workflow: [`GitWorkflow.md`](GitWorkflow.md)
++- CI design: [`CI.md`](CI.md)
++- Testing strategy: [`Testing.md`](Testing.md)
++- Design system (tokens, transparency): [`DesignSystem.md`](DesignSystem.md)
++- System architecture: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Product roadmap (M0.4, M9.3, M9.5): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- Plugin boundary and CSP baseline: [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++- Transparent compositing: [`../50-adr/0004-transparent-compositing.md`](../50-adr/0004-transparent-compositing.md)
+diff --git a/docs/40-engineering/Testing.md b/docs/40-engineering/Testing.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..33eaf17845032a826ee6a8cd75ee5fe423016fa8
+--- /dev/null
++++ b/docs/40-engineering/Testing.md
+@@ -0,0 +1,159 @@
++# DEX Testing Strategy
++
++## Purpose
++
++This document defines how DEX is tested: the test layers, what must be tested
++at each layer, and the verification order that gates every change. It exists
++because DEX crosses a language boundary at every IPC call and because the
++repository is designed to hold past 100,000 lines of code. At that scale,
++"it worked in dev" is not a test strategy; it is a promise that will break in
++production.
++
++## Current state — honest
++
++The repository does **not** yet have a frontend test runner, a lint runner, or
++a formatter configured. The `tests/` directory is scaffolding only
++(`tests/{unit,integration,e2e,frontend,backend}/` each contain a `.gitkeep`),
++and `scripts/*.ts` are empty scaffolding. Rust has `cargo test` available
++inside `src-tauri/`, but no test suite is written yet.
++
++This gap is tracked by roadmap milestone **M0.4 (Development Tooling)**, which
++is open. M0.4 will add ESLint, Prettier, Rustfmt, Clippy, a test runner, git
++hooks, and the CI skeleton. Until M0.4 lands, the verification order below is
++the gate, and the manual desktop check carries the load that automated tests
++will later carry. This document describes the intended setup and the testing
++rules that will be enforced once the tooling exists — it does not claim the
++tooling is live.
++
++## Why test at all
++
++- **Strong Typing (Principle 8).** The IPC boundary is schema-validated at
++  both edges (ADR-0002). Tests are the second line of defense: they catch
++  contract drift that type-checking and zod parsing miss because they exercise
++  the behavior, not just the types.
++- **Feature First Architecture (Principle 10).** Features are vertical slices.
++  A slice is only complete when it is tested; a feature folder without tests is
++  a feature that cannot be changed safely.
++- **Native First (Principle 5).** The shell is transparent and composited
++  (ADR-0004). Some behavior — compositor motion, transparent-window input —
++  can only be verified on a real desktop, which is why the manual check is part
++  of the order.
++
++## Test layers
++
++DEX tests at four layers. Each layer has a different cost and a different
++purpose; the strategy is to put each test at the cheapest layer that can
++meaningfully run it.
++
++```mermaid
++flowchart TD
++    UNIT["unit — pure logic, stores, zod schemas"]
++    INT["integration — IPC contract, services, Rust commands"]
++    E2E["e2e — shell behavior on a real desktop"]
++    RUST["Rust — cargo test in src-tauri/"]
++    VERIFY["verification order: bun run check → cargo check → tauri dev"]
++
++    UNIT --> INT
++    INT --> E2E
++    RUST --> INT
++    E2E --> VERIFY
++```
++
++### Unit tests
++
++Unit tests exercise pure logic in isolation: a store's transitions, a helper
++function, a zod schema's accept/reject behavior. They are the cheapest layer
++and the most numerous.
++
++**What must be tested:**
++
++- **Zod schemas** for every IPC command contract (`core/api/commands.ts`) and
++  every event payload (`core/api/events.ts`). Each schema is tested for the
++  valid shape and for representative invalid shapes, so contract drift is
++  caught at the boundary.
++- **Rune stores** (`core/stores/*.svelte.ts`): initial state, transitions,
++  persistence round-trip. The `theme.svelte.ts` store is the reference: test
++  that `applyTheme` sets the `data-theme` attribute and persists the choice.
++- **Pure helpers** in `core/utils/` (`format`, `date`, `storage`).
++- **Rust unit tests** inside `src-tauri/` for pure logic — error serialization
++  (`AppError` emits exactly `{ "type", "message" }`), model conversions, and
++  any pure domain logic.
++
++### Integration tests
++
++Integration tests exercise a seam: the IPC contract between the frontend
++contract client and the Rust command. They verify that a command registered in
++`core/api/commands.ts` and in `src-tauri/src/lib.rs` actually round-trips
++correctly, and that the error envelope surfaces as `IpcError` on failure.
++
++**What must be tested:**
++
++- **Contract clients** in `core/services/`: given a mocked or real invoke, the
++  client returns the typed result and surfaces `IpcError` on a rejected
++  envelope.
++- **Rust commands** (`src-tauri/src/commands/`): each `#[tauri::command]`
++  returns the correct `Result<T, AppError>` for its happy path and its error
++  paths.
++- **Event handling** (`core/api/events.ts`): invalid payloads are logged and
++  dropped, never thrown into the handler.
++
++### End-to-end tests
++
++E2E tests drive the shell on a real desktop and verify user-visible behavior:
++the HUD renders, the Dock launches a launcher, theme switching changes the
++surface. Because the window is transparent and composited (ADR-0004), E2E must
++run on Wayland/Hyprland, not in a browser tab.
++
++**What must be tested:**
++
++- Shell boot: the HUD mounts, `initTheme()` runs before first paint.
++- Keyboard operability and focus visibility (see `Accessibility.md`).
++- Feature vertical slices end to end, once features exist (Phase 1+).
++
++### Rust tests
++
++`cargo test` inside `src-tauri/` covers the Rust side: unit tests for pure
++logic and integration tests for command handlers and the database access layer.
++Rust owns all system access (ADR-0001), so the Rust test suite is the primary
++guard on filesystem, SQLite, and Hyprland behavior.
++
++## What must be tested at each layer — summary
++
++| Layer | Scope | Gate |
++|---|---|---|
++| Unit | zod schemas, stores, pure helpers, Rust pure logic | fast, run on every change |
++| Integration | IPC contract clients, Rust commands, events | run on every change |
++| E2E | shell behavior on a real desktop | run at milestone gates |
++| Rust | `cargo test` in `src-tauri/` | run on every change |
++
++## Verification order
++
++The verification order is fixed and is the gate for every change:
++
++1. `bun run check` — frontend types (`svelte-kit sync && svelte-check`).
++2. `cargo check` — Rust, inside `src-tauri/`.
++3. `bun run tauri dev` — desktop, manual, requires Wayland/Hyprland.
++
++Once M0.4 lands, the automated test runner slots into this order after the
++type checks and before the manual desktop check. The manual check remains
++because compositor and transparent-window behavior cannot be automated
++reliably (ADR-0004).
++
++## Roadmap
++
++- **M0.4 (Development Tooling, open):** ESLint, Prettier, Rustfmt, Clippy, a
++  test runner, git hooks, and the CI skeleton. This is when the automated test
++  suite becomes enforceable in CI.
++- **M9.2 (Testing, Phase 9):** the full unit, integration, UI, and Rust test
++  suites are completed and hardened as part of the production milestone. This
++  is the gate that makes v1.0 shippable.
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Coding standards: [`CodingStandards.md`](CodingStandards.md)
++- CI design: [`CI.md`](CI.md)
++- Performance standards: [`Performance.md`](Performance.md)
++- Accessibility standard: [`Accessibility.md`](Accessibility.md)
++- Typed IPC contract: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Product roadmap (M0.4, M9.2): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
+\ No newline at end of file
+diff --git a/docs/50-adr/0001-layer-ownership.md b/docs/50-adr/0001-layer-ownership.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..4f737856c44d00c5a210a4b52ad3cb1c6eeecae1
+--- /dev/null
++++ b/docs/50-adr/0001-layer-ownership.md
+@@ -0,0 +1,113 @@
++# ADR-0001: Layer Model and Folder Ownership
++
++- Status: Accepted
++- Date: 2026-08-04
++- Deciders: Principal Architect (technical co-founder)
++- Scope: Repository-wide structural foundation for DEX (target > 100,000 LOC)
++
++## Context
++
++DEX is an operating layer between the user and the OS, not a web application.
++Phase 0 must fix the boundaries every future feature builds on. The scaffold
++already mirrors the PRD with 0-byte scaffolding files on both sides
++(`src/lib/**` and `src-tauri/src/**`), which is structurally sound but has
++several inconsistencies that would rot at scale:
++
++1. `src/lib/core/database/` places a SQLite access layer in the frontend —
++   a direct violation of the boundary rule "SQLite is accessed only by Rust".
++2. Three folders host the same concept (reactive helper logic):
++   `src/lib/composables/`, `src/lib/core/hooks/`, `src/lib/animations/`.
++3. `src/lib/core/services/` holds per-domain IPC client modules whose role was
++   never documented, and `src/lib/features/*/services/` also exists — two
++   service homes with no stated rule.
++4. `src/lib/ui/components/` is a stale, broken duplicate of the live
++   `src/lib/ui/layout/` tree (it fails `bun run check`).
++
++## Decision
++
++### Layer model
++
++```
++┌──────────────────────────────────────────────┐
++│ ui/          presentation, reusable visuals   │
++│ features/    business features (own their     │
++│              components/stores/services/      │
++│              types/utils)                     │
++│ core/        infrastructure only              │
++│   api/         generic typed IPC plumbing     │
++│   services/    IPC contract clients           │
++│   stores/      cross-cutting rune state       │
++│   composables/ reactive helper logic          │
++│   utils/       pure helpers                   │
++│   config/      constants and app config       │
++│   types/       shared domain models           │
++│ graphics/    rendering engine contracts +     │
++│              future Three.js implementation   │
++└───────────────┬───────────────────────────────┘
++                │ typed services only (zod-validated)
++┌───────────────┴───────────────────────────────┐
++│ Tauri IPC (invoke / events)                   │
++└───────────────┬───────────────────────────────┘
++                │ serde-typed command handlers
++┌───────────────┴───────────────────────────────┐
++│ src-tauri/    native system implementation     │
++│   commands/     #[tauri::command] handlers     │
++│   services/     domain logic (Rust)            │
++│   system/       OS access (Hyprland, Wayland)  │
++│   database/     SQLite access                  │
++│   models/       serde wire models              │
++│   events/       event emission                 │
++│   config/       app configuration              │
++│   state/        managed Tauri state            │
++└───────────────┬───────────────────────────────┘
++                │ rusqlite (Rust-owned, single writer)
++┌───────────────┴───────────────────────────────┐
++│ database/     SQL schema + migrations (truth)  │
++└────────────────────────────────────────────────┘
++```
++
++### Rules
++
++- **Dependency direction is one-way and acyclic**: `ui` → `features` → `core`
++  → IPC → `src-tauri`. `graphics` is consumed by `ui`/`features` and never
++  imports business logic. `core` never imports `features` or `ui`.
++- **UI never accesses SQLite, executes shell commands, or touches the
++  filesystem.** All system access flows through typed services → Tauri IPC →
++  Rust.
++- **`core/services/` is the IPC contract layer**: exactly one contract client
++  module per Rust command domain (`src-tauri/src/commands/<domain>.rs` ↔
++  `src/lib/core/services/<domain>.ts`). Features consume contract clients;
++  they never call `@tauri-apps/api` directly. See ADR-0002.
++- **`features/<feature>/services/` holds feature business logic** that
++  composes contract clients and feature state — not raw IPC calls.
++- **Features never import other features.** Shared logic moves to `core/`
++  (infrastructure) or `ui/` (reusable visuals), never cross-feature imports —
++  keeps the feature graph acyclic and individually testable.
++- **Migrations are append-only.** A committed `database/migrations/*.sql`
++  file is never edited; every schema change is a new migration + Rust model +
++  zod schema in one slice. SQLite integers arrive as i64/u64 — values beyond
++  2^53 lose precision in JS, so keep IDs and small ints in range or serialize
++  them as strings.
++
++### Consolidations
++
++| Action | Rationale |
++|---|---|
++| Delete `src/lib/ui/components/` | Stale broken duplicate of `ui/layout/`; breaks the build (AGENTS.md) |
++| Delete `src/lib/core/database/` | SQLite access lives in Rust only; schema truth lives in top-level `database/` |
++| Move `src/lib/composables/*`, `src/lib/core/hooks/*`, `src/lib/animations/*` → `src/lib/core/composables/` | One canonical home for reactive helper logic, under infrastructure |
++| Delete `create-hud.sh` | Writes to a non-existent path (`src/lib/layout/`); stale and dangerous |
++| `core/services/` = contract layer (documented above) | Removes ambiguity with `features/*/services/` |
++
++## Consequences
++
++- New features follow: `features/<feature>/{components,services,stores,types,utils}`
++  containing business logic only; all OS interaction via `core/services`.
++- New command domains add one Rust module (`src-tauri/src/commands/`),
++  register it in `src-tauri/src/lib.rs`, and add one contract client in
++  `core/services/`.
++- Verification of boundary compliance is a review checklist item:
++  no `@tauri-apps/api` imports outside `core/`, no `fetch`/`fs` in frontend,
++  no SQL in frontend.
++- The 0-byte PRD-mirror scaffolding outside these rules stays undeclared and
++  unreferenced until their owning phase; they are structure, not code.
+diff --git a/docs/50-adr/0002-typed-ipc-contract.md b/docs/50-adr/0002-typed-ipc-contract.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..f33530fc2b15d368adc8b4f21674d71fa7698999
+--- /dev/null
++++ b/docs/50-adr/0002-typed-ipc-contract.md
+@@ -0,0 +1,89 @@
++# ADR-0002: Typed IPC Contract with Boundary Validation
++
++- Status: Accepted
++- Date: 2026-08-04
++- Deciders: Principal Architect
++- Scope: The UI ⇄ Rust communication boundary — the most-used seam in the system
++
++## Context
++
++Every feature talks to Rust for system access. At 100k+ LOC the boundary must
++fail loudly and locally, not as "it worked in dev" runtime surprises. Tauri 2
++gives us: serde-typed Rust commands on one side, `invoke` returning
++`Promise<unknown>` on the other. Without discipline, drift between the Rust
++types, the TS types, and the wire format goes undetected until a command
++misfires in production.
++
++`zod` is already a dependency (`package.json`), which makes schema validation
++at the frontend edge nearly free. Tauri deserializes command args into typed
++Rust structs, so the Rust edge already validates on the way in.
++
++## Decision
++
++1. **Two validation edges, each owning its side:**
++   - Rust edge: commands take **exactly one `#[derive(Deserialize)]` struct
++     arg** (`GreetArgs`-style). **No `#[serde(rename_all = ...)]`** on arg or
++     result structs — serde defaults (snake_case field naming) are the wire
++     authority. Individual-parameter commands are forbidden. Results are
++     `#[derive(Serialize)]` structs or `Result<T, AppError>`.
++   - Frontend edge: every command is described by a zod schema pair
++     (args + result). `invoke` validates args before the round trip (fail
++     fast) and the result after (detect contract drift). See `core/api/tauri.ts`.
++
++2. **Contract definition** lives in `core/api/commands.ts`:
++
++   ```ts
++   // core/api/commands.ts
++   export interface CommandContract<A extends z.ZodType, R extends z.ZodType> {
++     readonly name: string; // must equal the Rust #[tauri::command] fn name
++     readonly args: A;
++     readonly result: R;
++   }
++   export const defineCommand = <A extends z.ZodType, R extends z.ZodType>(
++     name: string, args: A, result: R,
++   ): CommandContract<A, R> => ({ name, args, result });
++   ```
++
++   A single registry (`COMMANDS`) lists every contract; a command is not
++   callable until it is registered there AND in Rust's `invoke_handler`.
++   Grep-ability: all IPC names appear in exactly two files
++   (`core/api/commands.ts` + `src-tauri/src/lib.rs`).
++
++3. **One contract client per command domain** in `core/services/<domain>.ts`
++   mirroring `src-tauri/src/commands/<domain>.rs`. The client exports typed
++   async functions built on the shared `invoke` — the only public surface
++   features may use. `@tauri-apps/api` is imported nowhere outside `core/api/`.
++
++4. **Error envelope** — Rust `AppError` gets a **manual `Serialize` impl**
++   emitting exactly `{ "type": string, "message": string }` (see
++   `src-tauri/src/utils/errors.rs`); derived serialization is forbidden.
++   `type` comes from a **closed code set**: `validation`, `not_found`,
++   `permission_denied`, `conflict`, `unsupported`, `internal`. Frontend
++   `core/api/tauri.ts` mirrors the set as a zod union and validates every
++   rejection against it; anything else is a transport error. Exactly two
++   error shapes reach callers: the structured envelope and a transport
++   (string/unknown) rejection — both normalized to `IpcError`. Infallible
++   commands return `Ok(())` (`z.null()` on the frontend).
++
++5. **Events (Rust → UI push)** — `core/api/events.ts` provides a typed
++   `onEvent<T>(name, schema, handler)` wrapper over Tauri's `listen` with
++   payload validation; invalid payloads are logged and dropped, never thrown
++   into the handler. Event names are `dex.<domain>.<event>` and must be
++   declared in the `EVENTS` registry in `core/api/events.ts`; only
++   `src-tauri/src/events/` emits.
++
++6. **Deferred (documented, not built):** runtime validation on the Rust side
++   beyond serde (e.g., semantic validation in command handlers) lives in the
++   command/service logic itself, feature by feature.
++
++## Consequences
++
++- New IPC surface costs: 1 Rust command + registration + 1 contract + 1
++  contract client + schemas. The pattern is fully type-checked end to end.
++- Contract drift fails the zod parse at the boundary with a message naming the
++  command and the offending field, instead of `undefined` deep in UI code.
++- Strict ordering for command naming: command fn name (Rust), contract name
++  (TS) and `tauri.conf`/capability grants must agree; capability grants for new
++  plugins are added in `src-tauri/capabilities/default.json`.
++- Slight per-call validation cost (one parse each way) is accepted; schema
++  objects are module-level singletons, and zod parses are allocation-light.
+diff --git a/docs/50-adr/0003-design-tokens.md b/docs/50-adr/0003-design-tokens.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..c7f82a1008efddb13ed770c14cd02422d53740ba
+--- /dev/null
++++ b/docs/50-adr/0003-design-tokens.md
+@@ -0,0 +1,52 @@
++# ADR-0003: Design Token Architecture (CSS Custom Properties)
++
++- Status: Accepted
++- Date: 2026-08-04
++- Deciders: Principal Architect
++- Scope: All visual styling; consumed by `ui/`, `features/`, and `graphics/`
++
++## Context
++
++DEX must look like one system, not a pile of components. The live layout
++components hardcode hex values (`#5ddcff`, `#8eaab7`, `rgba(15,20,30,.35)`,
++`rgba(0,212,255,.2)`, …). The stack lists CSS Variables; themes are planned as
++both CSS themes and TS theme objects (`src/lib/ui/themes/{light,dark,cyber}.ts`).
++The graphics engine (Three.js, Phase 1+) needs palette values as JS data, not
++CSS. Motion is a hard performance contract (60 FPS, GPU compositing).
++
++## Decision
++
++1. **Three token layers, plain CSS custom properties:**
++   - *Primitive* (`:root`, `--dex-*`): raw palette, spacing, radii, durations,
++     easing, z-index, glass blur, fonts. Values, not intent.
++   - *Semantic* (`:root` + `[data-theme='…']`): `--dex-surface-1/2/3`,
++     `--dex-text-1/2/3`, `--dex-accent[-strong|-soft]`,
++     `--dex-border[-subtle]`, `--dex-grid-line`, `--dex-focus-ring` — the
++     only tokens components consume. Dark is the default and lives in `:root`;
++     `light` and `cyber` override the semantic layer only.
++   - *Component-scoped*: a component may define local aliases deriving from
++     semantic tokens (e.g. `--icon-size`) to avoid repeating var() chains.
++2. **Theme switching** is a `data-theme` attribute on `<html>`, managed by
++   `core/stores/theme.svelte.ts` (rune store; default dark, persisted via
++   `core/utils/storage.ts`). CSS does the switching — no inline styles.
++3. **Programmatic mirror**: `src/lib/ui/themes/types.ts` defines
++   `ThemePalette` (concrete string values for the graphics engine and JS);
++   `{light,dark,cyber}.ts` export palettes that MUST match the CSS semantic
++   layer for the same theme. CSS is authoritative for the UI; the TS mirror is
++   for programmatic/GPU use. Sync rule: changing a token means changing both —
++   review checklist item.
++4. **Motion contract**: durations 150–250 ms, single easing
++   `cubic-bezier(.22,.61,.36,1)`, only `transform`/`opacity` animated (GPU
++   compositor-friendly). `prefers-reduced-motion` disables non-essential
++   motion. Z-index comes exclusively from the token scale (no magic `z-9999`).
++5. **No magic values**: components never hardcode colors, radii, durations, or
++   z-index; spacing may use the scale tokens or the spacing scale directly.
++
++## Consequences
++
++- Components become theme-agnostic: restyling DEX = editing token files.
++- `graphics/` reads `ThemePalette` for scene colors, keeping WebGL and DOM
++  visuals consistent without parsing CSS.
++- The dual-source sync rule (CSS ↔ TS) is a small, documented maintenance cost
++  accepted in exchange for typed programmatic access.
++- Existing hardcoded values in `ui/layout/` migrate to tokens in Phase 0.
+diff --git a/docs/50-adr/0004-transparent-compositing.md b/docs/50-adr/0004-transparent-compositing.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..98a4181b4ab97c0cd5f0ed83d5d5f3c278ec7dd2
+--- /dev/null
++++ b/docs/50-adr/0004-transparent-compositing.md
+@@ -0,0 +1,48 @@
++# ADR-0004: Transparent Window Compositing Contract
++
++- Status: Accepted
++- Date: 2026-08-04
++- Deciders: Principal Architect
++- Scope: Window chrome, global CSS, and the rendering pipeline
++
++## Context
++
++The Tauri window is configured `fullscreen: true, transparent: true,
++decorations: false` (`src-tauri/tauri.conf.json`). DEX is the operating layer
++above Hyprland: the user's desktop, wallpaper, and Wayland compositor output
++must be visible through the shell. AGENTS.md states: keep `html`/`body`
++transparent, use `backdrop-filter` glass panels, never paint an opaque window
++background.
++
++The current `src/app.css` paints an opaque body gradient
++(`radial-gradient(...), #05070b`) — violating the contract — and is not even
++imported by any route, so the global reset is silently dead.
++
++## Decision
++
++1. **Transparency is a hard contract, not a style choice.** `html` and `body`
++   backgrounds are always `transparent`. The HUD viewport area shows the
++   desktop; all visual backdrop comes from glass surfaces
++   (`backdrop-filter: blur(var(--dex-glass-blur))` over translucent
++   `--dex-surface-*` tokens).
++2. **No opaque full-window paint anywhere** — no `background: #...` on
++   `body`, no fullscreen overlay layers with solid fill. Content panels may be
++   opaque on their own surface, but never window-sized.
++3. **Global CSS is actually wired**: `src/app.css` is imported by
++   `src/routes/+layout.svelte` and `@import`s `ui/styles/tokens.css` first.
++4. **GPU-first rendering** (later phases): the `graphics/` layer renders into
++   a WebGL canvas that is itself transparent (`alpha: true`), composited under
++   the DOM chrome. Animations stay on `transform`/`opacity` so the compositor
++   never repaints; see ADR-0003 motion contract.
++5. **Known trade-off**: glass blur is a compositor cost on every repaint.
++   Blur radii stay within the token scale and panels avoid
++   re-blurring-every-frame animations (blur is not animatable on transform
++   path).
++
++## Consequences
++
++- The desktop shows through the shell; panels read as floating glass.
++- Any new full-window layer must be translucent or transparent — review
++  checklist item ("opaque window background?").
++- Debugging transparent-window quirks (input regions, compositor artifacts) is
++  a documented platform concern: verify on Hyprland, not in a browser tab.
+diff --git a/docs/50-adr/0005-plugin-boundary.md b/docs/50-adr/0005-plugin-boundary.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..0aa50fa5d382bafb6bacad498e12c33589b37a3d
+--- /dev/null
++++ b/docs/50-adr/0005-plugin-boundary.md
+@@ -0,0 +1,47 @@
++# ADR-0005: Plugin Boundary and CSP Baseline
++
++- Status: Accepted
++- Date: 2026-08-04
++- Deciders: Principal Architect (with architecture review)
++- Scope: Native extension boundary + shell web-security baseline
++
++## Context
++
++DEX will ship a widget/plugin ecosystem (roadmap Phases 3 and 8). The shell
++is a single Tauri webview with full typed IPC access; if third-party code
++ever ran inside that privileged context it could reach the filesystem
++through the same typed surface as the shell itself. The boundary must be
++fixed in Phase 0, because CSP and capability grants are cheap to set now and
++expensive to retrofit later.
++
++## Decision
++
++1. **Plugins are Rust-hosted extensions** of `src-tauri/` — not arbitrary
++   web code in the privileged webview. A plugin = manifest + command/event
++   surface + capability grants, loaded and versioned by the host.
++2. **Manifests are schema-validated (zod) at install/update**; unknown
++   fields are rejected, never silently ignored.
++3. **Per-plugin capability grants** in `src-tauri/capabilities/*.json`.
++   A plugin gets exactly the permissions it declares — no default elevation.
++4. **Plugin UI (future widget layer) renders in isolated contexts**
++   (sandboxed iframe/separate origin) with no IPC access of its own; all
++   effects go through shell-mediated commands. Widgets never import
++   `@tauri-apps/api`.
++5. **Strict CSP from Phase 0** (`tauri.conf.json`):
++
++   ```
++   default-src 'self'; style-src 'self' 'unsafe-inline';
++   img-src 'self' data:; connect-src ipc: http://ipc.localhost
++   ```
++
++   Dev-mode HMR (Vite websocket) may require temporary relaxation during
++   development — never ship the loosened policy.
++
++## Consequences
++
++- New native extensions require: manifest + capability grant + review; the
++  shell surface stays small and auditable.
++- CSP is the blast-radius reducer: even a compromised renderer cannot fetch
++  arbitrary origins or run inline scripts.
++- Widget development must use the sandbox API from day one (Phase 3 M3.1) —
++  the SDK contract is part of the widget boundary, not an afterthought.
+diff --git a/docs/60-rfc/AIAgents.md b/docs/60-rfc/AIAgents.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..5f41656e9c527cd9d0083aae72a70ccab2682e64
+--- /dev/null
++++ b/docs/60-rfc/AIAgents.md
+@@ -0,0 +1,221 @@
++# RFC: Autonomous Agents Operating Within Workspaces
++
++- **Status:** Draft
++- **Owner:** AI Platform (roadmap Phase 6) with the Workspace Runtime
++- **Related phase:** M6.x (AI Platform), M7.x (Automation)
++- **Depends on:** [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md), [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++
++## Context
++
++DEX is a Workspace Runtime: the operating layer that activates, restores, and
++orchestrates complete development Workspaces on Linux. Its memory layer, the
++Knowledge Vault, is the durable, always-local store of a developer's Context,
++notes, and history. The roadmap's Long-Term Vision (v2) names *distributed AI
++agents* as a future capability, and Phase 6 builds the AI Platform that such
++agents would consume.
++
++Two principles bound any agent design. **AI is Optional** (principle 12): every
++AI capability must degrade gracefully to a fully manual workflow, and no core
++capability may require a model, an API key, or a network. **CLI First**
++(principle 3): every capability is scriptable from the command line, and the
++graphical shell is a second client of the same surface. An agent that cannot be
++reduced to a scripted, user-invoked sequence is a capability that does not
++exist.
++
++The Non-Goals add a third bound: DEX is **not a general-purpose automation
++platform**. Automation targets the development workflow — Workspaces, Workspace
++Services, and tooling — not the consumer desktop. An agent is therefore a
++development-workflow actor bound to a Workspace, never a free-roaming system
++agent.
++
++This RFC proposes the shape of that agent: a runtime bound to a Workspace,
++reading Context from the Knowledge Vault, and acting only through the Runtime's
++typed command surface — never through raw system access.
++
++## Proposal
++
++An **Agent** is an AI-driven actor that operates within a single Workspace. It
++is declared by the Workspace, supervised by the Runtime, and executes by issuing
++the same typed commands a human would issue from the CLI or the shell. It has no
++privileges of its own; every effect is mediated by the Runtime's command
++surface and gated by the same capability model that governs Plugins
++(ADR-0005).
++
++The Agent's contract:
++
++1. **Workspace-bound.** An Agent is created against a specific Workspace and
++   cannot act outside it. Its lifecycle is tied to the Workspace lifecycle: it
++   is suspended when the Workspace pauses and stopped when the Workspace leaves.
++2. **Vault-fed Context.** The Agent reads Context from the Knowledge Vault
++   through Memory Providers. It never holds its own private store of the
++   developer's state; the Vault is the single source of what the Agent knows.
++3. **Command-surface execution.** The Agent acts by invoking the same typed
++   commands available to the CLI (`core/services/<domain>` contract clients).
++   It has no filesystem, SQLite, or shell access of its own — exactly as the
++   frontend has none (ADR-0001).
++4. **Capability-gated like a Plugin.** Each Agent declares a manifest of the
++   capabilities it may use. The Runtime grants exactly those capabilities, in
++   the same per-agent grants that ADR-0005 defines for Plugins. No default
++   elevation.
++5. **Always visible and interruptible.** Every Agent action is observable in
++   the Journal and in the shell. The user can pause, resume, or terminate the
++   Agent at any point, and can step through its proposed actions before they
++   execute.
++6. **Degrades to manual.** When the Agent is disabled, offline, or lacks a
++   model, the Workspace and the Runtime are fully functional. The Agent's
++   proposed actions become a checklist the user can execute by hand.
++
++## Design
++
++### Agent runtime
++
++The Agent runtime is a Rust-hosted subsystem of the Workspace Runtime, in the
++same family as the Plugin host. It loads an Agent manifest, binds the Agent to a
++Workspace, and supervises its execution loop.
++
++```mermaid
++flowchart LR
++    subgraph WS["Workspace"]
++        A["Agent"]
++        M["Agent Manifest"]
++    end
++    subgraph RT["Workspace Runtime"]
++        AR["Agent Runtime"]
++        CS["Typed Command Surface"]
++        CAP["Capability Gate"]
++        J["Journal"]
++    end
++    subgraph SYS["System"]
++        KV["Knowledge Vault"]
++        OS["Linux / Wayland / apps"]
++    end
++
++    A --> M
++    A --> AR
++    AR --> CS
++    CS --> CAP
++    CAP --> OS
++    AR --> KV
++    AR --> J
++    J --> A
++```
++
++The Agent reads Context from the Knowledge Vault, proposes a sequence of
++commands, and submits each command to the Runtime's typed command surface. The
++capability gate checks the command against the Agent's granted capabilities
++before the Runtime dispatches it. Every accepted and rejected action is written
++to the Journal, which the shell renders as a live, user-visible transcript.
++
++### The command surface as the only actuator
++
++The Agent never reaches the system directly. It calls the same commands a human
++calls — `workspace.activate`, `service.start`, `session.launch`, and the
++commands exposed by Plugins — through the typed IPC contract (ADR-0002). This
++has three consequences:
++
++- **Auditability.** Because every Agent action is a typed command, it is
++  schema-validated at both edges, logged, and journaled. There is no hidden
++  side channel.
++- **Parity with the CLI.** The Agent is, in effect, a scripted client of the
++  same surface the CLI exposes. What the Agent can do, a user can do by hand;
++  what a user can do by hand, the Agent can be taught to do.
++- **No new attack surface.** The Agent adds no new system access. It reuses the
++  boundary that already separates the frontend from the system.
++
++### Capability model
++
++An Agent manifest declares the capabilities it requires, mirroring the Plugin
++manifest model of ADR-0005. The Runtime validates the manifest against a schema
++at creation time and grants exactly the declared capabilities. A capability is a
++named set of commands; granting it means the Agent may invoke those commands.
++
++```mermaid
++flowchart TD
++    U["User creates Agent"] --> V["Manifest schema-validated"]
++    V --> G["Capability grants resolved"]
++    G --> B["Agent bound to Workspace"]
++    B --> L["Agent loop: read Context → propose → execute"]
++    L --> C{"Command within granted capability?"}
++    C -- yes --> D["Runtime dispatches command"]
++    C -- no --> E["Rejected: permission_denied, journaled"]
++    D --> J["Journal"]
++    E --> J
++```
++
++### Secrets
++
++The Agent operates within the Workspace and may need to act on behalf of the
++developer. It must never obtain secrets it was not explicitly granted. Secrets
++are handled per the Secrets contract: they stay local, are never exposed to the
++Agent's model context, and are referenced by handle rather than by value. An
++Agent that needs a credential requests it through the same secret-resolution
++path a human uses, and the resolved value is used inside the Runtime, never
++passed to the model.
++
++## Impact
++
++- **Plugin boundary (ADR-0005).** The Agent reuses the Plugin capability model
++  rather than extending it. The Agent is not a Plugin; it is a supervised actor
++  that consumes the same command surface Plugins expose. The boundary holds
++  because the Agent adds no new system access.
++- **Secrets.** The Agent introduces a new consumer of the Secrets contract. The
++  rule is unchanged: secrets never leave the device unencrypted and never enter
++  model context. The Agent's manifest may declare which secret handles it may
++  reference.
++- **Knowledge Vault.** The Agent is a consumer of the Vault, never a writer of
++  privileged state. It may append to the Journal and to its own notes, but it
++  cannot mutate the developer's Context except through the same commands a
++  human uses.
++- **Performance.** The Agent loop is off the critical path of the Workspace
++  Runtime. A Workspace activates, pauses, and leaves without the Agent running.
++- **Lightweight Core.** The Agent runtime lives outside the core, in the AI
++  Platform feature, and is loaded only when an Agent is declared.
++
++## Open Questions
++
++- **What is the granularity of an Agent's permission model?** Should a
++  capability be a named command, a command domain, or a declarative policy over
++  arguments (for example, "may start services but only those declared in this
++  Workspace's Manifest")?
++- **How does the user approve a proposed action without breaking the Agent's
++  flow?** Is approval per-action, per-batch, or a one-time grant for a bounded
++  task, and how does each choice affect the interruptibility guarantee?
++- **What memory policy governs what the Agent may read from the Knowledge
++  Vault?** Does the Agent read all Context for its Workspace, or only the
++  subsets its manifest declares, and who decides?
++- **How is an Agent's autonomy bounded in time?** Does an Agent run until its
++  task completes, until the Workspace leaves, or until a user-set budget of
++  actions or wall-clock time is exhausted?
++- **What happens to an Agent's in-flight state when the Workspace pauses?** Is
++  the Agent's proposed-action queue persisted as part of the Workspace Snapshot,
++  or discarded?
++- **How are distributed agents (Long-Term Vision v2) reconciled with the
++  Workspace-bound model proposed here?** Is a distributed agent a set of
++  Workspace-bound agents coordinated by a shared Vault, or a distinct runtime?
++
++## Future Evolution
++
++- **Agent templates.** Reusable, manifest-declared Agent definitions that a
++  user instantiates against a Workspace, analogous to how a Workspace is
++  declared by a Manifest.
++- **Agent-to-agent coordination.** Multiple Agents within a Workspace, each
++  capability-gated, coordinating through the Journal and the Vault rather than
++  through direct communication.
++- **Smart Actions (M7.4).** AI-generated workflows that an Agent can execute,
++  reusing the Automation engine's trigger → action → condition → result model.
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- AI is Optional (principle 12): [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Not a general-purpose automation platform: [`../00-vision/04_NonGoals.md`](../00-vision/04_NonGoals.md)
++- Roadmap Phase 6 (AI Platform) and Long-Term Vision v2: [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- AI requirements (AI-1..AI-3): [`../10-product/10_Master_PRD.md`](../10-product/10_Master_PRD.md)
++- System architecture and layer model: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- AI subsystem: [`../20-architecture/26_AI.md`](../20-architecture/26_AI.md)
++- Knowledge Vault contract: [`../30-specs/Knowledge.md`](../30-specs/Knowledge.md)
++- Secrets contract: [`../30-specs/Secrets.md`](../30-specs/Secrets.md)
++- Workspace contract: [`../30-specs/Workspace.md`](../30-specs/Workspace.md)
++- Plugin boundary: [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++- Typed IPC contract: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Related RFCs: [`Voice.md`](Voice.md), [`WorkspaceSharing.md`](WorkspaceSharing.md)
+\ No newline at end of file
+diff --git a/docs/60-rfc/CloudSync.md b/docs/60-rfc/CloudSync.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..2bebff7f2251443c8c7ab4230266fde57562bb6c
+--- /dev/null
++++ b/docs/60-rfc/CloudSync.md
+@@ -0,0 +1,182 @@
++# RFC: Synchronization Layered on Offline First
++
++- **Status:** Draft
++- **Owner:** Workspace Runtime with the Knowledge subsystem
++- **Related phase:** Long-Term Vision v2 (cloud sync)
++- **Depends on:** [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md) (Offline First), [`../30-specs/Secrets.md`](../30-specs/Secrets.md)
++
++## Context
++
++DEX is Offline First (principle 2): the machine is fully functional with no
++network, and local state is the source of truth. The Non-Goals state the
++corollary in the negative — DEX is **not a cloud service**: there is no account,
++no mandatory synchronization, and no telemetry by default. Offline First is not
++a mode of DEX; it is DEX.
++
++The roadmap's Long-Term Vision (v2) nevertheless names *cloud sync* as a future
++capability. These two statements are not in conflict if synchronization is
++designed as a layered, opt-in extension that never becomes the authority. The
++Knowledge Vault, the Workspace registry, and every Workspace must work on a
++laptop with the network cable pulled; sync is what happens *after* that, when
++the user chooses to replicate their local state to another device.
++
++This RFC proposes a sync engine that replicates Workspaces, the Knowledge Vault,
++and settings between devices, while preserving the invariant that local state
++remains the source of truth and that nothing leaves the machine except by
++explicit request.
++
++## Proposal
++
++A **Sync Engine** is an opt-in extension of the Workspace Runtime that
++replicates local state between devices. It is a mirror, never the authority:
++each device keeps its own authoritative local state, and the engine reconciles
++differences according to explicit conflict semantics. Sync is enabled per
++device, per data class, and per peer, and it is never a precondition for any
++core operation.
++
++The Sync Engine's contract:
++
++1. **Opt-in and layered.** Sync is disabled by default. Enabling it never
++   changes how the Runtime, the Knowledge Vault, or a Workspace behaves
++   offline; it only adds a replication path.
++2. **Mirror, not authority.** The local store on each device remains the source
++   of truth. The sync engine does not introduce a remote store that the local
++   store must defer to.
++3. **Data classes.** Sync replicates three classes of data: Workspaces (their
++   Manifests, registry records, and Snapshots), the Knowledge Vault, and
++   settings. Each class is independently enabled.
++4. **Secrets never leave unencrypted.** Secrets are excluded from replication
++   by default, per the Secrets contract. Where a user explicitly opts to
++   replicate a secret, it is end-to-end encrypted and never stored in plaintext
++   on any peer or relay.
++5. **End-to-end encryption.** All replicated data is encrypted before it leaves
++   the device. The sync engine never sees plaintext; a relay, if used, is a
++   dumb transport.
++6. **No telemetry by default.** The sync engine collects no usage data. Any
++   diagnostics are local and opt-in.
++
++## Design
++
++### Replication model
++
++Each device maintains a local change log for each replicated data class. The
++sync engine exchanges change logs with a peer, applies remote changes to the
++local store, and records the reconciliation in the Journal. Because local state
++is authoritative, a device never overwrites a local change with a remote change
++without a conflict resolution.
++
++```mermaid
++sequenceDiagram
++    participant A as Device A (local truth)
++    participant R as Relay (optional, dumb transport)
++    participant B as Device B (local truth)
++
++    A->>A: local change recorded in change log
++    A->>R: push encrypted change set
++    R-->>B: deliver encrypted change set
++    B->>B: decrypt, apply to local store
++    B->>B: detect conflict with local change?
++    alt no conflict
++        B->>B: apply remote change, log to Journal
++    else conflict
++        B->>B: apply conflict policy, log to Journal
++    end
++    B->>R: push encrypted ack + own changes
++    R-->>A: deliver encrypted ack + changes
++    A->>A: apply, reconcile, log to Journal
++```
++
++### Conflict semantics
++
++Because each device is authoritative over its own local state, concurrent edits
++to the same record can diverge. The engine resolves conflicts with an explicit,
++user-configurable policy rather than a silent last-writer-wins:
++
++- **Last-writer-wins** for low-risk scalar settings, with the loser recorded in
++  the Journal.
++- **Merge** for append-only structures such as Vault notes and Journal entries,
++  where both versions are preserved and linked.
++- **Keep-both** for Workspace records that diverge, surfacing the two versions
++  to the user for a decision rather than destroying either.
++
++Every conflict resolution is journaled, so the user can audit what the engine
++decided and why.
++
++### Secrets handling
++
++Secrets are the one class that is excluded by default. The Secrets contract
++requires that secrets never leave the device unencrypted. The sync engine
++therefore:
++
++- Excludes the Secrets store from replication unless the user explicitly opts
++  in per secret.
++- When opted in, encrypts the secret end-to-end with a key derived on the
++  device, so no peer or relay can read it.
++- Never places a secret in a Workspace Manifest, a Snapshot, or a Vault note
++  that is replicated in plaintext.
++
++### Transport
++
++The engine is transport-agnostic. It can replicate directly between devices on
++a local network, through a user-chosen relay, or over a user-managed server. The
++engine defines a wire protocol; it does not mandate a hosting model. This keeps
++the engine consistent with the Non-Goal that DEX is not a cloud service — DEX
++does not operate a sync service; it provides the mechanism.
++
++## Impact
++
++- **Offline First (principle 2).** Sync is layered and opt-in. Disabling it
++  returns the system to a fully offline, fully functional state with no loss.
++- **Secrets.** The sync engine is a new consumer of the Secrets contract. The
++  rule is unchanged: secrets never leave the device unencrypted, and are
++  excluded from replication by default.
++- **Knowledge Vault.** The Vault remains always local. Sync replicates it only
++  when enabled, and the Vault's contract (KV-3: offline operation) is
++  unaffected.
++- **Lightweight Core.** The sync engine lives outside the core, loaded only
++  when a sync peer is configured.
++- **Non-Goals.** The engine does not introduce an account, mandatory sync, or
++  telemetry. It is a mechanism, not a service.
++
++## Open Questions
++
++- **What wire protocol should the sync engine use?** Should it define a
++  bespoke protocol, or adopt an existing one (for example, a CRDT-based or
++  version-vector protocol) to gain proven conflict semantics?
++- **What server model should the engine support?** Direct peer-to-peer, a
++  user-chosen relay, a user-managed server, or all three, and how does the
++  choice affect the encryption and trust model?
++- **How should multi-device conflict resolution scale beyond two peers?** Does
++  the conflict policy hold for three or more devices editing the same record,
++  and how are version vectors reconciled?
++- **How is a device's identity and trust established with a peer?** Is trust
++  based on a key exchange, a shared secret, or a user-verified fingerprint, and
++  how is a compromised peer detected?
++- **What is the granularity of the per-data-class opt-in?** Is sync enabled per
++  class, per Workspace, or per record, and how does granularity affect the
++  user's mental model?
++- **How are Snapshots replicated?** Are full Snapshots synced, or only
++  deltas, and what is the storage cost on each peer?
++
++## Future Evolution
++
++- **Multi-user profiles.** Sync between profiles on the same or different
++  devices, with per-profile data classes.
++- **Mobile companion.** A read-only or limited-write client that consumes the
++  same wire protocol, without becoming a source of truth.
++- **Opt-in telemetry.** If telemetry is ever offered, it is a separate,
++  explicit opt-in that is never bundled with sync.
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Offline First (principle 2): [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Not a cloud service: [`../00-vision/04_NonGoals.md`](../00-vision/04_NonGoals.md)
++- Roadmap Long-Term Vision v2: [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- Knowledge Vault requirements (KV-3): [`../10-product/10_Master_PRD.md`](../10-product/10_Master_PRD.md)
++- System architecture: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Knowledge Vault contract: [`../30-specs/Knowledge.md`](../30-specs/Knowledge.md)
++- Secrets contract: [`../30-specs/Secrets.md`](../30-specs/Secrets.md)
++- Workspace contract: [`../30-specs/Workspace.md`](../30-specs/Workspace.md)
++- Offline First principle: [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Related RFCs: [`WorkspaceSharing.md`](WorkspaceSharing.md), [`AIAgents.md`](AIAgents.md)
+\ No newline at end of file
+diff --git a/docs/60-rfc/Marketplace.md b/docs/60-rfc/Marketplace.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..c49e239c2ff92954c614cbce041f9398fd30920f
+--- /dev/null
++++ b/docs/60-rfc/Marketplace.md
+@@ -0,0 +1,161 @@
++# RFC: Marketplace for Plugins and Widgets
++
++- **Status:** Draft
++- **Owner:** Plugin Platform (roadmap Phase 8) with the Widget Platform (Phase 3)
++- **Related phase:** M3.4 (Widget Marketplace API), M8.3 (Marketplace)
++- **Depends on:** [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++
++## Context
++
++DEX is Plugin First (principle 4): extensibility is designed into the platform
++from the start, bounded by a hard security boundary. The boundary is already
++fixed (ADR-0005): Plugins are Rust-hosted, capability-gated extensions declared
++by a manifest and validated by the host; Widgets render in isolated contexts
++with no IPC access of their own. The roadmap schedules a Widget Marketplace API
++(M3.4) and a Plugin Marketplace (M8.3).
++
++The boundary answers *how* an extension runs. This RFC asks a different
++question: *how does an extension get to the user*. The answer is a marketplace
++that operates as an index over the existing install mechanism — discovery,
++install, update, and remove — and never as a bypass of the capability boundary.
++
++The Non-Goals constrain the answer. DEX is not a cloud service: there is no
++mandatory account, no telemetry by default. The marketplace must therefore work
++without a DEX-operated account system, and installing from the marketplace must
++be indistinguishable, from the boundary's point of view, from installing from a
++local file.
++
++## Proposal
++
++A **Marketplace** is an index of Plugins and Widgets that the Runtime can query
++for discovery and resolve to installable artifacts. It is not a new install
++path. Installing a marketplace artifact runs the same manifest validation and
++capability gating as any other install; the marketplace contributes only
++discovery metadata, trust information, and quality signals.
++
++The Marketplace's contract:
++
++1. **Index over install, never a bypass.** A marketplace is a read-only index
++   of extension metadata. The Runtime downloads an artifact, validates its
++   manifest against the same schema as a local install, and applies the same
++   capability grants (ADR-0005). A marketplace cannot elevate a Plugin or
++   grant a Widget IPC access.
++2. **Discovery and lifecycle.** The marketplace supports browse, search,
++   install, update, and remove. Each operation maps to an existing Runtime
++   lifecycle command; the marketplace adds the index query in front of it.
++3. **Trust model.** Every artifact carries a manifest that is schema-validated
++   at install. Optional signing binds an artifact to a publisher identity.
++   Capability review is the responsibility of the marketplace index, not the
++   Runtime; the Runtime enforces the boundary regardless of provenance.
++4. **Quality signals.** The marketplace exposes quality signals — publisher
++   identity, review status, usage, compatibility with the installed Runtime
++   version — as metadata, never as a gate on installation.
++5. **No account, no telemetry.** The marketplace is a static index plus a
++   download endpoint. It requires no account. Installing from it collects no
++   telemetry beyond what the local Journal already records.
++
++## Design
++
++### Install trust chain
++
++The trust model is a chain with three independent links. The index (who
++publishes and reviews), the artifact (what is being installed and what it
++declares), and the Runtime (what it actually grants) are separate; a compromise
++in any one link does not weaken the others.
++
++```mermaid
++flowchart TD
++    A["Marketplace index: discovery metadata, publisher, reviews"] --> B["Artifact resolved: manifest + package"]
++    B 

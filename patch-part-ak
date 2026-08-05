@@ -1,0 +1,1572 @@
+             size,
++                color,
++            }),
++            className,
++        ),
++    );
++</script>
++
++<Icon class={classes} />
+diff --git a/src/lib/ui/primitives/Separator.svelte b/src/lib/ui/primitives/Separator.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..4f6a5eb834b1d17fbc19ae10ad2a88c807188744
+--- /dev/null
++++ b/src/lib/ui/primitives/Separator.svelte
+@@ -0,0 +1,47 @@
++<script lang="ts">
++	import { cva, type VariantProps } from "class-variance-authority";
++	import { twMerge } from "tailwind-merge";
++	import type { HTMLAttributes } from "svelte/elements";
++
++	const variants = cva("bg-[color:var(--border-default)] shrink-0", {
++		variants: {
++			orientation: {
++				horizontal: "h-px w-full",
++				vertical: "w-px h-full"
++			}
++		},
++
++		defaultVariants: {
++			orientation: "horizontal"
++		}
++	});
++
++	type Props =
++		HTMLAttributes<HTMLDivElement> &
++		VariantProps<typeof variants> & {
++			class?: string;
++		};
++
++	let {
++		orientation,
++		class: className,
++		...rest
++	}: Props = $props();
++
++	const classes = $derived(
++		twMerge(
++			variants({
++				orientation
++			}),
++			className
++		)
++	);
++</script>
++
++<div
++	role="separator"
++	aria-orientation={orientation}
++	class={classes}
++	{...rest}
++>
++</div>
+diff --git a/src/lib/ui/primitives/Tooltip.svelte b/src/lib/ui/primitives/Tooltip.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..77182b45a7748a28a62afe7b852ba007dde2d00e
+--- /dev/null
++++ b/src/lib/ui/primitives/Tooltip.svelte
+@@ -0,0 +1,116 @@
++<script lang="ts">
++	import { clsx } from "clsx";
++	import type { Snippet } from "svelte";
++
++	/**
++	 * Pure-CSS tooltip — no floating-ui. Wraps a trigger element; the tip
++	 * appears on `:hover` and `:focus-within` (keyboard users get it for free).
++	 * Shows with a short delay, hides instantly. Reduced-motion kills the
++	 * transition entirely.
++	 */
++
++	let {
++		label,
++		side = "top",
++		class: className,
++		children,
++	}: {
++		label: string;
++		side?: "top" | "bottom" | "left" | "right";
++		class?: string;
++		children?: Snippet;
++	} = $props();
++</script>
++
++<span class={clsx("dex-tooltip", className)}>
++	{@render children?.()}
++
++	<span class="dex-tooltip__tip" role="tooltip" data-side={side}>{label}</span>
++</span>
++
++<style>
++	.dex-tooltip {
++		position: relative;
++		display: inline-flex;
++	}
++
++	.dex-tooltip__tip {
++		position: absolute;
++		z-index: var(--dex-z-tooltip);
++		visibility: hidden;
++		opacity: 0;
++		padding: var(--dex-space-2) var(--dex-space-3);
++		border-radius: var(--dex-radius-sm);
++		border: 1px solid var(--dex-border-subtle);
++		background: var(--dex-surface-2);
++		color: var(--dex-text-1);
++		font-size: var(--dex-font-size-xs);
++		letter-spacing: var(--dex-tracking-wide);
++		white-space: nowrap;
++		pointer-events: none;
++		/* motion rule: transform/opacity only; visibility is a hard show/hide */
++		transition:
++			opacity var(--dex-duration-base) var(--dex-ease-out),
++			transform var(--dex-duration-base) var(--dex-ease-out),
++			visibility 0s linear var(--dex-duration-base);
++	}
++
++	.dex-tooltip__tip[data-side="top"],
++	.dex-tooltip__tip[data-side="bottom"] {
++		left: 50%;
++		transform: translate(-50%, 0) scale(0.96);
++	}
++
++	.dex-tooltip__tip[data-side="top"] {
++		bottom: calc(100% + var(--dex-space-3));
++		transform-origin: center bottom;
++	}
++
++	.dex-tooltip__tip[data-side="bottom"] {
++		top: calc(100% + var(--dex-space-3));
++		transform-origin: center top;
++	}
++
++	.dex-tooltip__tip[data-side="left"],
++	.dex-tooltip__tip[data-side="right"] {
++		top: 50%;
++		transform: translate(0, -50%) scale(0.96);
++	}
++
++	.dex-tooltip__tip[data-side="left"] {
++		right: calc(100% + var(--dex-space-3));
++		transform-origin: right center;
++	}
++
++	.dex-tooltip__tip[data-side="right"] {
++		left: calc(100% + var(--dex-space-3));
++		transform-origin: left center;
++	}
++
++	.dex-tooltip:hover .dex-tooltip__tip,
++	.dex-tooltip:focus-within .dex-tooltip__tip {
++		visibility: visible;
++		opacity: 1;
++		transform: translate(-50%, 0) scale(1);
++		/* delayed fade-in so stray hovers don't flash the tip */
++		transition:
++			opacity var(--dex-duration-base) var(--dex-ease-out) var(--dex-duration-fast),
++			transform var(--dex-duration-base) var(--dex-ease-out) var(--dex-duration-fast),
++			visibility 0s;
++	}
++
++	.dex-tooltip:hover .dex-tooltip__tip[data-side="left"],
++	.dex-tooltip:focus-within .dex-tooltip__tip[data-side="left"],
++	.dex-tooltip:hover .dex-tooltip__tip[data-side="right"],
++	.dex-tooltip:focus-within .dex-tooltip__tip[data-side="right"] {
++		transform: translate(0, -50%) scale(1);
++	}
++
++	@media (prefers-reduced-motion: reduce) {
++		.dex-tooltip__tip,
++		.dex-tooltip:hover .dex-tooltip__tip,
++		.dex-tooltip:focus-within .dex-tooltip__tip {
++			transition: none;
++		}
++	}
++</style>
+diff --git a/src/lib/ui/primitives/icons.ts b/src/lib/ui/primitives/icons.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..7677bb560c1d22184d13eb12fe1c0e9164e536ec
+--- /dev/null
++++ b/src/lib/ui/primitives/icons.ts
+@@ -0,0 +1,22 @@
++/**
++ * Inline SVG glyph registry — stroke-based, 24px viewBox, `currentColor`.
++ *
++ * Each value is a static, hardcoded path group (never user input) rendered by
++ * `Icon.svelte` via `{@html}`. Glyphs inherit color from `currentColor`, so an
++ * icon always matches its surrounding text — components never set an icon color.
++ */
++export const icons = {
++	home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
++	display:
++		'<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
++	"file-text":
++		'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
++	zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
++	bot: '<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>',
++	settings:
++		'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
++	close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
++	"chevron-right": '<path d="m9 18 6-6-6-6"/>',
++} as const satisfies Record<string, string>;
++
++export type IconName = keyof typeof icons;
+diff --git a/src/lib/ui/primitives/index.ts b/src/lib/ui/primitives/index.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..fba87f52cc8f3b7d6c30559edc6337c02bd00622
+--- /dev/null
++++ b/src/lib/ui/primitives/index.ts
+@@ -0,0 +1,13 @@
++/**
++ * UI primitives — barrel export. Components must import primitives from here,
++ * not from individual files, so the public surface stays reviewable.
++ */
++export { default as GlassPanel } from "./GlassPanel.svelte";
++export { default as Button } from "./Button.svelte";
++export { default as Badge } from "./Badge.svelte";
++export { default as Separator } from "./Separator.svelte";
++export { default as Icon } from "./Icon.svelte";
++export { default as Tooltip } from "./Tooltip.svelte";
++export { default as Divider } from "./Divider.svelte";
++export { icons } from "./icons";
++export type { IconName } from "./icons";
+diff --git a/src/lib/ui/styles/effects.css b/src/lib/ui/styles/effects.css
+new file mode 100644
+index 0000000000000000000000000000000000000000..fa42826534e59f32a22e3159b162456f577fdad0
+--- /dev/null
++++ b/src/lib/ui/styles/effects.css
+@@ -0,0 +1,245 @@
++/* ==========================================================================
++   DEX Visual Effects Layer
++   ==========================================================================
++   Apple VisionOS • Arc • Linear inspired
++   ========================================================================== */
++
++:root {
++    /* --------------------------------------------------------------------------
++	   Aurora
++	   -------------------------------------------------------------------------- */
++
++    --aurora-blue: rgb(64 156 255 / 0.18);
++    --aurora-cyan: rgb(0 220 255 / 0.12);
++    --aurora-purple: rgb(160 100 255 / 0.16);
++    --aurora-pink: rgb(255 90 180 / 0.08);
++
++    /* --------------------------------------------------------------------------
++	   Grid
++	   -------------------------------------------------------------------------- */
++
++    --grid-size: 56px;
++    --grid-opacity: 0.025;
++
++    /* --------------------------------------------------------------------------
++	   Noise
++	   -------------------------------------------------------------------------- */
++
++    --noise-opacity: 0.012;
++
++    /* --------------------------------------------------------------------------
++	   Spotlight
++	   -------------------------------------------------------------------------- */
++
++    --spotlight-size: 900px;
++
++    /* --------------------------------------------------------------------------
++	   Cursor Glow
++	   -------------------------------------------------------------------------- */
++
++    --cursor-size: 320px;
++
++    /* --------------------------------------------------------------------------
++	   Blur
++	   -------------------------------------------------------------------------- */
++
++    --blur-background: 120px;
++}
++
++/* ==========================================================================
++   Shared Layer
++   ========================================================================== */
++
++.dex-effect {
++    position: absolute;
++    inset: 0;
++
++    pointer-events: none;
++    user-select: none;
++
++    overflow: hidden;
++}
++
++/* ==========================================================================
++   Aurora
++   ========================================================================== */
++.dex-aurora {
++    position: absolute;
++    inset: -20%;
++
++    filter: blur(140px);
++
++    background:
++        radial-gradient(
++            circle at 15% 20%,
++            rgb(0 170 255 / 0.08),
++            transparent 34%
++        ),
++        radial-gradient(
++            circle at 82% 12%,
++            rgb(120 90 255 / 0.06),
++            transparent 28%
++        ),
++        radial-gradient(
++            circle at 45% 90%,
++            rgb(0 255 220 / 0.05),
++            transparent 34%
++        );
++
++    opacity: 0.45;
++
++    animation:
++        dexAuroraX 60s linear infinite alternate,
++        dexAuroraY 45s ease-in-out infinite alternate;
++}
++/* ==========================================================================
++   Grid
++   ========================================================================== */
++
++.dex-grid {
++    position: absolute;
++    inset: 0;
++
++    background-image:
++        linear-gradient(var(--border-subtle) 1px, transparent 1px),
++        linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
++
++    background-size: var(--grid-size) var(--grid-size);
++
++    opacity: var(--grid-opacity);
++
++    mask-image: radial-gradient(circle, black 35%, transparent 95%);
++}
++
++/* ==========================================================================
++   Noise
++   ========================================================================== */
++
++.dex-noise {
++    position: absolute;
++    inset: 0;
++
++    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.9'/%3E%3C/svg%3E");
++
++    opacity: var(--noise-opacity);
++
++    mix-blend-mode: soft-light;
++
++    animation: dexNoise 1.2s steps(2) infinite;
++}
++
++/* ==========================================================================
++   Vignette
++   ========================================================================== */
++
++.dex-vignette {
++    position: absolute;
++    inset: 0;
++
++    background: radial-gradient(
++        circle,
++        transparent 55%,
++        rgb(0 0 0 / 0.15) 80%,
++        rgb(0 0 0 / 0.45) 100%
++    );
++}
++
++/* ==========================================================================
++   Spotlight
++   ========================================================================== */
++
++.dex-spotlight {
++    position: absolute;
++
++    width: var(--spotlight-size);
++    height: var(--spotlight-size);
++
++    left: 50%;
++    top: 35%;
++
++    transform: translate(-50%, -50%);
++
++    border-radius: 999px;
++
++    background: radial-gradient(
++        circle,
++        rgb(255 255 255 / 0.06),
++        transparent 70%
++    );
++
++    filter: blur(70px);
++
++    animation: dexSpotlight 18s ease-in-out infinite alternate;
++}
++
++/* ==========================================================================
++   Cursor Glow
++   ========================================================================== */
++
++.dex-cursor-glow {
++    position: absolute;
++
++    width: var(--cursor-size);
++    height: var(--cursor-size);
++
++    left: var(--cursor-x);
++    top: var(--cursor-y);
++
++    transform: translate(-50%, -50%);
++
++    border-radius: 999px;
++
++    background: radial-gradient(circle, var(--dex-primary), transparent 72%);
++
++    filter: blur(70px);
++
++    opacity: 0.14;
++
++    transition:
++        left 0.08s linear,
++        top 0.08s linear;
++}
++
++/* ==========================================================================
++   Animations
++   ========================================================================== */
++
++@keyframes dexAuroraX {
++    from {
++        transform: translateX(-4%) scale(1);
++    }
++
++    to {
++        transform: translateX(5%) scale(1.08);
++    }
++}
++
++@keyframes dexAuroraY {
++    from {
++        rotate: -3deg;
++    }
++
++    to {
++        rotate: 4deg;
++    }
++}
++
++@keyframes dexNoise {
++    from {
++        transform: translate(0);
++    }
++
++    to {
++        transform: translate(-1%, 1%);
++    }
++}
++
++@keyframes dexSpotlight {
++    from {
++        transform: translate(-48%, -50%) scale(1);
++    }
++
++    to {
++        transform: translate(-54%, -42%) scale(1.18);
++    }
++}
+diff --git a/src/lib/ui/styles/tokens.css b/src/lib/ui/styles/tokens.css
+new file mode 100644
+index 0000000000000000000000000000000000000000..09143ba8ff92c2bc07f17c203ca2c3a6f09478d6
+--- /dev/null
++++ b/src/lib/ui/styles/tokens.css
+@@ -0,0 +1,191 @@
++/* ==========================================================================
++   DEX Design Tokens
++   File: src/lib/ui/styles/tokens.css
++   VisionOS + Glass + HUD Design System
++   ========================================================================== */
++
++:root {
++    color-scheme: dark;
++    /* ------------------------------------------------------------------------
++   * Brand
++   * ---------------------------------------------------------------------- */
++    --dex-primary: oklch(0.72 0.19 258);
++    --dex-secondary: oklch(0.69 0.16 198);
++    --dex-accent: oklch(0.81 0.13 92);
++    --dex-success: oklch(0.76 0.18 150);
++    --dex-warning: oklch(0.83 0.18 82);
++    --dex-danger: oklch(0.67 0.23 28);
++    /* ------------------------------------------------------------------------
++   * Backgrounds
++   * ---------------------------------------------------------------------- */
++    --bg-0: oklch(0.12 0.01 260);
++    --bg-1: oklch(0.15 0.01 260);
++    --bg-2: oklch(0.18 0.015 260);
++    --bg-3: oklch(0.22 0.015 260);
++    --bg-4: oklch(0.27 0.015 260);
++    /* ------------------------------------------------------------------------
++   * Surface
++   * ---------------------------------------------------------------------- */
++    --surface-0: rgb(255 255 255 / 0.02);
++    --surface-1: rgb(255 255 255 / 0.04);
++    --surface-2: rgb(255 255 255 / 0.06);
++    --surface-3: rgb(255 255 255 / 0.08);
++    --surface-4: rgb(255 255 255 / 0.12);
++    /* ------------------------------------------------------------------------
++   * Glass
++   * ---------------------------------------------------------------------- */
++    --glass-light: rgb(255 255 255 / 0.05);
++    --glass-medium: rgb(255 255 255 / 0.08);
++    --glass-heavy: rgb(255 255 255 / 0.12);
++    --glass-ultra: rgb(255 255 255 / 0.18);
++    --glass-border-light: rgb(255 255 255 / 0.08);
++    --glass-border: rgb(255 255 255 / 0.12);
++    --glass-border-strong: rgb(255 255 255 / 0.2);
++    /* ------------------------------------------------------------------------
++   * HUD
++   * ---------------------------------------------------------------------- */
++    --hud-bg: rgb(15 17 22 / 0.55);
++    --hud-border: rgb(255 255 255 / 0.1);
++    --hud-highlight: rgb(255 255 255 / 0.04);
++    /* ------------------------------------------------------------------------
++   * Sidebar
++   * ---------------------------------------------------------------------- */
++    --sidebar-bg: rgb(14 15 18 / 0.7);
++    --sidebar-hover: rgb(255 255 255 / 0.05);
++    --sidebar-active: rgb(255 255 255 / 0.1);
++    /* ------------------------------------------------------------------------
++   * Dock
++   * ---------------------------------------------------------------------- */
++    --dock-bg: rgb(255 255 255 / 0.05);
++    --dock-border: rgb(255 255 255 / 0.08);
++    /* ------------------------------------------------------------------------
++   * Typography
++   * ---------------------------------------------------------------------- */
++    --text-primary: rgb(255 255 255);
++    --text-secondary: rgb(215 215 220);
++    --text-muted: rgb(160 160 170);
++    --text-disabled: rgb(110 110 120);
++    /* ------------------------------------------------------------------------
++   * Borders
++   * ---------------------------------------------------------------------- */
++    --border-subtle: rgb(255 255 255 / 0.05);
++    --border-default: rgb(255 255 255 / 0.08);
++    --border-strong: rgb(255 255 255 / 0.15);
++    /* ------------------------------------------------------------------------
++   * Blur
++   * ---------------------------------------------------------------------- */
++    --blur-xs: 4px;
++    --blur-sm: 8px;
++    --blur-md: 16px;
++    --blur-lg: 24px;
++    --blur-xl: 40px;
++    --blur-2xl: 60px;
++    /* ------------------------------------------------------------------------
++   * Radius
++   * ---------------------------------------------------------------------- */
++    --radius-xs: 6px;
++    --radius-sm: 10px;
++    --radius-md: 14px;
++    --radius-lg: 18px;
++    --radius-xl: 24px;
++    --radius-2xl: 32px;
++    --radius-full: 9999px;
++    /* ------------------------------------------------------------------------
++   * Spacing
++   * ---------------------------------------------------------------------- */
++    --space-1: 0.25rem;
++    --space-2: 0.5rem;
++    --space-3: 0.75rem;
++    --space-4: 1rem;
++    --space-5: 1.25rem;
++    --space-6: 1.5rem;
++    --space-8: 2rem;
++    --space-10: 2.5rem;
++    --space-12: 3rem;
++    --space-16: 4rem;
++  /* ------------------------------------------------------------------------
++   * Shadows
++   * ---------------------------------------------------------------------- */
++    --shadow-xs: 0 2px 4px rgb(0 0 0 / 0.2);
++    --shadow-sm: 0 4px 12px rgb(0 0 0 / 0.22);
++    --shadow-md: 0 12px 40px rgb(0 0 0 / 0.28);
++    --shadow-lg: 0 20px 70px rgb(0 0 0 / 0.35);
++    --shadow-xl: 0 40px 120px rgb(0 0 0 / 0.45);
++    --shadow-glow: 0 0 60px rgb(91 132 255 / 0.25);
++    --shadow-accent: 0 0 40px
++        color-mix(in srgb, var(--dex-primary) 40%, transparent);
++  /* ------------------------------------------------------------------------
++   * Motion
++   * ---------------------------------------------------------------------- */
++    --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
++    --ease-spring: cubic-bezier(0.18, 1.15, 0.3, 1);
++    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
++    --duration-fast: 120ms;
++    --duration-normal: 220ms;
++    --duration-slow: 360ms;
++    --duration-slower: 600ms;
++
++    --hud-height: 72px;
++    --sidebar-width: 280px;
++    --sidebar-collapsed-width: 76px;
++    --dock-height: 76px;
++    --status-height: 34px;
++    --shell-padding: 32px;
++    --content-max-width: 1200px;
++    --content-gap: 24px;
++    --dock-icon: 54px;
++    --dock-scale: 1.45;
++
++    /* ------------------------------------------------------------------------
++   * Z Index
++   * ---------------------------------------------------------------------- */
++
++    --z-background: -10;
++    --z-content: 1;
++    --z-floating: 10;
++    --z-sidebar: 20;
++    --z-dock: 40;
++    --z-status: 45;
++    --z-hud: 50;
++    --z-overlay: 100;
++    --z-dialog: 150;
++    --z-toast: 200;
++    --z-tooltip: 300;
++
++    /* ------------------------------------------------------------------------
++   * Aurora
++   * ---------------------------------------------------------------------- */
++
++    --aurora-blue: rgb(85 110 255 / 0.4);
++    --aurora-purple: rgb(180 80 255 / 0.35);
++    --aurora-cyan: rgb(40 210 255 / 0.3);
++    --aurora-green: rgb(70 255 190 / 0.2);
++
++    /* ------------------------------------------------------------------------
++   * Noise
++   * ---------------------------------------------------------------------- */
++
++    --noise-opacity: 0.03;
++
++    /* ------------------------------------------------------------------------
++   * Selection
++   * ---------------------------------------------------------------------- */
++
++    --selection-bg: color-mix(in srgb, var(--dex-primary) 55%, transparent);
++
++    --selection-text: white;
++
++    /* ------------------------------------------------------------------------
++   * Focus
++   * ---------------------------------------------------------------------- */
++    --focus-ring:
++        0 0 0 2px rgb(255 255 255 / 0.15),
++        0 0 0 5px color-mix(in srgb, var(--dex-primary) 55%, transparent);
++
++    /* ------------------------------------------------------------------------
++   * Scrollbars
++   * ---------------------------------------------------------------------- */
++    --scrollbar-bg: transparent;
++    --scrollbar-thumb: rgb(255 255 255 / 0.12);
++    --scrollbar-thumb-hover: rgb(255 255 255 / 0.22);
++}
+diff --git a/src/lib/ui/styles/utilities.css b/src/lib/ui/styles/utilities.css
+new file mode 100644
+index 0000000000000000000000000000000000000000..b167774dcc1284531e6bca1b788ef1dbc9bce843
+--- /dev/null
++++ b/src/lib/ui/styles/utilities.css
+@@ -0,0 +1,262 @@
++/* ==========================================================================
++   DEX Utilities
++   ========================================================================== */
++
++/* -------------------------------------------------------------------------- */
++/* Radius */
++/* -------------------------------------------------------------------------- */
++
++.dex-radius-sm {
++    border-radius: var(--radius-sm);
++}
++
++.dex-radius-md {
++    border-radius: var(--radius-md);
++}
++
++.dex-radius-lg {
++    border-radius: var(--radius-lg);
++}
++
++.dex-radius-xl {
++    border-radius: var(--radius-xl);
++}
++
++.dex-radius-full {
++    border-radius: var(--radius-full);
++}
++
++/* -------------------------------------------------------------------------- */
++/* Blur */
++/* -------------------------------------------------------------------------- */
++
++.dex-blur-none {
++    backdrop-filter: none;
++    -webkit-backdrop-filter: none;
++}
++
++.dex-blur-sm {
++    backdrop-filter: blur(var(--blur-sm));
++    -webkit-backdrop-filter: blur(var(--blur-sm));
++}
++
++.dex-blur-md {
++    backdrop-filter: blur(var(--blur-md));
++    -webkit-backdrop-filter: blur(var(--blur-md));
++}
++
++.dex-blur-lg {
++    backdrop-filter: blur(var(--blur-lg));
++    -webkit-backdrop-filter: blur(var(--blur-lg));
++}
++
++.dex-blur-xl {
++    backdrop-filter: blur(var(--blur-xl));
++    -webkit-backdrop-filter: blur(var(--blur-xl));
++}
++
++/* -------------------------------------------------------------------------- */
++/* Borders */
++/* -------------------------------------------------------------------------- */
++
++.dex-border {
++    border: 1px solid var(--border-default);
++}
++
++.dex-border-subtle {
++    border: 1px solid var(--border-subtle);
++}
++
++.dex-border-strong {
++    border: 1px solid var(--border-strong);
++}
++
++/* -------------------------------------------------------------------------- */
++/* Shadows */
++/* -------------------------------------------------------------------------- */
++
++.dex-shadow-sm {
++    box-shadow: var(--shadow-sm);
++}
++
++.dex-shadow-md {
++    box-shadow: var(--shadow-md);
++}
++
++.dex-shadow-lg {
++    box-shadow: var(--shadow-lg);
++}
++
++.dex-shadow-glow {
++    box-shadow:
++        var(--shadow-md),
++        var(--shadow-glow);
++}
++
++/* -------------------------------------------------------------------------- */
++/* Glow */
++/* -------------------------------------------------------------------------- */
++
++.dex-glow {
++    box-shadow:
++        var(--shadow-md),
++        var(--shadow-glow);
++}
++
++/* -------------------------------------------------------------------------- */
++/* Glass */
++/* -------------------------------------------------------------------------- */
++
++.dex-glass {
++    position: relative;
++
++    overflow: hidden;
++
++    isolation: isolate;
++
++    background: var(--surface-1);
++
++    border: 1px solid var(--glass-border);
++
++    backdrop-filter: blur(var(--blur-lg));
++
++    -webkit-backdrop-filter: blur(var(--blur-lg));
++
++    transition:
++        background-color var(--duration-fast) var(--ease-standard),
++        border-color var(--duration-fast) var(--ease-standard),
++        transform var(--duration-fast) var(--ease-standard),
++        box-shadow var(--duration-fast) var(--ease-standard);
++}
++
++.dex-glass::before {
++    content: "";
++
++    position: absolute;
++    inset: 0;
++
++    pointer-events: none;
++
++    background:
++        linear-gradient(
++            180deg,
++            rgb(255 255 255 / 0.12),
++            transparent 45%
++        );
++
++    opacity: .7;
++}
++
++.dex-glass-panel {
++    background: rgb(18 22 30 / .6);
++}
++
++.dex-glass-elevated {
++    background: var(--surface-2);
++
++    border-color: var(--glass-border-strong);
++}
++
++.dex-glass-raised {
++    background: var(--surface-3);
++
++    border-color: var(--glass-border-strong);
++}
++
++.dex-glass-hud {
++    background: var(--hud-bg);
++
++    border-color: var(--hud-border);
++}
++
++.dex-glass-sidebar {
++    background: var(--sidebar-bg);
++}
++
++.dex-glass-dock {
++    background: var(--dock-bg);
++
++    border-color: var(--dock-border);
++}
++
++/* -------------------------------------------------------------------------- */
++/* Interactive */
++/* -------------------------------------------------------------------------- */
++
++.dex-interactive {
++    cursor: pointer;
++
++    transition:
++        transform var(--duration-fast) var(--ease-standard),
++        box-shadow var(--duration-fast) var(--ease-standard),
++        border-color var(--duration-fast) var(--ease-standard),
++        background-color var(--duration-fast) var(--ease-standard);
++}
++
++.dex-interactive:hover {
++    transform: translateY(-2px);
++
++    border-color: var(--glass-border-strong);
++
++    box-shadow:
++        var(--shadow-lg),
++        var(--shadow-glow);
++}
++
++.dex-interactive:active {
++    transform: scale(.985);
++}
++
++.dex-interactive:focus-visible {
++    outline: none;
++
++    box-shadow: var(--focus-ring);
++}
++/* ========================================================================== */
++/* Background */
++/* ========================================================================== */
++
++.dex-aurora {
++	position: absolute;
++	inset: -25%;
++
++	background:
++		radial-gradient(circle at 20% 20%, var(--aurora-blue), transparent 35%),
++		radial-gradient(circle at 80% 10%, var(--aurora-purple), transparent 30%),
++		radial-gradient(circle at 50% 100%, var(--aurora-cyan), transparent 35%);
++
++	filter: blur(120px);
++
++	animation: dexAurora 24s linear infinite alternate;
++}
++
++.dex-grid {
++	position: absolute;
++	inset: 0;
++
++	background-image:
++		linear-gradient(var(--border-subtle) 1px, transparent 1px),
++		linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
++
++	background-size: 48px 48px;
++
++	mask-image: radial-gradient(circle, black, transparent 90%);
++
++	opacity: .35;
++}
++
++@keyframes dexAurora {
++
++	from {
++		transform:
++			translate3d(0,0,0)
++			scale(1);
++	}
++
++	to {
++		transform:
++			translate3d(4%,2%,0)
++			scale(1.08);
++	}
++
++}
+diff --git a/src/lib/ui/themes/cyber.ts b/src/lib/ui/themes/cyber.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..b2f4d5b044e4a0c0a693f88a4fb08fc5e9758995
+--- /dev/null
++++ b/src/lib/ui/themes/cyber.ts
+@@ -0,0 +1,57 @@
++import type { Theme, ThemePalette } from "./types";
++
++/**
++ * Cyber — neon glass.
++ *
++ * Mirrors the semantic layer for
++ * [data-theme="cyber"].
++ */
++export const cyber: Theme = {
++    id: "cyber",
++    name: "cyber",
++
++    palette: {
++        name: "cyber",
++
++        /* Brand */
++
++        accent: "#66e6ff",
++        accentStrong: "#00e5ff",
++
++        /* Surfaces */
++
++        background: "#060a14",
++
++        surface1: "rgba(8, 12, 24, 0.45)",
++        surface2: "rgba(8, 12, 24, 0.70)",
++        surface3: "rgba(255, 255, 255, 0.10)",
++
++        /* Typography */
++
++        text1: "#ffffff",
++        text2: "#a8e6f7",
++
++        /* Borders */
++
++        border: "rgba(0, 229, 255, 0.30)",
++
++        /* Graphics */
++
++        gridLine: "rgba(160, 110, 255, 0.10)",
++        gridGlow: "rgba(102, 230, 255, 0.30)",
++
++        ambient: "#081221",
++        fog: "#060a14",
++
++        particle: "#66e6ff",
++        particleGlow: "#00ffff",
++
++        /* Semantic */
++
++        selection: "rgba(102, 230, 255, 0.22)",
++
++        success: "#22c55e",
++        warning: "#facc15",
++        danger: "#ff4d6d"
++    } satisfies ThemePalette
++};
+diff --git a/src/lib/ui/themes/dark.ts b/src/lib/ui/themes/dark.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..54ee2f12a5787edad022c34d53ba370c1bec5c5f
+--- /dev/null
++++ b/src/lib/ui/themes/dark.ts
+@@ -0,0 +1,57 @@
++import type { Theme, ThemePalette } from "./types";
++
++/**
++ * Dark — default DEX identity.
++ *
++ * Mirrors the default (:root) semantic tokens defined in
++ * src/lib/ui/styles/tokens.css.
++ */
++export const dark: Theme = {
++    id: "dark",
++    name: "dark",
++
++    palette: {
++        name: "dark",
++
++        /* Brand */
++
++        accent: "#5ddcff",
++        accentStrong: "#00d4ff",
++
++        /* Surfaces */
++
++        background: "#05070b",
++
++        surface1: "rgba(15, 20, 30, 0.35)",
++        surface2: "rgba(15, 20, 30, 0.60)",
++        surface3: "rgba(255, 255, 255, 0.08)",
++
++        /* Typography */
++
++        text1: "#ffffff",
++        text2: "#9ecad8",
++
++        /* Borders */
++
++        border: "rgba(0, 212, 255, 0.20)",
++
++        /* Graphics */
++
++        gridLine: "rgba(0, 212, 255, 0.05)",
++        gridGlow: "rgba(0, 212, 255, 0.18)",
++
++        ambient: "#0d1726",
++        fog: "#05070b",
++
++        particle: "#5ddcff",
++        particleGlow: "#00d4ff",
++
++        /* Semantic */
++
++        selection: "rgba(0, 212, 255, 0.22)",
++
++        success: "#32d583",
++        warning: "#f5b942",
++        danger: "#ef4444"
++    } satisfies ThemePalette
++};
+diff --git a/src/lib/ui/themes/index.ts b/src/lib/ui/themes/index.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..a3f382e2910efef57e6754f74c2d6ce7408de61a
+--- /dev/null
++++ b/src/lib/ui/themes/index.ts
+@@ -0,0 +1,11 @@
++import { dark } from "./dark";
++import { light } from "./light";
++import { cyber } from "./cyber";
++
++export const themes = {
++    dark,
++    light,
++    cyber
++} as const;
++
++export type ThemeId = keyof typeof themes;
+diff --git a/src/lib/ui/themes/light.ts b/src/lib/ui/themes/light.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..aaf4c55d3094703b052f97e82ab6d648264ded71
+--- /dev/null
++++ b/src/lib/ui/themes/light.ts
+@@ -0,0 +1,57 @@
++import type { Theme, ThemePalette } from "./types";
++
++/**
++ * Light — glass desktop.
++ *
++ * Mirrors the semantic layer for
++ * [data-theme="light"].
++ */
++export const light: Theme = {
++    id: "light",
++    name: "light",
++
++    palette: {
++        name: "light",
++
++        /* Brand */
++
++        accent: "#0090b3",
++        accentStrong: "#00709a",
++
++        /* Surfaces */
++
++        background: "#e8eef2",
++
++        surface1: "rgba(255, 255, 255, 0.45)",
++        surface2: "rgba(255, 255, 255, 0.68)",
++        surface3: "rgba(15, 20, 30, 0.06)",
++
++        /* Typography */
++
++        text1: "#0b141d",
++        text2: "#2e4d61",
++
++        /* Borders */
++
++        border: "rgba(0, 112, 154, 0.35)",
++
++        /* Graphics */
++
++        gridLine: "rgba(0, 144, 179, 0.14)",
++        gridGlow: "rgba(0, 144, 179, 0.25)",
++
++        ambient: "#ffffff",
++        fog: "#dde5ea",
++
++        particle: "#0090b3",
++        particleGlow: "#00b5dd",
++
++        /* Semantic */
++
++        selection: "rgba(0, 144, 179, 0.18)",
++
++        success: "#16a34a",
++        warning: "#d97706",
++        danger: "#dc2626"
++    } satisfies ThemePalette
++};
+diff --git a/src/lib/ui/themes/types.ts b/src/lib/ui/themes/types.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..cf8bce6fac894597e6fb5ee643256b18ef19592a
+--- /dev/null
++++ b/src/lib/ui/themes/types.ts
+@@ -0,0 +1,90 @@
++/**
++ * ThemePalette
++ *
++ * Runtime mirror of the semantic CSS layer.
++ *
++ * CSS remains the source of truth.
++ * Every value here MUST equal its resolved counterpart in
++ * src/lib/ui/styles/tokens.css.
++ *
++ * Used by:
++ * - DOM components
++ * - Canvas
++ * - Three.js
++ * - WebGL shaders
++ * - Particle engine
++ * - Charts
++ * - Widgets
++ */
++
++export interface ThemePalette {
++    /* --------------------------------------------------------------------- */
++    /* Identity                                                              */
++    /* --------------------------------------------------------------------- */
++
++    readonly name: ThemeMode;
++
++    /* --------------------------------------------------------------------- */
++    /* Brand                                                                 */
++    /* --------------------------------------------------------------------- */
++
++    readonly accent: string;
++    readonly accentStrong: string;
++
++    /* --------------------------------------------------------------------- */
++    /* Surfaces                                                              */
++    /* --------------------------------------------------------------------- */
++
++    readonly background: string;
++
++    readonly surface1: string;
++    readonly surface2: string;
++    readonly surface3: string;
++
++    /* --------------------------------------------------------------------- */
++    /* Typography                                                            */
++    /* --------------------------------------------------------------------- */
++
++    readonly text1: string;
++    readonly text2: string;
++
++    /* --------------------------------------------------------------------- */
++    /* Borders                                                               */
++    /* --------------------------------------------------------------------- */
++
++    readonly border: string;
++
++    /* --------------------------------------------------------------------- */
++    /* Graphics                                                              */
++    /* --------------------------------------------------------------------- */
++
++    readonly gridLine: string;
++    readonly gridGlow: string;
++
++    readonly ambient: string;
++    readonly fog: string;
++
++    readonly particle: string;
++    readonly particleGlow: string;
++
++    /* --------------------------------------------------------------------- */
++    /* Semantic                                                              */
++    /* --------------------------------------------------------------------- */
++
++    readonly selection: string;
++
++    readonly success: string;
++    readonly warning: string;
++    readonly danger: string;
++}
++
++export type ThemeMode =
++    | "light"
++    | "dark"
++    | "cyber";
++
++export interface Theme {
++    readonly id: ThemeMode;
++    readonly name: ThemeMode;
++    readonly palette: ThemePalette;
++}
+diff --git a/src/routes/+layout.svelte b/src/routes/+layout.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..af56f855ea3f77bfb48ce040db2f2d8b6a6a69f1
+--- /dev/null
++++ b/src/routes/+layout.svelte
+@@ -0,0 +1,24 @@
++<script lang="ts">
++	import "../app.css";
++
++	import { onMount } from "svelte";
++
++	import { HUD } from "$lib/ui/layout";
++	import { themeStore } from "$lib/core/stores/theme.svelte";
++
++	import type { Snippet } from "svelte";
++
++	interface Props {
++		children?: Snippet;
++	}
++
++	let { children }: Props = $props();
++
++	onMount(() => {
++		themeStore.init();
++	});
++</script>
++
++<HUD>
++	{@render children?.()}
++</HUD>
+diff --git a/src/routes/+layout.ts b/src/routes/+layout.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..9d2489908df3fa7e2e5ef75e6f13b3842079eeaf
+--- /dev/null
++++ b/src/routes/+layout.ts
+@@ -0,0 +1,5 @@
++// Tauri doesn't have a Node.js server to do proper SSR
++// so we use adapter-static with a fallback to index.html to put the site in SPA mode
++// See: https://svelte.dev/docs/kit/single-page-apps
++// See: https://v2.tauri.app/start/frontend/sveltekit/ for more info
++export const ssr = false;
+diff --git a/src/routes/+page.svelte b/src/routes/+page.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..64d8c5bbbba916ba26a6cbe412c607b329704bbb
+--- /dev/null
++++ b/src/routes/+page.svelte
+@@ -0,0 +1,123 @@
++<script lang="ts">
++	import {
++		Activity,
++		Bot,
++		Database,
++		FolderKanban,
++		Package as PackageIcon
++	} from "lucide-svelte";
++
++	import { Badge, Button, GlassPanel } from "$lib/ui/primitives";
++
++	const stats = [
++		{
++			title: "Projects",
++			value: "12",
++			icon: FolderKanban
++		},
++		{
++			title: "Agents",
++			value: "4",
++			icon: Bot
++		},
++		{
++			title: "Databases",
++			value: "7",
++			icon: Database
++		},
++		{
++			title: "Plugins",
++			value: "16",
++			icon: PackageIcon
++		}
++	];
++</script>
++
++<div class="flex flex-col gap-6">
++
++	<header class="flex items-center justify-between">
++		<div>
++			<h1 class="text-4xl font-bold">
++				Welcome Back
++			</h1>
++
++			<p class="mt-2 text-(--text-muted)">
++				Your Digital Experience Dashboard
++			</p>
++		</div>
++
++		<Button glow>
++			New Project
++		</Button>
++	</header>
++
++	<section class="grid grid-cols-4 gap-6">
++
++		{#each stats as stat}
++
++			<GlassPanel
++				interactive
++				class="flex items-center gap-4"
++			>
++				<div class="rounded-xl bg-(--surface-3) p-4">
++					<stat.icon class="size-6 text-(--dex-primary)" />
++				</div>
++
++				<div>
++					<p class="text-sm text-(--text-muted)">
++						{stat.title}
++					</p>
++
++					<h2 class="text-3xl font-bold">
++						{stat.value}
++					</h2>
++				</div>
++			</GlassPanel>
++
++		{/each}
++
++	</section>
++
++	<section class="grid grid-cols-3 gap-6">
++
++		<GlassPanel
++			class="col-span-2 min-h-105"
++		>
++			<div class="mb-6 flex items-center justify-between">
++				<h2 class="text-xl font-semibold">
++					Activity
++				</h2>
++
++				<Badge>
++					Live
++				</Badge>
++			</div>
++
++			<div class="flex h-full items-center justify-center text-(--text-muted)">
++				<Activity class="size-16 opacity-50" />
++			</div>
++
++		</GlassPanel>
++
++		<GlassPanel
++			class="min-h-105"
++		>
++			<div class="mb-6 flex items-center justify-between">
++				<h2 class="text-xl font-semibold">
++					AI Assistant
++				</h2>
++
++				<Badge variant="accent">
++					Online
++				</Badge>
++			</div>
++
++			<div class="flex h-full items-center justify-center text-(--text-muted)">
++				<Bot class="size-16 opacity-60" />
++			</div>
++
++		</GlassPanel>
++
++	</section>
++
++</div>
+diff --git a/src/routes/dashboard/+page.svelte b/src/routes/dashboard/+page.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/routes/plugins/+page.svelte b/src/routes/plugins/+page.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/routes/settings/+page.svelte b/src/routes/settings/+page.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/routes/terminal/+page.svelte b/src/routes/terminal/+page.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/static/favicon.png b/static/favicon.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..825b9e65af7c104cfb07089bb28659393b4f2097
+Binary files /dev/null and b/static/favicon.png differ
+diff --git a/static/manifest.json b/static/manifest.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/static/robots.txt b/static/robots.txt
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/static/svelte.svg b/static/svelte.svg
+new file mode 100644
+index 0000000000000000000000000000000000000000..c5e08481f8aede5a6cc897b0f034e806a8617d7d
+--- /dev/null
++++ b/static/svelte.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="26.6" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 308"><path fill="#FF3E00" d="M239.682 40.707C211.113-.182 154.69-12.301 113.895 13.69L42.247 59.356a82.198 82.198 0 0 0-37.135 55.056a86.566 86.566 0 0 0 8.536 55.576a82.425 82.425 0 0 0-12.296 30.719a87.596 87.596 0 0 0 14.964 66.244c28.574 40.893 84.997 53.007 125.787 27.016l71.648-45.664a82.182 82.182 0 0 0 37.135-55.057a86.601 86.601 0 0 0-8.53-55.577a82.409 82.409 0 0 0 12.29-30.718a87.573 87.573 0 0 0-14.963-66.244"></path><path fill="#FFF" d="M106.889 270.841c-23.102 6.007-47.497-3.036-61.103-22.648a52.685 52.685 0 0 1-9.003-39.85a49.978 49.978 0 0 1 1.713-6.693l1.35-4.115l3.671 2.697a92.447 92.447 0 0 0 28.036 14.007l2.663.808l-.245 2.659a16.067 16.067 0 0 0 2.89 10.656a17.143 17.143 0 0 0 18.397 6.828a15.786 15.786 0 0 0 4.403-1.935l71.67-45.672a14.922 14.922 0 0 0 6.734-9.977a15.923 15.923 0 0 0-2.713-12.011a17.156 17.156 0 0 0-18.404-6.832a15.78 15.78 0 0 0-4.396 1.933l-27.35 17.434a52.298 52.298 0 0 1-14.553 6.391c-23.101 6.007-47.497-3.036-61.101-22.649a52.681 52.681 0 0 1-9.004-39.849a49.428 49.428 0 0 1 22.34-33.114l71.664-45.677a52.218 52.218 0 0 1 14.563-6.398c23.101-6.007 47.497 3.036 61.101 22.648a52.685 52.685 0 0 1 9.004 39.85a50.559 50.559 0 0 1-1.713 6.692l-1.35 4.116l-3.67-2.693a92.373 92.373 0 0 0-28.037-14.013l-2.664-.809l.246-2.658a16.099 16.099 0 0 0-2.89-10.656a17.143 17.143 0 0 0-18.398-6.828a15.786 15.786 0 0 0-4.402 1.935l-71.67 45.674a14.898 14.898 0 0 0-6.73 9.975a15.9 15.9 0 0 0 2.709 12.012a17.156 17.156 0 0 0 18.404 6.832a15.841 15.841 0 0 0 4.402-1.935l27.345-17.427a52.147 52.147 0 0 1 14.552-6.397c23.101-6.006 47.497 3.037 61.102 22.65a52.681 52.681 0 0 1 9.003 39.848a49.453 49.453 0 0 1-22.34 33.12l-71.664 45.673a52.218 52.218 0 0 1-14.563 6.398"></path></svg>
+\ No newline at end of file
+diff --git a/static/tauri.svg b/static/tauri.svg
+new file mode 100644
+index 0000000000000000000000000000000000000000..31b62c92804b76aa2896dfd4bfca252255667332
+--- /dev/null
++++ b/static/tauri.svg
+@@ -0,0 +1,6 @@
++<svg width="206" height="231" viewBox="0 0 206 231" fill="none" xmlns="http://www.w3.org/2000/svg">
++<path d="M143.143 84C143.143 96.1503 133.293 106 121.143 106C108.992 106 99.1426 96.1503 99.1426 84C99.1426 71.8497 108.992 62 121.143 62C133.293 62 143.143 71.8497 143.143 84Z" fill="#FFC131"/>
++<ellipse cx="84.1426" cy="147" rx="22" ry="22" transform="rotate(180 84.1426 147)" fill="#24C8DB"/>
++<path fill-rule="evenodd" clip-rule="evenodd" d="M166.738 154.548C157.86 160.286 148.023 164.269 137.757 166.341C139.858 160.282 141 153.774 141 147C141 144.543 140.85 142.121 140.558 139.743C144.975 138.204 149.215 136.139 153.183 133.575C162.73 127.404 170.292 118.608 174.961 108.244C179.63 97.8797 181.207 86.3876 179.502 75.1487C177.798 63.9098 172.884 53.4021 165.352 44.8883C157.82 36.3744 147.99 30.2165 137.042 27.1546C126.095 24.0926 114.496 24.2568 103.64 27.6274C92.7839 30.998 83.1319 37.4317 75.8437 46.1553C74.9102 47.2727 74.0206 48.4216 73.176 49.5993C61.9292 50.8488 51.0363 54.0318 40.9629 58.9556C44.2417 48.4586 49.5653 38.6591 56.679 30.1442C67.0505 17.7298 80.7861 8.57426 96.2354 3.77762C111.685 -1.01901 128.19 -1.25267 143.769 3.10474C159.348 7.46215 173.337 16.2252 184.056 28.3411C194.775 40.457 201.767 55.4101 204.193 71.404C206.619 87.3978 204.374 103.752 197.73 118.501C191.086 133.25 180.324 145.767 166.738 154.548ZM41.9631 74.275L62.5557 76.8042C63.0459 72.813 63.9401 68.9018 65.2138 65.1274C57.0465 67.0016 49.2088 70.087 41.9631 74.275Z" fill="#FFC131"/>
++<path fill-rule="evenodd" clip-rule="evenodd" d="M38.4045 76.4519C47.3493 70.6709 57.2677 66.6712 67.6171 64.6132C65.2774 70.9669 64 77.8343 64 85.0001C64 87.1434 64.1143 89.26 64.3371 91.3442C60.0093 92.8732 55.8533 94.9092 51.9599 97.4256C42.4128 103.596 34.8505 112.392 30.1816 122.756C25.5126 133.12 23.9357 144.612 25.6403 155.851C27.3449 167.09 32.2584 177.598 39.7906 186.112C47.3227 194.626 57.153 200.784 68.1003 203.846C79.0476 206.907 90.6462 206.743 101.502 203.373C112.359 200.002 122.011 193.568 129.299 184.845C130.237 183.722 131.131 182.567 131.979 181.383C143.235 180.114 154.132 176.91 164.205 171.962C160.929 182.49 155.596 192.319 148.464 200.856C138.092 213.27 124.357 222.426 108.907 227.222C93.458 232.019 76.9524 232.253 61.3736 227.895C45.7948 223.538 31.8055 214.775 21.0867 202.659C10.3679 190.543 3.37557 175.59 0.949823 159.596C-1.47592 143.602 0.768139 127.248 7.41237 112.499C14.0566 97.7497 24.8183 85.2327 38.4045 76.4519ZM163.062 156.711L163.062 156.711C162.954 156.773 162.846 156.835 162.738 156.897C162.846 156.835 162.954 156.773 163.062 156.711Z" fill="#24C8DB"/>
++</svg>
+diff --git a/static/vite.svg b/static/vite.svg
+new file mode 100644
+index 0000000000000000000000000000000000000000..e7b8dfb1b2a60bd50538bec9f876511b9cac21e3
+--- /dev/null
++++ b/static/vite.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="31.88" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 257"><defs><linearGradient id="IconifyId1813088fe1fbc01fb466" x1="-.828%" x2="57.636%" y1="7.652%" y2="78.411%"><stop offset="0%" stop-color="#41D1FF"></stop><stop offset="100%" stop-color="#BD34FE"></stop></linearGradient><linearGradient id="IconifyId1813088fe1fbc01fb467" x1="43.376%" x2="50.316%" y1="2.242%" y2="89.03%"><stop offset="0%" stop-color="#FFEA83"></stop><stop offset="8.333%" stop-color="#FFDD35"></stop><stop offset="100%" stop-color="#FFA800"></stop></linearGradient></defs><path fill="url(#IconifyId1813088fe1fbc01fb466)" d="M255.153 37.938L134.897 252.976c-2.483 4.44-8.862 4.466-11.382.048L.875 37.958c-2.746-4.814 1.371-10.646 6.827-9.67l120.385 21.517a6.537 6.537 0 0 0 2.322-.004l117.867-21.483c5.438-.991 9.574 4.796 6.877 9.62Z"></path><path fill="url(#IconifyId1813088fe1fbc01fb467)" d="M185.432.063L96.44 17.501a3.268 3.268 0 0 0-2.634 3.014l-5.474 92.456a3.268 3.268 0 0 0 3.997 3.378l24.777-5.718c2.318-.535 4.413 1.507 3.936 3.838l-7.361 36.047c-.495 2.426 1.782 4.5 4.151 3.78l15.304-4.649c2.372-.72 4.652 1.36 4.15 3.788l-11.698 56.621c-.732 3.542 3.979 5.473 5.943 2.437l1.313-2.028l72.516-144.72c1.215-2.423-.88-5.186-3.54-4.672l-25.505 4.922c-2.396.462-4.435-1.77-3.759-4.114l16.646-57.705c.677-2.35-1.37-4.583-3.769-4.113Z"></path></svg>
+\ No newline at end of file
+diff --git a/svelte.config.js b/svelte.config.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..a7830eaa9e1aa04a6a13058dc12eb678a44947ef
+--- /dev/null
++++ b/svelte.config.js
+@@ -0,0 +1,18 @@
++// Tauri doesn't have a Node.js server to do proper SSR
++// so we use adapter-static with a fallback to index.html to put the site in SPA mode
++// See: https://svelte.dev/docs/kit/single-page-apps
++// See: https://v2.tauri.app/start/frontend/sveltekit/ for more info
++import adapter from "@sveltejs/adapter-static";
++import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
++
++/** @type {import('@sveltejs/kit').Config} */
++const config = {
++  preprocess: vitePreprocess(),
++  kit: {
++    adapter: adapter({
++      fallback: "index.html",
++    }),
++  },
++};
++
++export default config;
+diff --git a/tests/backend/.gitkeep b/tests/backend/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/tests/e2e/.gitkeep b/tests/e2e/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/tests/frontend/.gitkeep b/tests/frontend/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/tests/integration/.gitkeep b/tests/integration/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/tests/unit/.gitkeep b/tests/unit/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/tsconfig.json b/tsconfig.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..f4d0a0e1679b4cf87b8732b46a8c0c8aa77ec35d
+--- /dev/null
++++ b/tsconfig.json
+@@ -0,0 +1,19 @@
++{
++  "extends": "./.svelte-kit/tsconfig.json",
++  "compilerOptions": {
++    "allowJs": true,
++    "checkJs": true,
++    "esModuleInterop": true,
++    "forceConsistentCasingInFileNames": true,
++    "resolveJsonModule": true,
++    "skipLibCheck": true,
++    "sourceMap": true,
++    "strict": true,
++    "moduleResolution": "bundler"
++  }
++  // Path aliases are handled by https://svelte.dev/docs/kit/configuration#alias
++  // except $lib which is handled by https://svelte.dev/docs/kit/configuration#files
++  //
++  // If you want to overwrite includes/excludes, make sure to copy over the relevant includes/excludes
++  // from the referenced tsconfig.json - TypeScript does not merge them in
++}
+diff --git a/vite.config.js b/vite.config.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..db2322c5db397ec2ddc854685905ba46f44942dd
+--- /dev/null
++++ b/vite.config.js
+@@ -0,0 +1,33 @@
++import { defineConfig } from "vite";
++import { sveltekit } from "@sveltejs/kit/vite";
++import tailwindcss from "@tailwindcss/vite";
++
++// @ts-expect-error process is a nodejs global
++const host = process.env.TAURI_DEV_HOST;
++
++// https://vite.dev/config/
++export default defineConfig(async () => ({
++  plugins: [sveltekit(), tailwindcss()],
++
++  // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
++  //
++  // 1. prevent Vite from obscuring rust errors
++  clearScreen: false,
++  // 2. tauri expects a fixed port, fail if that port is not available
++  server: {
++    port: 1420,
++    strictPort: true,
++    host: host || false,
++    hmr: host
++      ? {
++          protocol: "ws",
++          host,
++          port: 1421,
++        }
++      : undefined,
++    watch: {
++      // 3. tell Vite to ignore watching `src-tauri`
++      ignored: ["**/src-tauri/**"],
++    },
++  },
++}));
