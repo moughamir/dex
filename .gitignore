@@ -13,4 +13,3 @@ vite.config.ts.timestamp-*
 .slim/deepwork/
 .ignore
 .obsidian/
-AGENTS.md AUDIT_FIXES_PROMPT.md README.md
