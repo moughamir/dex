@@ -5,7 +5,7 @@ pub mod events;
 pub mod provider;
 pub mod statistics;
 
-pub use adapter::NetworkAdapter;
+pub use adapter::{NetworkAdapter, NetworkRoute};
 pub use connection::{ConnectionState, NetworkConnection};
 pub use errors::NetworkError;
 pub use events::NetworkEvent;

@@ -1,7 +1,7 @@
 use std::fmt;
 
 /// Errors returned by the Process provider.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ProcessError {
     ProcessNotFound { pid: u32 },
 

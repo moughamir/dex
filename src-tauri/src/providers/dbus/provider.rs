@@ -71,4 +71,39 @@ impl<'a> DbusProxy<'a> {
                 reason: error.to_string(),
             })
     }
+
+    /// Reads a property on the proxied object.
+    ///
+    /// Calls `org.freedesktop.DBus.Properties.Get` with the proxy's
+    /// interface and deserializes the reply into `T`.
+    pub async fn get_property<T>(&self, name: &str) -> Result<T, DbusError>
+    where
+        T: TryFrom<zvariant::OwnedValue>,
+        T::Error: Into<zbus::Error>,
+    {
+        self.proxy
+            .get_property(name)
+            .await
+            .map_err(|error| DbusError::MethodCallFailed {
+                method: format!("Get({name})"),
+                reason: error.to_string(),
+            })
+    }
+
+    /// Writes a property on the proxied object.
+    ///
+    /// Calls `org.freedesktop.DBus.Properties.Set` with the proxy's
+    /// interface.
+    pub async fn set_property<T>(&self, name: &str, value: T) -> Result<(), DbusError>
+    where
+        T: for<'t> Into<zvariant::Value<'t>>,
+    {
+        self.proxy
+            .set_property(name, value)
+            .await
+            .map_err(|error| DbusError::MethodCallFailed {
+                method: format!("Set({name})"),
+                reason: error.to_string(),
+            })
+    }
 }

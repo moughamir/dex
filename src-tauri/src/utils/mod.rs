@@ -3,3 +3,4 @@
 //! Only real modules are declared; placeholders join as their phase lands.
 
 pub mod errors;
+pub mod logger;
