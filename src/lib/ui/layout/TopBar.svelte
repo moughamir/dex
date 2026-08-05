@@ -1,8 +1,17 @@
 <script lang="ts">
     import { Bell, Settings2 } from "lucide-svelte";
 
+    import { shellStore } from "$lib/core/stores/shell.svelte";
+    import { DOCK_WORKSPACES } from "$lib/core/config/navigation";
+
     import { Button, GlassPanel } from "$lib/ui/primitives";
     import { SearchBox } from "$lib/ui/navigation";
+
+    const activeWorkspace = $derived(
+        DOCK_WORKSPACES.find(
+            (workspace) => workspace.id === shellStore.activeWorkspace
+        )
+    );
 
     let query = $state("");
 </script>
@@ -27,7 +36,7 @@
                 <h1 class="text-sm font-semibold">DEX</h1>
 
                 <p class="text-xs text-(--text-muted)">
-                    Digital Experience
+                    {activeWorkspace?.label ?? "Digital Experience"}
                 </p>
             </div>
         </div>

@@ -16,6 +16,21 @@
     --dex-warning: oklch(0.83 0.18 82);
     --dex-danger: oklch(0.67 0.23 28);
     /* ------------------------------------------------------------------------
+   * DEX aliases — legacy `--dex-*` vocabulary mapped onto the semantic tokens
+   * ---------------------------------------------------------------------- */
+    --dex-border-subtle: var(--border-subtle);
+    --dex-surface-2: var(--surface-2);
+    --dex-text-1: var(--text-primary);
+    --dex-radius-sm: var(--radius-sm);
+    --dex-space-2: var(--space-2);
+    --dex-space-3: var(--space-3);
+    --dex-font-size-xs: 0.75rem;
+    --dex-tracking-wide: 0.025em;
+    --dex-duration-base: var(--duration-normal);
+    --dex-duration-fast: var(--duration-fast);
+    --dex-ease-out: var(--ease-standard);
+    --dex-z-tooltip: var(--z-tooltip);
+    /* ------------------------------------------------------------------------
    * Backgrounds
    * ---------------------------------------------------------------------- */
     --bg-0: oklch(0.12 0.01 260);
@@ -188,4 +203,60 @@
     --scrollbar-bg: transparent;
     --scrollbar-thumb: rgb(255 255 255 / 0.12);
     --scrollbar-thumb-hover: rgb(255 255 255 / 0.22);
+}
+
+/* ==========================================================================
+   Theme palettes
+   Palette values are sourced from src/lib/core/config/theme.ts (the live
+   registry). Each block maps a theme's palette onto the semantic token
+   namespaces so switching `data-theme` visibly restyles the app.
+   ========================================================================== */
+
+[data-theme="dark"] {
+    --dex-primary: #5ddcff;
+    --dex-secondary: #00d4ff;
+    --bg-0: #05070b;
+    --surface-1: rgba(15, 20, 30, 0.35);
+    --surface-2: rgba(15, 20, 30, 0.6);
+    --surface-3: rgba(255, 255, 255, 0.08);
+    --text-primary: #ffffff;
+    --text-secondary: #9ecad8;
+    --border-default: rgba(0, 212, 255, 0.2);
+    --dex-success: #32d583;
+    --dex-warning: #f5b942;
+    --dex-danger: #ef4444;
+    --selection-bg: rgba(0, 212, 255, 0.22);
+}
+
+[data-theme="light"] {
+    color-scheme: light;
+    --dex-primary: #0090b3;
+    --dex-secondary: #00709a;
+    --bg-0: #e8eef2;
+    --surface-1: rgba(255, 255, 255, 0.45);
+    --surface-2: rgba(255, 255, 255, 0.68);
+    --surface-3: rgba(15, 20, 30, 0.06);
+    --text-primary: #0b141d;
+    --text-secondary: #2e4d61;
+    --border-default: rgba(0, 112, 154, 0.35);
+    --dex-success: #16a34a;
+    --dex-warning: #d97706;
+    --dex-danger: #dc2626;
+    --selection-bg: rgba(0, 144, 179, 0.18);
+}
+
+[data-theme="cyber"] {
+    --dex-primary: #66e6ff;
+    --dex-secondary: #00e5ff;
+    --bg-0: #060a14;
+    --surface-1: rgba(8, 12, 24, 0.45);
+    --surface-2: rgba(8, 12, 24, 0.7);
+    --surface-3: rgba(255, 255, 255, 0.1);
+    --text-primary: #ffffff;
+    --text-secondary: #a8e6f7;
+    --border-default: rgba(0, 229, 255, 0.3);
+    --dex-success: #22c55e;
+    --dex-warning: #facc15;
+    --dex-danger: #ff4d6d;
+    --selection-bg: rgba(102, 230, 255, 0.22);
 }
