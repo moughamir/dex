@@ -8,17 +8,13 @@ use serde::{Deserialize, Serialize};
 pub enum NetworkEvent {
     AdapterAdded(NetworkAdapterEvent),
 
-    AdapterRemoved {
-        adapter_id: String,
-    },
+    AdapterRemoved { adapter_id: String },
 
     AdapterStateChanged(NetworkAdapterStateChangedEvent),
 
     ConnectionEstablished(NetworkConnectionEvent),
 
-    ConnectionLost {
-        connection_id: String,
-    },
+    ConnectionLost { connection_id: String },
 
     ConnectionStateChanged(NetworkConnectionStateChangedEvent),
 

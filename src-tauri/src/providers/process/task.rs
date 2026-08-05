@@ -24,10 +24,7 @@ pub struct Task {
 
 impl Task {
     #[must_use]
-    pub fn new(
-        id: impl Into<String>,
-        name: impl Into<String>,
-    ) -> Self {
+    pub fn new(id: impl Into<String>, name: impl Into<String>) -> Self {
         Self {
             id: id.into(),
             name: name.into(),
@@ -46,9 +43,7 @@ impl Task {
     pub fn is_finished(&self) -> bool {
         matches!(
             self.state,
-            TaskState::Completed
-                | TaskState::Cancelled
-                | TaskState::Failed
+            TaskState::Completed | TaskState::Cancelled | TaskState::Failed
         )
     }
 }

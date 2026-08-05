@@ -7,7 +7,7 @@ use zvariant::OwnedValue;
 /// This is a transport-independent representation used internally by DEX.
 /// It is intentionally decoupled from `zbus::Message` so providers are not
 /// tightly coupled to the underlying D-Bus library.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DbusMessage {
     /// Destination service.
     pub destination: String,
@@ -45,11 +45,7 @@ impl DbusMessage {
 
     /// Adds an argument to the message body.
     #[must_use]
-    pub fn with_argument(
-        mut self,
-        name: impl Into<String>,
-        value: OwnedValue,
-    ) -> Self {
+    pub fn with_argument(mut self, name: impl Into<String>, value: OwnedValue) -> Self {
         self.body.insert(name.into(), value);
         self
     }
@@ -62,22 +58,7 @@ impl DbusMessage {
 
     /// Returns an argument by name.
     #[must_use]
-    pub fn argument(
-        &self,
-        name: &str,
-    ) -> Option<&OwnedValue> {
+    pub fn argument(&self, name: &str) -> Option<&OwnedValue> {
         self.body.get(name)
-    }
-}
-
-impl Default for DbusMessage {
-    fn default() -> Self {
-        Self {
-            destination: String::new(),
-            path: String::new(),
-            interface: String::new(),
-            member: String::new(),
-            body: HashMap::new(),
-        }
     }
 }

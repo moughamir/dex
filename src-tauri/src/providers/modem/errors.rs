@@ -3,21 +3,15 @@ use std::fmt;
 /// Errors returned by the Modem provider.
 #[derive(Debug)]
 pub enum ModemError {
-    ModemNotFound {
-        id: String,
-    },
+    ModemNotFound { id: String },
 
     SimNotFound,
 
     ManagerUnavailable,
 
-    ConnectFailed {
-        reason: String,
-    },
+    ConnectFailed { reason: String },
 
-    DisconnectFailed {
-        reason: String,
-    },
+    DisconnectFailed { reason: String },
 
     InvalidPin,
 
@@ -29,16 +23,11 @@ pub enum ModemError {
 
     Timeout,
 
-    Internal {
-        reason: String,
-    },
+    Internal { reason: String },
 }
 
 impl fmt::Display for ModemError {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ModemNotFound { id } => {
                 write!(f, "modem '{}' not found", id)

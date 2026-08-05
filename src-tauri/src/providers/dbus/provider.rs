@@ -1,9 +1,6 @@
 use zbus::Proxy;
 
-use super::{
-    connection::DbusConnection,
-    error::DbusError,
-};
+use super::{connection::DbusConnection, error::DbusError};
 
 /// Generic D-Bus proxy.
 ///
@@ -21,22 +18,17 @@ impl<'a> DbusProxy<'a> {
     /// Creates a new D-Bus proxy.
     pub async fn new(
         connection: &'a DbusConnection,
-        destination: &str,
-        path: &str,
-        interface: &str,
+        destination: &'a str,
+        path: &'a str,
+        interface: &'a str,
     ) -> Result<Self, DbusError> {
-        let proxy = Proxy::new(
-            connection.inner(),
-            destination,
-            path,
-            interface,
-        )
-        .await
-        .map_err(|_| DbusError::ProxyCreationFailed {
-            service: destination.to_owned(),
-            path: path.to_owned(),
-            interface: interface.to_owned(),
-        })?;
+        let proxy = Proxy::new(connection.inner(), destination, path, interface)
+            .await
+            .map_err(|_| DbusError::ProxyCreationFailed {
+                service: destination.to_owned(),
+                path: path.to_owned(),
+                interface: interface.to_owned(),
+            })?;
 
         Ok(Self { proxy })
     }
@@ -66,11 +58,7 @@ impl<'a> DbusProxy<'a> {
     }
 
     /// Calls a D-Bus method.
-    pub async fn call<R, B>(
-        &self,
-        method: &str,
-        body: &B,
-    ) -> Result<R, DbusError>
+    pub async fn call<R, B>(&self, method: &str, body: &B) -> Result<R, DbusError>
     where
         R: zvariant::Type + serde::de::DeserializeOwned,
         B: serde::ser::Serialize + zvariant::DynamicType,

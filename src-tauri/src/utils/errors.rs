@@ -10,8 +10,12 @@ use serde::Serialize;
 
 /// Closed set of error codes surfaced to the frontend (ADR-0002).
 ///
-/// `#[allow(dead_code)]`: variants beyond `Validation`/`Internal` are part of
-/// the wire contract and are constructed as their commands land (Phase 1+).
+/// `#[allow(dead_code)]`: the closed set is a wire contract, and the variants
+/// that no command constructs yet (`NotFound`, `PermissionDenied`, `Conflict`,
+/// `Unsupported`) stay unconstructed until their owning commands land
+/// (Phase 1+). `Validation` is exercised by the unit tests; `Internal` is
+/// produced by the `From<tauri::Error>` / `From<rusqlite::Error>` impls used
+/// by the command and database layers.
 #[derive(Debug, thiserror::Error)]
 #[allow(dead_code)]
 pub enum AppError {
@@ -61,5 +65,57 @@ impl From<tauri::Error> for AppError {
 impl From<rusqlite::Error> for AppError {
     fn from(_: rusqlite::Error) -> Self {
         AppError::Internal
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AppError;
+    use serde_json::json;
+
+    /// The wire envelope is exactly `{ "type": <code>, "message": <text> }`
+    /// with no extra fields (ADR-0002, docs/22_Backend.md).
+    #[test]
+    fn serializes_to_type_and_message_envelope() {
+        let value = serde_json::to_value(AppError::NotFound).expect("serialize");
+
+        assert_eq!(
+            value,
+            json!({ "type": "not_found", "message": "Resource not found" })
+        );
+    }
+
+    /// Every variant maps to its documented, lowercase snake_case wire code.
+    #[test]
+    fn wire_codes_match_the_closed_set() {
+        let cases = [
+            (AppError::Validation, "validation"),
+            (AppError::NotFound, "not_found"),
+            (AppError::PermissionDenied, "permission_denied"),
+            (AppError::Conflict, "conflict"),
+            (AppError::Unsupported, "unsupported"),
+            (AppError::Internal, "internal"),
+        ];
+
+        for (variant, expected) in cases {
+            assert_eq!(variant.code(), expected);
+        }
+    }
+
+    /// The serialized `type` field is exactly the variant's wire code.
+    #[test]
+    fn serialized_type_matches_wire_code() {
+        for variant in [
+            AppError::Validation,
+            AppError::NotFound,
+            AppError::PermissionDenied,
+            AppError::Conflict,
+            AppError::Unsupported,
+            AppError::Internal,
+        ] {
+            let code = variant.code();
+            let value = serde_json::to_value(variant).expect("serialize");
+            assert_eq!(value["type"], json!(code));
+        }
     }
 }

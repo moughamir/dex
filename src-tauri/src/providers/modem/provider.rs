@@ -1,18 +1,8 @@
 use std::collections::HashMap;
 
-use crate::providers::{
-    Capability,
-    Provider,
-    ProviderError,
-    ProviderHealth,
-    ProviderState,
-};
+use crate::providers::{Capability, Provider, ProviderError, ProviderHealth, ProviderState};
 
-use super::{
-    events::ModemEvent,
-    modem::Modem,
-    sim::SimCard,
-};
+use super::{events::ModemEvent, modem::Modem, sim::SimCard};
 
 /// Cellular modem provider.
 ///
@@ -51,55 +41,32 @@ impl ModemProvider {
     }
 
     #[must_use]
-    pub fn modem(
-        &self,
-        id: &str,
-    ) -> Option<&Modem> {
+    pub fn modem(&self, id: &str) -> Option<&Modem> {
         self.modems.get(id)
     }
 
     #[must_use]
-    pub fn sim(
-        &self,
-        id: &str,
-    ) -> Option<&SimCard> {
+    pub fn sim(&self, id: &str) -> Option<&SimCard> {
         self.sims.get(id)
     }
 
-    pub fn add_modem(
-        &mut self,
-        modem: Modem,
-    ) {
-        self.modems
-            .insert(modem.id.clone(), modem);
+    pub fn add_modem(&mut self, modem: Modem) {
+        self.modems.insert(modem.id.clone(), modem);
     }
 
-    pub fn remove_modem(
-        &mut self,
-        id: &str,
-    ) -> Option<Modem> {
+    pub fn remove_modem(&mut self, id: &str) -> Option<Modem> {
         self.modems.remove(id)
     }
 
-    pub fn add_sim(
-        &mut self,
-        sim: SimCard,
-    ) {
-        self.sims
-            .insert(sim.id.clone(), sim);
+    pub fn add_sim(&mut self, sim: SimCard) {
+        self.sims.insert(sim.id.clone(), sim);
     }
 
-    pub fn remove_sim(
-        &mut self,
-        id: &str,
-    ) -> Option<SimCard> {
+    pub fn remove_sim(&mut self, id: &str) -> Option<SimCard> {
         self.sims.remove(id)
     }
 
-    pub fn emit(
-        &mut self,
-        event: ModemEvent,
-    ) {
+    pub fn emit(&mut self, event: ModemEvent) {
         self.events.push(event);
     }
 
@@ -136,9 +103,7 @@ impl Provider for ModemProvider {
         &[Capability::Modem]
     }
 
-    fn initialize(
-        &mut self,
-    ) -> Result<(), ProviderError> {
+    fn initialize(&mut self) -> Result<(), ProviderError> {
         self.state = ProviderState::Initializing;
         self.health = ProviderHealth::Initializing;
 
@@ -148,9 +113,7 @@ impl Provider for ModemProvider {
         Ok(())
     }
 
-    fn shutdown(
-        &mut self,
-    ) -> Result<(), ProviderError> {
+    fn shutdown(&mut self) -> Result<(), ProviderError> {
         self.state = ProviderState::Stopping;
 
         self.modems.clear();

@@ -13,28 +13,29 @@ pub struct DbusConnection {
 impl DbusConnection {
     /// Connect to the system bus.
     pub async fn system() -> Result<Self, DbusError> {
-        let connection = Connection::system()
-            .await
-            .map_err(|error| DbusError::ConnectionFailed {
-                reason: error.to_string(),
-            })?;
+        let connection =
+            Connection::system()
+                .await
+                .map_err(|error| DbusError::ConnectionFailed {
+                    reason: error.to_string(),
+                })?;
 
         Ok(Self { connection })
     }
 
     /// Connect to the session bus.
     pub async fn session() -> Result<Self, DbusError> {
-        let connection = Connection::session()
-            .await
-            .map_err(|error| DbusError::ConnectionFailed {
-                reason: error.to_string(),
-            })?;
+        let connection =
+            Connection::session()
+                .await
+                .map_err(|error| DbusError::ConnectionFailed {
+                    reason: error.to_string(),
+                })?;
 
         Ok(Self { connection })
     }
 
     /// Returns the underlying zbus connection.
-    #[must_use]
     pub fn inner(&self) -> &Connection {
         &self.connection
     }
@@ -42,7 +43,7 @@ impl DbusConnection {
     /// Returns true if the connection is alive.
     #[must_use]
     pub fn is_connected(&self) -> bool {
-        !self.connection.executor().is_finished()
+        !self.connection.is_closed()
     }
 
     /// Returns the unique bus name assigned by D-Bus.

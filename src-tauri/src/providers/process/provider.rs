@@ -1,14 +1,8 @@
 use std::collections::HashMap;
 
 use crate::providers::{
-    Capability,
-    Process,
-    ProcessEvent,
-    Provider,
-    ProviderError,
-    ProviderHealth,
-    ProviderState,
-    Task,
+    process::{Process, ProcessEvent, Task},
+    Capability, Provider, ProviderError, ProviderHealth, ProviderState,
 };
 
 /// Process provider.
@@ -57,53 +51,32 @@ impl ProcessProvider {
     }
 
     #[must_use]
-    pub fn process(
-        &self,
-        pid: u32,
-    ) -> Option<&Process> {
+    pub fn process(&self, pid: u32) -> Option<&Process> {
         self.processes.get(&pid)
     }
 
     #[must_use]
-    pub fn task(
-        &self,
-        id: &str,
-    ) -> Option<&Task> {
+    pub fn task(&self, id: &str) -> Option<&Task> {
         self.tasks.get(id)
     }
 
-    pub fn add_process(
-        &mut self,
-        process: Process,
-    ) {
+    pub fn add_process(&mut self, process: Process) {
         self.processes.insert(process.pid, process);
     }
 
-    pub fn remove_process(
-        &mut self,
-        pid: u32,
-    ) -> Option<Process> {
+    pub fn remove_process(&mut self, pid: u32) -> Option<Process> {
         self.processes.remove(&pid)
     }
 
-    pub fn add_task(
-        &mut self,
-        task: Task,
-    ) {
+    pub fn add_task(&mut self, task: Task) {
         self.tasks.insert(task.id.clone(), task);
     }
 
-    pub fn remove_task(
-        &mut self,
-        id: &str,
-    ) -> Option<Task> {
+    pub fn remove_task(&mut self, id: &str) -> Option<Task> {
         self.tasks.remove(id)
     }
 
-    pub fn emit(
-        &mut self,
-        event: ProcessEvent,
-    ) {
+    pub fn emit(&mut self, event: ProcessEvent) {
         self.events.push(event);
     }
 
@@ -160,9 +133,7 @@ impl Provider for ProcessProvider {
         ]
     }
 
-    fn initialize(
-        &mut self,
-    ) -> Result<(), ProviderError> {
+    fn initialize(&mut self) -> Result<(), ProviderError> {
         self.state = ProviderState::Initializing;
         self.health = ProviderHealth::Initializing;
 
@@ -176,9 +147,7 @@ impl Provider for ProcessProvider {
         Ok(())
     }
 
-    fn shutdown(
-        &mut self,
-    ) -> Result<(), ProviderError> {
+    fn shutdown(&mut self) -> Result<(), ProviderError> {
         self.state = ProviderState::Stopping;
 
         self.processes.clear();

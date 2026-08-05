@@ -1,18 +1,8 @@
 use std::collections::HashMap;
 
-use crate::providers::{
-    Capability,
-    Provider,
-    ProviderError,
-    ProviderHealth,
-    ProviderState,
-};
+use crate::providers::{Capability, Provider, ProviderError, ProviderHealth, ProviderState};
 
-use super::{
-    adapter::NetworkAdapter,
-    connection::NetworkConnection,
-    events::NetworkEvent,
-};
+use super::{adapter::NetworkAdapter, connection::NetworkConnection, events::NetworkEvent};
 
 /// Network provider.
 ///
@@ -49,40 +39,23 @@ impl NetworkProvider {
         &self.connections
     }
 
-    pub fn add_adapter(
-        &mut self,
-        adapter: NetworkAdapter,
-    ) {
-        self.adapters
-            .insert(adapter.id.clone(), adapter);
+    pub fn add_adapter(&mut self, adapter: NetworkAdapter) {
+        self.adapters.insert(adapter.id.clone(), adapter);
     }
 
-    pub fn remove_adapter(
-        &mut self,
-        id: &str,
-    ) -> Option<NetworkAdapter> {
+    pub fn remove_adapter(&mut self, id: &str) -> Option<NetworkAdapter> {
         self.adapters.remove(id)
     }
 
-    pub fn add_connection(
-        &mut self,
-        connection: NetworkConnection,
-    ) {
-        self.connections
-            .insert(connection.id.clone(), connection);
+    pub fn add_connection(&mut self, connection: NetworkConnection) {
+        self.connections.insert(connection.id.clone(), connection);
     }
 
-    pub fn remove_connection(
-        &mut self,
-        id: &str,
-    ) -> Option<NetworkConnection> {
+    pub fn remove_connection(&mut self, id: &str) -> Option<NetworkConnection> {
         self.connections.remove(id)
     }
 
-    pub fn emit(
-        &mut self,
-        event: NetworkEvent,
-    ) {
+    pub fn emit(&mut self, event: NetworkEvent) {
         self.events.push(event);
     }
 
@@ -119,9 +92,7 @@ impl Provider for NetworkProvider {
         &[Capability::Network]
     }
 
-    fn initialize(
-        &mut self,
-    ) -> Result<(), ProviderError> {
+    fn initialize(&mut self) -> Result<(), ProviderError> {
         self.state = ProviderState::Initializing;
         self.health = ProviderHealth::Initializing;
 
@@ -131,9 +102,7 @@ impl Provider for NetworkProvider {
         Ok(())
     }
 
-    fn shutdown(
-        &mut self,
-    ) -> Result<(), ProviderError> {
+    fn shutdown(&mut self) -> Result<(), ProviderError> {
         self.state = ProviderState::Stopping;
 
         self.adapters.clear();

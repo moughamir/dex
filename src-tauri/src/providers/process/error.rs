@@ -3,18 +3,11 @@ use std::fmt;
 /// Errors returned by the Process provider.
 #[derive(Debug)]
 pub enum ProcessError {
-    ProcessNotFound {
-        pid: u32,
-    },
+    ProcessNotFound { pid: u32 },
 
-    SpawnFailed {
-        reason: String,
-    },
+    SpawnFailed { reason: String },
 
-    KillFailed {
-        pid: u32,
-        reason: String,
-    },
+    KillFailed { pid: u32, reason: String },
 
     PermissionDenied,
 
@@ -22,16 +15,11 @@ pub enum ProcessError {
 
     Timeout,
 
-    Internal {
-        reason: String,
-    },
+    Internal { reason: String },
 }
 
 impl fmt::Display for ProcessError {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ProcessNotFound { pid } => {
                 write!(f, "process {} not found", pid)
