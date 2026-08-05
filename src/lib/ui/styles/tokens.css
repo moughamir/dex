@@ -125,6 +125,14 @@
     --duration-slow: 360ms;
     --duration-slower: 600ms;
 
+    --hud-height: 72px;
+    --sidebar-width: 280px;
+    --sidebar-collapsed-width: 76px;
+    --dock-height: 76px;
+    --status-height: 34px;
+    --shell-padding: 32px;
+    --content-max-width: 1200px;
+    --content-gap: 24px;
     --dock-icon: 54px;
     --dock-scale: 1.45;
 
