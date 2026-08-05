@@ -1,26 +1,90 @@
 /**
- * ThemePalette — programmatic mirror of the CSS semantic layer.
+ * ThemePalette
  *
- * Concrete, resolved color strings for the graphics engine and any JS that
- * cannot read CSS custom properties (WebGL uniforms, canvas fills, ...).
+ * Runtime mirror of the semantic CSS layer.
  *
- * SYNC RULE (ADR-0003): every value here MUST equal the resolved semantic
- * value for the same theme in `src/lib/ui/styles/tokens.css`. When a
- * semantic token changes there, update the matching palette file here.
- * The CSS semantic layer also carries role tokens that JS does not need
- * (accent-soft, border-subtle, focus-ring, text-3, on-accent) — they live
- * in CSS only and are not mirrored.
+ * CSS remains the source of truth.
+ * Every value here MUST equal its resolved counterpart in
+ * src/lib/ui/styles/tokens.css.
+ *
+ * Used by:
+ * - DOM components
+ * - Canvas
+ * - Three.js
+ * - WebGL shaders
+ * - Particle engine
+ * - Charts
+ * - Widgets
  */
+
 export interface ThemePalette {
-	name: string;
-	accent: string;
-	accentStrong: string;
-	surface1: string;
-	surface2: string;
-	surface3: string;
-	text1: string;
-	text2: string;
-	border: string;
-	gridLine: string;
-	background: string;
+    /* --------------------------------------------------------------------- */
+    /* Identity                                                              */
+    /* --------------------------------------------------------------------- */
+
+    readonly name: ThemeMode;
+
+    /* --------------------------------------------------------------------- */
+    /* Brand                                                                 */
+    /* --------------------------------------------------------------------- */
+
+    readonly accent: string;
+    readonly accentStrong: string;
+
+    /* --------------------------------------------------------------------- */
+    /* Surfaces                                                              */
+    /* --------------------------------------------------------------------- */
+
+    readonly background: string;
+
+    readonly surface1: string;
+    readonly surface2: string;
+    readonly surface3: string;
+
+    /* --------------------------------------------------------------------- */
+    /* Typography                                                            */
+    /* --------------------------------------------------------------------- */
+
+    readonly text1: string;
+    readonly text2: string;
+
+    /* --------------------------------------------------------------------- */
+    /* Borders                                                               */
+    /* --------------------------------------------------------------------- */
+
+    readonly border: string;
+
+    /* --------------------------------------------------------------------- */
+    /* Graphics                                                              */
+    /* --------------------------------------------------------------------- */
+
+    readonly gridLine: string;
+    readonly gridGlow: string;
+
+    readonly ambient: string;
+    readonly fog: string;
+
+    readonly particle: string;
+    readonly particleGlow: string;
+
+    /* --------------------------------------------------------------------- */
+    /* Semantic                                                              */
+    /* --------------------------------------------------------------------- */
+
+    readonly selection: string;
+
+    readonly success: string;
+    readonly warning: string;
+    readonly danger: string;
+}
+
+export type ThemeMode =
+    | "light"
+    | "dark"
+    | "cyber";
+
+export interface Theme {
+    readonly id: ThemeMode;
+    readonly name: ThemeMode;
+    readonly palette: ThemePalette;
 }

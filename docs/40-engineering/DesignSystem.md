@@ -1,16 +1,27 @@
-# DEX UI Guidelines
+# DEX Design System
 
-Engineering-facing design-system doc for the DEX desktop shell. Read this before
-writing any UI. The system lives in `src/lib/ui/`:
+## Purpose
+
+Engineering-facing design-system standard for the DEX desktop shell. Read this
+before writing any UI. It defines the token architecture, the semantic token
+reference, the theme model, the reusable primitives, and the motion and
+accessibility rules that keep the shell visually consistent and compositor-safe.
+
+The system lives in `src/lib/ui/`:
 
 - `styles/tokens.css` — the single source of truth for design values
 - `themes/*.ts` — programmatic mirror for the graphics engine / JS
 - `primitives/` — reusable components (glass, button, icon, tooltip, divider)
 - `layout/` — the HUD chrome (topbar, viewport, dock, statusbar)
 
----
+## Background
 
-## 1. Token architecture and the layer rule
+DEX is a transparent, GPU-composited shell. Its visual consistency depends on
+a single source of truth for design values and a hard rule that components
+consume semantic tokens rather than raw values. This standard fixes those
+rules so the shell reads as one system rather than a collection of screens.
+
+## Token architecture and the layer rule
 
 Tokens.css is a three-layer CSS custom-property architecture. Plain CSS only —
 no preprocessors, no `@apply`, safe to `@import`.
@@ -39,9 +50,7 @@ background: rgba(15, 20, 30, 0.35);
 border-bottom: 1px solid rgba(0, 212, 255, 0.2);
 ```
 
----
-
-## 2. Semantic token reference (dark / default)
+## Semantic token reference (dark / default)
 
 | Token | Value | Role |
 |---|---|---|
@@ -65,9 +74,7 @@ CSS-only roles (not mirrored in TS): `--dex-accent-soft`, `--dex-accent-magenta`
 (secondary/violet accent, used by the cyber theme), `--dex-border-subtle`,
 `--dex-focus-ring`, `--dex-text-3`, `--dex-on-accent`.
 
----
-
-## 3. Scales
+## Scales
 
 ### Spacing — `--dex-space-*` (px)
 `1: 2` · `2: 4` · `3: 8` · `4: 12` · `5: 16` · `6: 20` · `7: 24` · `8: 32` ·
@@ -103,9 +110,7 @@ Never invent z-index values; always reference a token.
 `--dex-blur-glass: 20px` — the only backdrop blur. Panels use
 `backdrop-filter: blur(var(--dex-blur-glass))`.
 
----
-
-## 4. Theme model
+## Theme model
 
 Themes are **semantic-layer overrides** driven by a `data-theme` attribute on
 `<html>`:
@@ -128,9 +133,7 @@ the matching palette file in `themes/`. The comment block at the top of
 `themes/types.ts` states this. `ThemePalette` carries only what JS/GPU need;
 role tokens that stay in CSS are not mirrored.
 
----
-
-## 5. Primitives
+## Primitives
 
 All primitives: Svelte 5 runes, strict TS, no `any`, real elements with real
 semantics. Import them from the barrel:
@@ -200,9 +203,7 @@ Props: `orientation?` (`"horizontal" | "vertical"`, default `"horizontal"`),
 <Divider />
 ```
 
----
-
-## 6. Motion policy
+## Motion policy
 
 - Durations 150–250ms, the single easing `var(--dex-ease-out)`.
 - **Transform and opacity only.** Never animate layout properties (width,
@@ -216,9 +217,7 @@ Props: `orientation?` (`"horizontal" | "vertical"`, default `"horizontal"`),
 - No scroll-triggered or page-load animation churn in Phase 0. If you add a
   reveal, keep it to one opacity/transform pass.
 
----
-
-## 7. Accessibility rules
+## Accessibility rules
 
 - Interactive elements are real `<button>`s / `<a>`s — never clickable divs.
 - Icon-only controls carry `aria-label` (see Dock, which labels every launcher).
@@ -233,9 +232,7 @@ Props: `orientation?` (`"horizontal" | "vertical"`, default `"horizontal"`),
 - No emojis in UI copy. No invented marketing language — keep copy technical
   and grounded.
 
----
-
-## 8. Do / Don't
+## Do / Don't
 
 **Do**
 - Use `var(--dex-*)` for everything; semantic tokens for color/typography.
@@ -252,9 +249,7 @@ Props: `orientation?` (`"horizontal" | "vertical"`, default `"horizontal"`),
 - Don't touch primitive tokens for theme changes — override the semantic layer.
 - Don't add icon libraries, floating-ui, or new npm dependencies.
 
----
-
-## 9. Wiring (architect)
+## Wiring
 
 - `src/app.css` must `@import "./lib/ui/styles/tokens.css";` **as its first
   statement** (CSS requires imports before other rules). The global lane owns
@@ -264,3 +259,14 @@ Props: `orientation?` (`"horizontal" | "vertical"`, default `"horizontal"`),
   fontsource); graceful fallbacks are already in place.
 - `initTheme()` from `core/stores/theme.svelte.ts` must run at boot so the
   `data-theme` attribute is set before first paint.
+
+## Related Documents
+
+- Design tokens and transparency decisions: `50-adr/` (ADR-0003, ADR-0004)
+- System architecture: `20-architecture/20_System_Architecture.md`
+- Frontend subsystem: `20-architecture/21_Frontend.md`
+- Graphics subsystem: `20-architecture/25_Graphics.md`
+- Theme specification: `30-specs/Theme.md`
+- Accessibility standard: `40-engineering/Accessibility.md`
+- Performance standard: `40-engineering/Performance.md`
+- Coding standards: `40-engineering/CodingStandards.md`

@@ -1,38 +1,51 @@
 <script lang="ts">
-	import { clsx } from "clsx";
-	import { icons, type IconName } from "./icons";
+    import { cva, type VariantProps } from "class-variance-authority";
+    import { twMerge } from "tailwind-merge";
+    import type { Component } from "svelte";
 
-	let {
-		name,
-		size = 20,
-		class: className,
-	}: {
-		name: IconName;
-		size?: number;
-		class?: string;
-	} = $props();
+    const variants = cva("shrink-0 transition-colors duration-200", {
+        variants: {
+            size: {
+                xs: "size-3",
+                sm: "size-4",
+                md: "size-5",
+                lg: "size-6",
+                xl: "size-8",
+            },
+
+            color: {
+                default: "text-[color:var(--text-primary)]",
+                muted: "text-[color:var(--text-muted)]",
+                accent: "text-[color:var(--dex-primary)]",
+                success: "text-[color:var(--dex-success)]",
+                warning: "text-[color:var(--dex-warning)]",
+                danger: "text-[color:var(--dex-danger)]",
+                current: "text-current",
+            },
+        },
+
+        defaultVariants: {
+            size: "md",
+            color: "default",
+        },
+    });
+
+    type Props = VariantProps<typeof variants> & {
+        icon: Component;
+        class?: string;
+    };
+
+    let { icon: Icon, size, color, class: className }: Props = $props();
+
+    const classes = $derived(
+        twMerge(
+            variants({
+                size,
+                color,
+            }),
+            className,
+        ),
+    );
 </script>
 
-<!-- aria-hidden: icons are decorative; the interactive owner supplies the label -->
-<svg
-	xmlns="http://www.w3.org/2000/svg"
-	viewBox="0 0 24 24"
-	width={size}
-	height={size}
-	fill="none"
-	stroke="currentColor"
-	stroke-width="2"
-	stroke-linecap="round"
-	stroke-linejoin="round"
-	class={clsx("dex-icon", className)}
-	aria-hidden="true"
->
-	{@html icons[name]}
-</svg>
-
-<style>
-	.dex-icon {
-		display: block;
-		flex-shrink: 0;
-	}
-</style>
+<Icon class={classes} />

@@ -1,30 +1,230 @@
-/* Global shell CSS. Imported once by src/routes/+layout.svelte. */
-@import "./lib/ui/styles/tokens.css";
+@import "tailwindcss";
+@import "$lib/ui/styles/tokens.css";
+@import "$lib/ui/styles/utilities.css";
+@import "$lib/ui/styles/effects.css";
+/* ==========================================================================
+   DEX GLOBAL STYLES
+   ========================================================================== */
 
 :root {
-  color-scheme: dark;
-  font-family: var(--dex-font-sans, Inter, system-ui, sans-serif);
-  background: transparent;
-}
+    font-family: Inter, "SF Pro Display", "Geist", system-ui, sans-serif;
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
-
 html,
-body {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  /* ADR-0004: the window is transparent — the desktop shows through the
-     shell. Glass panels own the visual backdrop, never the body. */
-  background: transparent;
-  color: var(--dex-text-1, #ffffff);
+body,
+#svelte {
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	padding: 0;
+	overflow: hidden;
+
+	background: transparent;
 }
+
+body {
+	color: var(--text-primary);
+}
+/* ========================================================================== */
+/* App */
+/* ========================================================================== */
+
+#app {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+/* ========================================================================== */
+/* Typography */
+/* ========================================================================== */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+p {
+    color: var(--text-secondary);
+}
+
+/* ========================================================================== */
+/* Selection */
+/* ========================================================================== */
+
+::selection {
+    color: var(--selection-text);
+    background: var(--selection-bg);
+}
+
+/* ========================================================================== */
+/* Links */
+/* ========================================================================== */
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* ========================================================================== */
+/* Buttons */
+/* ========================================================================== */
 
 button {
-  font: inherit;
-  color: inherit;
+    font: inherit;
+}
+
+/* ========================================================================== */
+/* Images */
+/* ========================================================================== */
+
+img {
+    display: block;
+    max-width: 100%;
+}
+
+/* ========================================================================== */
+/* Inputs */
+/* ========================================================================== */
+
+input,
+textarea,
+select {
+    font: inherit;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    outline: none;
+}
+
+/* ========================================================================== */
+/* Scrollbar */
+/* ========================================================================== */
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: var(--radius-full);
+
+    background: var(--scrollbar-thumb);
+
+    background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+    background-clip: content-box;
+}
+
+/* Firefox */
+
+* {
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+/* ========================================================================== */
+/* Utilities */
+/* ========================================================================== */
+
+.glass {
+    background: var(--glass-medium);
+
+    border: 1px solid var(--glass-border);
+
+    backdrop-filter: blur(var(--blur-lg));
+
+    -webkit-backdrop-filter: blur(var(--blur-lg));
+}
+
+.glass-heavy {
+    background: var(--glass-heavy);
+
+    border: 1px solid var(--glass-border-strong);
+
+    backdrop-filter: blur(var(--blur-xl));
+
+    -webkit-backdrop-filter: blur(var(--blur-xl));
+}
+
+.glow {
+    box-shadow: var(--shadow-glow), var(--shadow-md);
+}
+
+.floating {
+    box-shadow: var(--shadow-lg);
+
+    transition:
+        transform var(--duration-normal) var(--ease-standard),
+        box-shadow var(--duration-normal) var(--ease-standard);
+}
+
+.floating:hover {
+    transform: translateY(-3px);
+
+    box-shadow: var(--shadow-xl), var(--shadow-glow);
+}
+
+.panel {
+    border-radius: var(--radius-xl);
+}
+
+.blur-bg {
+    backdrop-filter: blur(var(--blur-xl));
+    -webkit-backdrop-filter: blur(var(--blur-xl));
+}
+
+/* ========================================================================== */
+/* Motion */
+/* ========================================================================== */
+
+* {
+    transition:
+        background-color var(--duration-fast) var(--ease-standard),
+        border-color var(--duration-fast) var(--ease-standard),
+        color var(--duration-fast) var(--ease-standard);
+}
+
+/* ========================================================================== */
+/* Accessibility */
+/* ========================================================================== */
+
+:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+/* ========================================================================== */
+/* Tauri */
+/* ========================================================================== */
+
+[data-tauri-drag-region] {
+    -webkit-app-region: drag;
+}
+
+button,
+input,
+textarea,
+select,
+a {
+    -webkit-app-region: no-drag;
 }

@@ -15,11 +15,11 @@ Rust.
 ## Architecture
 
 Layer model, boundaries, and decisions live in
-[`docs/architecture.md`](docs/architecture.md) and
-[`docs/adr/`](docs/adr/) (ADR-0001 layer ownership, ADR-0002 typed IPC
+[`docs/20-architecture/20_System_Architecture.md`](docs/20-architecture/20_System_Architecture.md) and
+[`docs/50-adr/`](docs/50-adr/) (ADR-0001 layer ownership, ADR-0002 typed IPC
 contract, ADR-0003 design tokens, ADR-0004 transparent compositing).
-Design system usage: [`docs/ui-guidelines.md`](docs/ui-guidelines.md).
-Roadmap: [`docs/roadmap.md`](docs/roadmap.md).
+Design system usage: [`docs/40-engineering/DesignSystem.md`](docs/40-engineering/DesignSystem.md).
+Roadmap: [`docs/10-product/11_Product_Roadmap.md`](docs/10-product/11_Product_Roadmap.md).
 
 Highlights:
 
@@ -49,4 +49,4 @@ See [`AGENTS.md`](AGENTS.md) for repo mechanics and conventions.
 
 Phase 0 (foundation): layer model, ADRs, design system, typed IPC layer,
 theme store, Rust command scaffolding — no business features yet. See
-[`docs/roadmap.md`](docs/roadmap.md).
+[`docs/10-product/11_Product_Roadmap.md`](docs/10-product/11_Product_Roadmap.md).

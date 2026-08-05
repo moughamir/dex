@@ -1,166 +1,159 @@
 <script lang="ts">
 	import { cva, type VariantProps } from "class-variance-authority";
+	import { twMerge } from "tailwind-merge";
 	import type { HTMLButtonAttributes } from "svelte/elements";
-	import type { Snippet } from "svelte";
+	import type { Component, Snippet } from "svelte";
 
-	/**
-	 * Action button. Variants: primary (accent-filled), ghost (outline),
-	 * glass (raised fill). Forwards native button props (`onclick`, `disabled`,
-	 * `aria-label`, ...) via rest props. Icon-only buttons MUST pass
-	 * `aria-label`.
-	 */
+	const buttonVariants = cva(
+		[
+			"inline-flex",
+			"items-center",
+			"justify-center",
+			"gap-2",
+			"select-none",
+			"font-medium",
+			"transition-all",
+			"duration-200",
+			"outline-none",
+			"disabled:pointer-events-none",
+			"disabled:opacity-50"
+		],
+		{
+			variants: {
+				variant: {
+					primary: [
+						"dex-glass",
+						"dex-glass-elevated",
+						"text-white",
+						"border-[color:var(--dex-primary)]"
+					],
 
-	const button = cva("dex-button", {
-		variants: {
-			variant: {
-				primary: "dex-button--primary",
-				ghost: "dex-button--ghost",
-				glass: "dex-button--glass",
+					secondary: [
+						"dex-glass",
+						"text-[color:var(--text-primary)]"
+					],
+
+					ghost: [
+						"bg-transparent",
+						"border",
+						"border-transparent",
+						"hover:bg-[color:var(--surface-2)]"
+					],
+
+					danger: [
+						"bg-[color:var(--dex-danger)]",
+						"text-white"
+					]
+				},
+
+				size: {
+					xs: "h-8 px-3 text-xs",
+					sm: "h-9 px-4 text-sm",
+					md: "h-11 px-5 text-sm",
+					lg: "h-12 px-6 text-base",
+					xl: "h-14 px-8 text-lg",
+
+					icon: "size-11 p-0"
+				},
+
+				rounded: {
+					sm: "rounded-md",
+					md: "rounded-lg",
+					lg: "rounded-xl",
+					full: "rounded-full"
+				},
+
+				glow: {
+					true: "dex-glow",
+					false: ""
+				},
+
+				interactive: {
+					true: "dex-interactive",
+					false: ""
+				}
 			},
-			size: {
-				sm: "dex-button--sm",
-				md: "dex-button--md",
-				lg: "dex-button--lg",
-			},
-		},
-		defaultVariants: {
-			variant: "glass",
-			size: "md",
-		},
-	});
 
-	type ButtonVariants = VariantProps<typeof button>;
+			defaultVariants: {
+				variant: "primary",
+				size: "md",
+				rounded: "lg",
+				glow: false,
+				interactive: true
+			}
+		}
+	);
 
-	interface ButtonProps extends HTMLButtonAttributes {
-		variant?: ButtonVariants["variant"];
-		size?: ButtonVariants["size"];
-		class?: string;
-		children?: Snippet;
-	}
+	type Props =
+		HTMLButtonAttributes &
+		VariantProps<typeof buttonVariants> & {
+
+			leftIcon?: Component;
+
+			rightIcon?: Component;
+
+			loading?: boolean;
+
+			children?: Snippet;
+
+			class?: string;
+		};
 
 	let {
 		variant,
 		size,
-		type = "button",
-		class: className,
-		children,
-		...restProps
-	}: ButtonProps = $props();
+		rounded,
+		glow,
+		interactive,
 
-	const classes = $derived(button({ variant, size, className }));
+		leftIcon: LeftIcon,
+		rightIcon: RightIcon,
+
+		loading = false,
+
+		children,
+
+		class: className,
+
+		disabled,
+
+		...rest
+	}: Props = $props();
+
+	const classes = $derived(
+		twMerge(
+			buttonVariants({
+				variant,
+				size,
+				rounded,
+				glow,
+				interactive
+			}),
+			className
+		)
+	);
 </script>
 
-<button {...restProps} {type} class={classes}>
+<button
+	class={classes}
+	disabled={disabled || loading}
+	{...rest}
+>
+	{#if loading}
+		<div
+			class="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+		>
+
+		</div>
+	{:else}
+		{#if LeftIcon}
+			<LeftIcon class="size-4 shrink-0" />
+		{/if}
+	{/if}
+
 	{@render children?.()}
+
+	{#if !loading && RightIcon}
+		<RightIcon class="size-4 shrink-0" />
+	{/if}
 </button>
-
-<style>
-	.dex-button {
-		position: relative;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--dex-space-2);
-		border-radius: var(--dex-radius-md);
-		border: 1px solid transparent;
-		font-family: var(--dex-font-sans);
-		font-size: var(--dex-font-size-sm);
-		font-weight: var(--dex-font-weight-medium);
-		letter-spacing: var(--dex-tracking-wide);
-		color: var(--dex-text-1);
-		background: transparent;
-		white-space: nowrap;
-		cursor: pointer;
-		user-select: none;
-		/* motion rule: transform/opacity only */
-		transition:
-			transform var(--dex-duration-fast) var(--dex-ease-out),
-			opacity var(--dex-duration-fast) var(--dex-ease-out);
-	}
-
-	/* hover wash fades in via opacity (compositor-friendly, per motion rule) */
-	.dex-button::before {
-		content: "";
-		position: absolute;
-		inset: 0;
-		border-radius: inherit;
-		background: var(--dex-white-a08);
-		opacity: 0;
-		transition: opacity var(--dex-duration-base) var(--dex-ease-out);
-		pointer-events: none;
-	}
-
-	.dex-button:hover {
-		transform: translateY(calc(-1 * var(--dex-space-1)));
-	}
-
-	.dex-button:hover::before {
-		opacity: 1;
-	}
-
-	.dex-button:active {
-		transform: translateY(0);
-	}
-
-	.dex-button--primary {
-		background: var(--dex-accent-strong);
-		color: var(--dex-on-accent);
-	}
-
-	.dex-button--primary::before {
-		background: var(--dex-white-a12);
-	}
-
-	.dex-button--ghost {
-		border-color: var(--dex-border);
-	}
-
-	.dex-button--ghost::before {
-		background: var(--dex-accent-soft);
-	}
-
-	.dex-button--glass {
-		background: var(--dex-surface-3);
-		border-color: var(--dex-border-subtle);
-	}
-
-	.dex-button--glass::before {
-		background: var(--dex-white-a08);
-	}
-
-	.dex-button--sm {
-		padding: var(--dex-space-2) var(--dex-space-4);
-		font-size: var(--dex-font-size-xs);
-	}
-
-	.dex-button--md {
-		padding: var(--dex-space-3) var(--dex-space-5);
-	}
-
-	.dex-button--lg {
-		padding: var(--dex-space-4) var(--dex-space-6);
-		font-size: var(--dex-font-size-md);
-	}
-
-	.dex-button:disabled {
-		opacity: var(--dex-opacity-disabled);
-		cursor: not-allowed;
-		transform: none;
-	}
-
-	.dex-button:disabled::before {
-		opacity: 0;
-	}
-
-	.dex-button:focus-visible {
-		outline: none;
-		box-shadow: 0 0 0 2px var(--dex-focus-ring);
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.dex-button,
-		.dex-button::before {
-			transition: none;
-		}
-	}
-</style>

@@ -1,9 +1,24 @@
 <script lang="ts">
-  import "../app.css";
-  import { initTheme } from "$lib/core/stores/theme.svelte";
+	import "../app.css";
 
-  // Shell boot: apply the persisted theme before first paint.
-  initTheme();
+	import { onMount } from "svelte";
+
+	import { HUD } from "$lib/ui/layout";
+	import { themeStore } from "$lib/core/stores/theme.svelte";
+
+	import type { Snippet } from "svelte";
+
+	interface Props {
+		children?: Snippet;
+	}
+
+	let { children }: Props = $props();
+
+	onMount(() => {
+		themeStore.init();
+	});
 </script>
 
-<slot />
+<HUD>
+	{@render children?.()}
+</HUD>

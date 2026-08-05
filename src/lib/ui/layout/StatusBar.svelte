@@ -1,19 +1,26 @@
-<footer>DEX:2K26 MMXXVI</footer>
+<script lang="ts">
+	const now = $state(new Date());
 
-<style>
-  footer {
-    display: flex;
+	$effect(() => {
+		const timer = setInterval(() => {
+			now.setTime(now.getTime() + 1000);
+		}, 1000);
 
-    align-items: center;
+		return () => clearInterval(timer);
+	});
 
-    padding: 0 var(--dex-space-5);
+	const time = $derived(
+		now.toLocaleTimeString([], {
+			hour: "2-digit",
+			minute: "2-digit"
+		})
+	);
+</script>
 
-    font-size: var(--dex-font-size-xs);
+<footer
+	class="absolute bottom-0 left-0 right-0 z-(--z-status) flex h-(--status-height) items-center justify-between px-6 text-xs text-(--text-muted)"
+>
+	<div>DEX v0.1.0</div>
 
-    background: var(--dex-surface-1);
-
-    border-top: 1px solid var(--dex-border-subtle);
-
-    color: var(--dex-text-3);
-  }
-</style>
+	<div>{time}</div>
+</footer>

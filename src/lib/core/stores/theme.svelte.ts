@@ -1,50 +1,98 @@
-import { dark } from "$lib/ui/themes/dark";
-import { light } from "$lib/ui/themes/light";
-import { cyber } from "$lib/ui/themes/cyber";
-import type { ThemePalette } from "$lib/ui/themes/types";
-import { storageGet, storageSet } from "../utils/storage";
+import { themes, defaultTheme, type ThemeName } from "$lib/core/config/theme";
+import type { Theme, ThemePalette } from "$lib/ui/themes/types";
+import { storageGet, storageSet } from "$lib/core/utils/storage";
 
 /**
- * Theme state — ADR-0003. CSS owns the switch (data-theme on <html>); this
- * store manages the attribute, persists the choice, and exposes the current
- * palette as data for programmatic/GPU use. Dark is the shell default.
+ * Theme Store
+ *
+ * ADR-0003
+ *
+ * Responsibilities
+ * - Manage the active theme.
+ * - Synchronize the HTML `data-theme` attribute.
+ * - Persist the user's choice.
+ * - Expose the runtime palette for the graphics engine.
  */
 
-export const THEMES = {
-  dark,
-  light,
-  cyber,
-} as const satisfies Record<string, ThemePalette>;
-
-export type ThemeName = keyof typeof THEMES;
-
 const STORAGE_KEY = "theme";
-const DEFAULT_THEME: ThemeName = "dark";
 
-export let themeName = $state<ThemeName>(DEFAULT_THEME);
-export const palette = $derived(THEMES[themeName]);
+class ThemeStore {
+  current = $state<ThemeName>(defaultTheme);
 
-const isThemeName = (value: unknown): value is ThemeName =>
-  typeof value === "string" && value in THEMES;
+  #initialized = false;
 
-let initialized = false;
+  /**
+   * Active theme.
+   */
+  get theme(): Theme {
+    return themes[this.current];
+  }
 
-/** Applies the persisted (or default) theme. Call once at shell boot. */
-export function initTheme(): void {
-  if (initialized) return;
-  initialized = true;
-  const stored = storageGet<ThemeName>(STORAGE_KEY);
-  applyTheme(isThemeName(stored) ? stored : DEFAULT_THEME);
+  /**
+   * Runtime palette.
+   */
+  get palette(): ThemePalette {
+    return this.theme.palette;
+  }
+
+  /**
+   * Boot the theme system.
+   * Call once from +layout.svelte.
+   */
+  init(): void {
+    if (this.#initialized) {
+      return;
+    }
+
+    this.#initialized = true;
+
+    const stored = storageGet<ThemeName>(STORAGE_KEY);
+
+    if (stored && stored in themes) {
+      this.apply(stored);
+      return;
+    }
+
+    this.apply(defaultTheme);
+  }
+
+  /**
+   * Apply a theme.
+   */
+  apply(name: ThemeName): void {
+    this.current = name;
+
+    document.documentElement.dataset.theme = name;
+
+    storageSet(STORAGE_KEY, name);
+  }
+
+  /**
+   * Toggle between themes.
+   */
+  toggle(): void {
+    const order = Object.keys(themes) as ThemeName[];
+
+    const index = order.indexOf(this.current);
+
+    const next = order[(index + 1) % order.length];
+
+    this.apply(next);
+  }
+
+  /**
+   * Reset to default.
+   */
+  reset(): void {
+    this.apply(defaultTheme);
+  }
+
+  /**
+   * Check current theme.
+   */
+  is(name: ThemeName): boolean {
+    return this.current === name;
+  }
 }
 
-export function applyTheme(name: ThemeName): void {
-  themeName = name;
-  document.documentElement.dataset.theme = name;
-  storageSet(STORAGE_KEY, name);
-}
-
-export function toggleTheme(): void {
-  const order = Object.keys(THEMES) as ThemeName[];
-  const next = order[(order.indexOf(themeName) + 1) % order.length];
-  applyTheme(next);
-}
+export const themeStore = new ThemeStore();

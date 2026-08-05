@@ -8,3 +8,9 @@ node_modules
 !.env.example
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Deepwork session state (git-local, OpenCode-readable)
+.slim/deepwork/
+.ignore
+.obsidian/
+AGENTS.md AUDIT_FIXES_PROMPT.md README.md

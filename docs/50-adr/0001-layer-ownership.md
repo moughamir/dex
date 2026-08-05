@@ -9,7 +9,7 @@
 
 DEX is an operating layer between the user and the OS, not a web application.
 Phase 0 must fix the boundaries every future feature builds on. The scaffold
-already mirrors the PRD with 0-byte placeholder files on both sides
+already mirrors the PRD with 0-byte scaffolding files on both sides
 (`src/lib/**` and `src-tauri/src/**`), which is structurally sound but has
 several inconsistencies that would rot at scale:
 
@@ -109,5 +109,5 @@ several inconsistencies that would rot at scale:
 - Verification of boundary compliance is a review checklist item:
   no `@tauri-apps/api` imports outside `core/`, no `fetch`/`fs` in frontend,
   no SQL in frontend.
-- The 0-byte PRD-mirror placeholders outside these rules stay undeclared and
+- The 0-byte PRD-mirror scaffolding outside these rules stays undeclared and
   unreferenced until their owning phase; they are structure, not code.

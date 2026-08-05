@@ -1,46 +1,49 @@
 <script lang="ts">
-  let time = $state("");
+    import { Bell, Settings2 } from "lucide-svelte";
 
-  const update = () =>
-    (time = new Date().toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    }));
+    import { Button, GlassPanel } from "$lib/ui/primitives";
+    import { SearchBox } from "$lib/ui/navigation";
 
-  update();
-  setInterval(update, 1000);
+    let query = $state("");
 </script>
 
-<header>
-  <div class="logo">DEX</div>
+<header
+    class="absolute inset-x-0 top-0 z-(--z-hud) flex h-(--hud-height) items-center px-6"
+    data-tauri-drag-region
+>
+    <GlassPanel
+        variant="hud"
+        padding="sm"
+        class="flex h-full w-full items-center gap-4"
+    >
+        <div class="flex items-center gap-3" data-tauri-drag-region>
+            <div
+                class="flex size-10 items-center justify-center rounded-xl bg-(--dex-primary) font-bold text-black"
+            >
+                D
+            </div>
 
-  <div class="clock">{time}</div>
+            <div>
+                <h1 class="text-sm font-semibold">DEX</h1>
+
+                <p class="text-xs text-(--text-muted)">
+                    Digital Experience
+                </p>
+            </div>
+        </div>
+
+        <div class="flex-1">    </div>
+
+        <div class="w-full max-w-md">
+            <SearchBox bind:value={query} />
+        </div>
+
+        <Button variant="ghost" size="icon">
+            <Bell />
+        </Button>
+
+        <Button variant="ghost" size="icon">
+            <Settings2 />
+        </Button>
+    </GlassPanel>
 </header>
-
-<style>
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-
-    padding: 0 var(--dex-space-7);
-    color: var(--dex-text-1);
-    backdrop-filter: blur(var(--dex-blur-glass));
-
-    background: var(--dex-surface-1);
-
-    border-bottom: 1px solid var(--dex-border);
-  }
-
-  .logo {
-    font-weight: var(--dex-font-weight-bold);
-    letter-spacing: var(--dex-tracking-logo);
-    color: var(--dex-accent);
-  }
-
-  /* data/digits render in the mono face (design language) */
-  .clock {
-    font-family: var(--dex-font-mono);
-    letter-spacing: var(--dex-tracking-wide);
-  }
-</style>
