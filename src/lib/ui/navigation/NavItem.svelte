@@ -44,6 +44,7 @@
 		href?: string;
 		icon?: Snippet;
 		badge?: Snippet;
+		children?: Snippet;
 		class?: string;
 	}
 
@@ -52,6 +53,7 @@
 		href = "#",
 		icon,
 		badge,
+		children: _children,
 		active,
 		class: className
 	}: Props = $props();
