@@ -62,3 +62,6 @@ coverage/
 htmlcov/
 .coverage
 
+.svelte-kit/
+.obsidian/
+.slim/
