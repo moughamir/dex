@@ -1,52 +1,32 @@
-import { isTauri as isTauriRuntime } from "@tauri-apps/api/core";
-import { nanoid } from "nanoid";
+import { DOCK_WORKSPACES } from "$lib/core/config/navigation";
+import type { WorkspaceId } from "$lib/core/config/navigation";
 
-export function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-export type Debounced<A extends unknown[]> = ((...args: A) => void) & {
-  cancel(): void;
-};
-
-export function debounce<A extends unknown[]>(
-  fn: (...args: A) => void,
-  ms: number,
-): Debounced<A> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const debounced = (...args: A): void => {
-    if (timer !== undefined) clearTimeout(timer);
-    timer = setTimeout(() => {
-      timer = undefined;
-      fn(...args);
-    }, ms);
-  };
-  debounced.cancel = (): void => {
-    if (timer !== undefined) {
-      clearTimeout(timer);
-      timer = undefined;
-    }
-  };
-  return debounced;
+/**
+ * Resolve a workspace label from its ID.
+ * Falls back to "Digital Experience" when the workspace is unknown.
+ */
+export function workspaceLabel(id: WorkspaceId): string {
+	return (
+		DOCK_WORKSPACES.find((workspace) => workspace.id === id)?.label ??
+		"Digital Experience"
+	);
 }
 
 /**
- * True when running inside the Tauri webview. Wrapped in try/catch so a
- * transport failure can never take the shell down — outside Tauri it is
- * simply false (browser dev / tests).
+ * Resolve the active workspace ID from a pathname by matching the
+ * longest workspace `href` prefix. Falls back to "dashboard".
  */
-export function isTauri(): boolean {
-  try {
-    return isTauriRuntime();
-  } catch {
-    return false;
-  }
-}
+export function resolveWorkspace(pathname: string): WorkspaceId {
+	let match: { id: WorkspaceId; href: string } | undefined;
 
-export function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+	for (const workspace of DOCK_WORKSPACES) {
+		if (
+			pathname.startsWith(workspace.href) &&
+			(match === undefined || workspace.href.length > match.href.length)
+		) {
+			match = workspace;
+		}
+	}
 
-export function uid(): string {
-  return nanoid();
+	return match?.id ?? "dashboard";
 }

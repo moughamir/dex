@@ -43,7 +43,7 @@
 
 	interface Props extends VariantProps<typeof variants> {
 		label: string;
-		href?: string;
+		href: string;
 		icon?: Snippet;
 		badge?: Snippet;
 		children?: Snippet;
@@ -52,7 +52,7 @@
 
 	let {
 		label,
-		href = "#",
+		href,
 		icon,
 		badge,
 		children: _children,
@@ -69,7 +69,7 @@
 </script>
 
 <a
-	href={href === "#" ? "#" : resolve(href as Pathname)}
+	href={resolve(href as Pathname)}
 	class={classes}
 >
 	{#if icon}
