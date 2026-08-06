@@ -71,3 +71,11 @@ impl fmt::Display for NetworkError {
 }
 
 impl std::error::Error for NetworkError {}
+
+impl From<crate::providers::dbus::DbusError> for NetworkError {
+    fn from(error: crate::providers::dbus::DbusError) -> Self {
+        Self::Internal {
+            reason: error.to_string(),
+        }
+    }
+}

@@ -75,6 +75,7 @@ impl Process {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ProcessState {
     Unknown,
     Running,
@@ -86,6 +87,7 @@ pub enum ProcessState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ProcessPriority {
     Idle,
     BelowNormal,
