@@ -30,9 +30,7 @@ pub struct SimCard {
 
 impl SimCard {
     #[must_use]
-    pub fn new(
-        id: impl Into<String>,
-    ) -> Self {
+    pub fn new(id: impl Into<String>) -> Self {
         Self {
             id: id.into(),
             iccid: None,

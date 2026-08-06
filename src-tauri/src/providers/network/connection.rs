@@ -36,10 +36,7 @@ pub struct NetworkConnection {
 
 impl NetworkConnection {
     #[must_use]
-    pub fn new(
-        id: impl Into<String>,
-        adapter_id: impl Into<String>,
-    ) -> Self {
+    pub fn new(id: impl Into<String>, adapter_id: impl Into<String>) -> Self {
         Self {
             id: id.into(),
             name: String::new(),
@@ -76,6 +73,7 @@ impl NetworkConnection {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ConnectionState {
     Unknown,
     Disconnected,

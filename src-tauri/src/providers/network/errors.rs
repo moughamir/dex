@@ -3,46 +3,29 @@ use std::fmt;
 /// Errors returned by the Network provider.
 #[derive(Debug)]
 pub enum NetworkError {
-    AdapterNotFound {
-        id: String,
-    },
+    AdapterNotFound { id: String },
 
-    ConnectionNotFound {
-        id: String,
-    },
+    ConnectionNotFound { id: String },
 
     ManagerUnavailable,
 
-    ConnectionFailed {
-        reason: String,
-    },
+    ConnectionFailed { reason: String },
 
-    DisconnectionFailed {
-        reason: String,
-    },
+    DisconnectionFailed { reason: String },
 
-    ScanFailed {
-        reason: String,
-    },
+    ScanFailed { reason: String },
 
-    InvalidConfiguration {
-        reason: String,
-    },
+    InvalidConfiguration { reason: String },
 
     PermissionDenied,
 
     Timeout,
 
-    Internal {
-        reason: String,
-    },
+    Internal { reason: String },
 }
 
 impl fmt::Display for NetworkError {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::AdapterNotFound { id } => {
                 write!(f, "network adapter '{}' not found", id)
@@ -88,3 +71,11 @@ impl fmt::Display for NetworkError {
 }
 
 impl std::error::Error for NetworkError {}
+
+impl From<crate::providers::dbus::DbusError> for NetworkError {
+    fn from(error: crate::providers::dbus::DbusError) -> Self {
+        Self::Internal {
+            reason: error.to_string(),
+        }
+    }
+}

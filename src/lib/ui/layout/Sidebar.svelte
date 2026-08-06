@@ -1,34 +1,44 @@
 <script lang="ts">
-	import { SIDEBAR_NAV } from "$lib/core/config/navigation";
+	import { page } from "$app/state";
+
+	import { shellStore } from "$lib/core/stores/shell.svelte";
 
 	import { GlassPanel } from "$lib/ui/primitives";
 	import { NavItem, NavSection } from "$lib/ui/navigation";
+
+	const currentPath = $derived(page.url.pathname);
+
+	function isActive(href: string): boolean {
+		return href === "/"
+			? currentPath === "/"
+			: currentPath.startsWith(href);
+	}
 </script>
 
-<aside class="z-(--z-sidebar) h-full w-(--sidebar-width) p-6">
+<aside
+	class="z-(--z-sidebar) h-full p-6 {shellStore.sidebarCollapsed ? 'w-(--sidebar-collapsed-width)' : 'w-(--sidebar-width)'}"
+>
 	<GlassPanel variant="sidebar" padding="sm" class="flex h-full flex-col">
 		<div class="space-y-6">
-			{#each Object.values(SIDEBAR_NAV).flat() as section (section.id)}
+			{#each shellStore.currentContext as section (section.id)}
 				<NavSection title={section.title}>
-					{#snippet children()}
-						{#each section.items as item (item.id)}
-							<NavItem
-								label={item.label}
-								href={item.href}
-								active={false}
-							>
+					{#each section.items as item (item.id)}
+						<NavItem
+							label={item.label}
+							href={item.href}
+							active={isActive(item.href)}
+						>
+							{#snippet badge()}
 								{#if item.badge}
-									{#snippet badge()}
-										<span
-											class="rounded-full bg-(--surface-3) px-2 py-0.5 text-[10px]"
-										>
-											{item.badge}
-										</span>
-									{/snippet}
+									<span
+										class="rounded-full bg-(--surface-3) px-2 py-0.5 text-[10px]"
+									>
+										{item.badge}
+									</span>
 								{/if}
-							</NavItem>
-						{/each}
-					{/snippet}
+							{/snippet}
+						</NavItem>
+					{/each}
 				</NavSection>
 			{/each}
 		</div>

@@ -38,10 +38,7 @@ pub struct Process {
 
 impl Process {
     #[must_use]
-    pub fn new(
-        pid: u32,
-        name: impl Into<String>,
-    ) -> Self {
+    pub fn new(pid: u32, name: impl Into<String>) -> Self {
         Self {
             pid,
             parent_pid: None,
@@ -78,6 +75,7 @@ impl Process {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ProcessState {
     Unknown,
     Running,
@@ -88,7 +86,8 @@ pub enum ProcessState {
     Dead,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize,Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ProcessPriority {
     Idle,
     BelowNormal,

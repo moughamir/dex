@@ -5,6 +5,7 @@
 
 	import { HUD } from "$lib/ui/layout";
 	import { themeStore } from "$lib/core/stores/theme.svelte";
+	import { shellStore } from "$lib/core/stores/shell.svelte";
 
 	import type { Snippet } from "svelte";
 
@@ -16,6 +17,7 @@
 
 	onMount(() => {
 		themeStore.init();
+		shellStore.init();
 	});
 </script>
 

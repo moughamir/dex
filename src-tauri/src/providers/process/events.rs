@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{
-    process::ProcessState,
-    resource::ProcessResourceUsage,
-};
+use super::{process::ProcessState, resource::ProcessResourceUsage};
 
 /// Events emitted by the ProcessProvider.
 ///

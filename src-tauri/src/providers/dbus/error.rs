@@ -7,22 +7,16 @@ use std::fmt;
 #[derive(Debug)]
 pub enum DbusError {
     /// Failed to establish a connection to the bus.
-    ConnectionFailed {
-        reason: String,
-    },
+    ConnectionFailed { reason: String },
 
     /// The connection has been closed.
     ConnectionClosed,
 
     /// Failed to send a message.
-    SendFailed {
-        reason: String,
-    },
+    SendFailed { reason: String },
 
     /// Failed to receive a message.
-    ReceiveFailed {
-        reason: String,
-    },
+    ReceiveFailed { reason: String },
 
     /// Failed to create a proxy.
     ProxyCreationFailed {
@@ -32,50 +26,32 @@ pub enum DbusError {
     },
 
     /// Method invocation failed.
-    MethodCallFailed {
-        method: String,
-        reason: String,
-    },
+    MethodCallFailed { method: String, reason: String },
 
     /// Failed to subscribe to a signal.
-    SignalSubscriptionFailed {
-        signal: String,
-    },
+    SignalSubscriptionFailed { signal: String },
 
     /// Requested service is unavailable.
-    ServiceUnavailable {
-        service: String,
-    },
+    ServiceUnavailable { service: String },
 
     /// Invalid D-Bus object path.
-    InvalidObjectPath {
-        path: String,
-    },
+    InvalidObjectPath { path: String },
 
     /// Invalid interface name.
-    InvalidInterface {
-        interface: String,
-    },
+    InvalidInterface { interface: String },
 
     /// Invalid member.
-    InvalidMember {
-        member: String,
-    },
+    InvalidMember { member: String },
 
     /// Operation timed out.
     Timeout,
 
     /// Internal D-Bus error.
-    Internal {
-        reason: String,
-    },
+    Internal { reason: String },
 }
 
 impl fmt::Display for DbusError {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ConnectionFailed { reason } => {
                 write!(f, "failed to connect to D-Bus: {reason}")
@@ -98,24 +74,15 @@ impl fmt::Display for DbusError {
                 path,
                 interface,
             } => {
-                write!(
-                    f,
-                    "failed to create proxy ({service}, {path}, {interface})"
-                )
+                write!(f, "failed to create proxy ({service}, {path}, {interface})")
             }
 
-            Self::MethodCallFailed {
-                method,
-                reason,
-            } => {
+            Self::MethodCallFailed { method, reason } => {
                 write!(f, "D-Bus method '{method}' failed: {reason}")
             }
 
             Self::SignalSubscriptionFailed { signal } => {
-                write!(
-                    f,
-                    "failed to subscribe to signal '{signal}'"
-                )
+                write!(f, "failed to subscribe to signal '{signal}'")
             }
 
             Self::ServiceUnavailable { service } => {

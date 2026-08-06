@@ -38,9 +38,7 @@ pub struct Modem {
 
 impl Modem {
     #[must_use]
-    pub fn new(
-        id: impl Into<String>,
-    ) -> Self {
+    pub fn new(id: impl Into<String>) -> Self {
         Self {
             id: id.into(),
             manufacturer: String::new(),
@@ -62,10 +60,7 @@ impl Modem {
 
     #[must_use]
     pub fn is_registered(&self) -> bool {
-        matches!(
-            self.state,
-            ModemState::Registered | ModemState::Connected
-        )
+        matches!(self.state, ModemState::Registered | ModemState::Connected)
     }
 
     #[must_use]

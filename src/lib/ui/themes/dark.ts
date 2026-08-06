@@ -7,51 +7,51 @@ import type { Theme, ThemePalette } from "./types";
  * src/lib/ui/styles/tokens.css.
  */
 export const dark: Theme = {
-    id: "dark",
+  id: "dark",
+  name: "dark",
+
+  palette: {
     name: "dark",
 
-    palette: {
-        name: "dark",
+    /* Brand */
 
-        /* Brand */
+    accent: "#5ddcff",
+    accentStrong: "#00d4ff",
 
-        accent: "#5ddcff",
-        accentStrong: "#00d4ff",
+    /* Surfaces */
 
-        /* Surfaces */
+    background: "#05070b",
 
-        background: "#05070b",
+    surface1: "rgba(15, 20, 30, 0.35)",
+    surface2: "rgba(15, 20, 30, 0.60)",
+    surface3: "rgba(255, 255, 255, 0.08)",
 
-        surface1: "rgba(15, 20, 30, 0.35)",
-        surface2: "rgba(15, 20, 30, 0.60)",
-        surface3: "rgba(255, 255, 255, 0.08)",
+    /* Typography */
 
-        /* Typography */
+    text1: "#ffffff",
+    text2: "#9ecad8",
 
-        text1: "#ffffff",
-        text2: "#9ecad8",
+    /* Borders */
 
-        /* Borders */
+    border: "rgba(0, 212, 255, 0.20)",
 
-        border: "rgba(0, 212, 255, 0.20)",
+    /* Graphics */
 
-        /* Graphics */
+    gridLine: "rgba(0, 212, 255, 0.05)",
+    gridGlow: "rgba(0, 212, 255, 0.18)",
 
-        gridLine: "rgba(0, 212, 255, 0.05)",
-        gridGlow: "rgba(0, 212, 255, 0.18)",
+    ambient: "#0d1726",
+    fog: "#05070b",
 
-        ambient: "#0d1726",
-        fog: "#05070b",
+    particle: "#5ddcff",
+    particleGlow: "#00d4ff",
 
-        particle: "#5ddcff",
-        particleGlow: "#00d4ff",
+    /* Semantic */
 
-        /* Semantic */
+    selection: "rgba(0, 212, 255, 0.22)",
 
-        selection: "rgba(0, 212, 255, 0.22)",
-
-        success: "#32d583",
-        warning: "#f5b942",
-        danger: "#ef4444"
-    } satisfies ThemePalette
+    success: "#32d583",
+    warning: "#f5b942",
+    danger: "#ef4444",
+  } satisfies ThemePalette,
 };

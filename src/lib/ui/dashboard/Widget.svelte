@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Component, Snippet } from "svelte";
+	import type { Snippet } from "svelte";
 
 	import GlassPanel from "$lib/ui/primitives/GlassPanel.svelte";
 	import WidgetHeader from "./WidgetHeader.svelte";

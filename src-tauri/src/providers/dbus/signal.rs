@@ -10,7 +10,7 @@ use zvariant::OwnedValue;
 /// - UPower
 /// - BlueZ
 /// - Secret Service
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DbusSignal {
     /// Sender's unique bus name.
     pub sender: Option<String>,
@@ -47,31 +47,21 @@ impl DbusSignal {
 
     /// Sets the sender.
     #[must_use]
-    pub fn with_sender(
-        mut self,
-        sender: impl Into<String>,
-    ) -> Self {
+    pub fn with_sender(mut self, sender: impl Into<String>) -> Self {
         self.sender = Some(sender.into());
         self
     }
 
     /// Adds a payload field.
     #[must_use]
-    pub fn with_argument(
-        mut self,
-        name: impl Into<String>,
-        value: OwnedValue,
-    ) -> Self {
+    pub fn with_argument(mut self, name: impl Into<String>, value: OwnedValue) -> Self {
         self.body.insert(name.into(), value);
         self
     }
 
     /// Returns an argument by name.
     #[must_use]
-    pub fn argument(
-        &self,
-        name: &str,
-    ) -> Option<&OwnedValue> {
+    pub fn argument(&self, name: &str) -> Option<&OwnedValue> {
         self.body.get(name)
     }
 
@@ -79,17 +69,5 @@ impl DbusSignal {
     #[must_use]
     pub fn has_arguments(&self) -> bool {
         !self.body.is_empty()
-    }
-}
-
-impl Default for DbusSignal {
-    fn default() -> Self {
-        Self {
-            sender: None,
-            path: String::new(),
-            interface: String::new(),
-            member: String::new(),
-            body: HashMap::new(),
-        }
     }
 }

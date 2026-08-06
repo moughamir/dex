@@ -1,21 +1,7 @@
 <script lang="ts">
-	import {
-		Bot,
-		Database,
-		FolderKanban,
-		Home,
-		Package
-	} from "lucide-svelte";
+	import { DOCK_WORKSPACES } from "$lib/core/config/navigation";
 
 	import { Button, GlassPanel } from "$lib/ui/primitives";
-
-	const apps = [
-		Home,
-		FolderKanban,
-		Database,
-		Bot,
-		Package
-	];
 </script>
 
 <div
@@ -27,13 +13,13 @@
 		radius="full"
 		class="pointer-events-auto flex items-center gap-2"
 	>
-		{#each apps as Icon}
+		{#each DOCK_WORKSPACES as workspace (workspace.id)}
 			<Button
 				size="icon"
 				variant="ghost"
 				rounded="full"
 			>
-				<Icon />
+				<workspace.icon />
 			</Button>
 		{/each}
 	</GlassPanel>

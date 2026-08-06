@@ -1,13 +1,21 @@
 pub mod capability;
+pub mod dbus;
 pub mod error;
 pub mod health;
+pub mod modem;
+pub mod network;
+pub mod process;
 pub mod provider;
 pub mod registry;
 pub mod state;
 
 pub use capability::Capability;
+pub use dbus::DbusProxy;
 pub use error::ProviderError;
 pub use health::ProviderHealth;
+pub use modem::ModemProvider;
+pub use network::NetworkProvider;
+pub use process::ProcessProvider;
 pub use provider::Provider;
 pub use registry::ProviderRegistry;
 pub use state::ProviderState;

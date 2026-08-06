@@ -1,10 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{
-    modem::ModemState,
-    signal::SignalQuality,
-    sim::SimState,
-};
+use super::{modem::ModemState, signal::SignalQuality, sim::SimState};
 
 /// Events emitted by the ModemProvider.
 ///
@@ -14,9 +10,7 @@ use super::{
 pub enum ModemEvent {
     ModemAdded(ModemAddedEvent),
 
-    ModemRemoved {
-        modem_id: String,
-    },
+    ModemRemoved { modem_id: String },
 
     ModemStateChanged(ModemStateChangedEvent),
 
@@ -28,19 +22,13 @@ pub enum ModemEvent {
 
     SimInserted(SimInsertedEvent),
 
-    SimRemoved {
-        modem_id: String,
-    },
+    SimRemoved { modem_id: String },
 
     SimStateChanged(SimStateChangedEvent),
 
-    Connected {
-        modem_id: String,
-    },
+    Connected { modem_id: String },
 
-    Disconnected {
-        modem_id: String,
-    },
+    Disconnected { modem_id: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
