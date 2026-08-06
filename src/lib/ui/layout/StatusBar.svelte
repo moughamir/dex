@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { shellStore } from "$lib/core/stores/shell.svelte";
-	import { DOCK_WORKSPACES } from "$lib/core/config/navigation";
+	import { workspaceLabel } from "$lib/core/utils/helpers";
 
 	const now = $state(new Date());
 
@@ -19,17 +19,13 @@
 		})
 	);
 
-	const workspaceLabel = $derived(
-		DOCK_WORKSPACES.find(
-			(workspace) => workspace.id === shellStore.activeWorkspace
-		)?.label
-	);
+	const label = $derived(workspaceLabel(shellStore.activeWorkspace));
 </script>
 
 <footer
 	class="absolute bottom-0 left-0 right-0 z-(--z-status) flex h-(--status-height) items-center justify-between px-6 text-xs text-(--text-muted)"
 >
-	<div>DEX v0.1.0 · {workspaceLabel}</div>
+	<div>DEX v0.1.0 · {label}</div>
 
 	<div>{time}</div>
 </footer>

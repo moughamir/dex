@@ -19,7 +19,7 @@
 	const dockVisible = $derived(shellStore.dockVisible);
 </script>
 
-<div class="relative h-screen w-screen overflow-hidden bg-transparent text-(--text-primary)">
+<div class="relative h-screen w-screen overflow-hidden bg-transparent text-(--text-primary)" data-tauri-drag-region>
 
 	<Background />
 
