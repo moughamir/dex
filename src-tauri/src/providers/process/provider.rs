@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use crate::providers::{
     process::{
         events::{ProcessExitedEvent, ProcessSpawnedEvent, ProcessStateChangedEvent},
-        proc_reader, Process, ProcessEvent, ProcessPriority, ProcessResourceUsage, ProcessState,
-        Task, TaskState,
+        proc_reader, Process, ProcessError, ProcessEvent, ProcessPriority, ProcessResourceUsage,
+        ProcessState, Task, TaskState,
     },
     Capability, Provider, ProviderError, ProviderHealth, ProviderState,
 };
