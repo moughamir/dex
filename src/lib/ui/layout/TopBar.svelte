@@ -4,7 +4,7 @@
 	import { shellStore } from "$lib/core/stores/shell.svelte";
 	import { workspaceLabel } from "$lib/core/utils/helpers";
 
-	import { Button, GlassPanel } from "$lib/ui/primitives";
+	import { Button, GlassPanel, Tooltip } from "$lib/ui/primitives";
 	import { SearchBox } from "$lib/ui/navigation";
 
 	const label = $derived(workspaceLabel(shellStore.activeWorkspace));
@@ -24,7 +24,7 @@
 	>
 		<div class="flex items-center gap-3" data-tauri-drag-region>
 			<div
-				class="flex size-10 items-center justify-center rounded-xl bg-(--dex-primary) font-bold text-black"
+				class="flex size-10 items-center justify-center rounded-xl bg-(--dex-primary) font-bold text-[color:var(--on-primary)]"
 			>
 				D
 			</div>
@@ -46,16 +46,28 @@
 			</div>
 		{/if}
 
-		<Button variant="ghost" size="icon" onclick={() => (searchOpen = !searchOpen)}>
-			<Search />
-		</Button>
+		<Tooltip label="Search">
+			<Button
+				variant="ghost"
+				size="icon"
+				aria-label="Search"
+				aria-expanded={searchOpen}
+				onclick={() => (searchOpen = !searchOpen)}
+			>
+				<Search />
+			</Button>
+		</Tooltip>
 
-		<Button variant="ghost" size="icon">
-			<Bell />
-		</Button>
+		<Tooltip label="Notifications">
+			<Button variant="ghost" size="icon" aria-label="Notifications">
+				<Bell />
+			</Button>
+		</Tooltip>
 
-		<Button variant="ghost" size="icon">
-			<Settings2 />
-		</Button>
+		<Tooltip label="Settings">
+			<Button variant="ghost" size="icon" aria-label="Settings">
+				<Settings2 />
+			</Button>
+		</Tooltip>
 	</GlassPanel>
 </header>

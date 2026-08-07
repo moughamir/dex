@@ -51,7 +51,7 @@
 		</Button>
 	</header>
 
-	<section class="grid grid-cols-4 gap-6">
+	<section class="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
 
 		{#each stats as stat (stat.title)}
 
@@ -78,10 +78,10 @@
 
 	</section>
 
-	<section class="grid grid-cols-3 gap-6">
+	<section class="grid grid-cols-1 gap-6 xl:grid-cols-3">
 
 		<GlassPanel
-			class="col-span-2 min-h-105"
+			class="min-h-105 xl:col-span-2"
 		>
 			<div class="mb-6 flex items-center justify-between">
 				<h2 class="text-xl font-semibold">

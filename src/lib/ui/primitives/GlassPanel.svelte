@@ -1,5 +1,3 @@
-<svelte:options immutable />
-
 <script lang="ts">
 	import { clsx } from "clsx";
 	import type { HTMLAttributes } from "svelte/elements";
@@ -71,19 +69,19 @@
 		border: 1px solid var(--glass-border);
 		background: linear-gradient(
 			180deg,
-			rgb(28 30 38 / 0.42),
-			rgb(18 20 28 / 0.3)
+			var(--surface-2),
+			var(--surface-1)
 		);
 
 		backdrop-filter: blur(var(--blur-lg)) saturate(185%) brightness(1.05);
 		box-shadow:
-			0 18px 60px rgb(0 0 0 / 0.38),
-			inset 0 1px 0 rgb(255 255 255 / 0.12),
-			inset 0 -1px 0 rgb(255 255 255 / 0.03);
+			var(--shadow-lg),
+			inset 0 1px 0 var(--glass-border-light),
+			inset 0 -1px 0 var(--border-subtle);
 		transition:
-			transform 0.25s ease,
-			box-shadow 0.25s ease,
-			border-color 0.25s ease;
+			transform var(--duration-normal) var(--ease-standard),
+			box-shadow var(--duration-normal) var(--ease-standard),
+			border-color var(--duration-normal) var(--ease-standard);
 	}
 
 	.dex-glass::before {
@@ -94,7 +92,7 @@
 
 		background: linear-gradient(
 			180deg,
-			rgb(255 255 255 / 0.1),
+			var(--glass-light),
 			transparent 45%
 		);
 
@@ -114,12 +112,12 @@
 
 		background: radial-gradient(
 			circle,
-			rgb(255 255 255 / 0.18),
+			var(--glass-ultra),
 			transparent 70%
 		);
 
 		opacity: 0.22;
-		filter: blur(060px);
+		filter: blur(60px);
 	}
 
 	.dex-glass__reflection {
@@ -129,7 +127,7 @@
 		background: linear-gradient(
 			120deg,
 			transparent 20%,
-			rgb(255 255 255 / 0.05) 45%,
+			var(--glass-light) 45%,
 			transparent 70%
 		);
 		opacity: 0.18;
@@ -142,48 +140,36 @@
 	}
 
 	.dex-glass--interactive:hover {
-		transform: translateY(-4px);
+		transform: translateY(-2px);
 
-		border-color: rgb(255 255 255 / 0.18);
+		border-color: var(--glass-border-strong);
 
 		box-shadow:
-			0 32px 80px rgb(0 0 0 / 0.35),
-			0 0 30px rgb(120 170 255 / 0.08),
-			inset 0 1px 0 rgb(255 255 255 / 0.2);
+			var(--shadow-xl),
+			var(--shadow-accent),
+			inset 0 1px 0 var(--glass-border-light);
 	}
 
 	.dex-glass--glow {
 		box-shadow:
-			0 0 40px rgb(100 160 255 / 0.12),
-			0 24px 70px rgb(0 0 0 / 0.32),
-			inset 0 1px 0 rgb(255 255 255 / 0.18);
+			var(--shadow-accent),
+			var(--shadow-lg),
+			inset 0 1px 0 var(--glass-border-light);
 	}
 
 	.dex-glass--hud {
-		background: linear-gradient(
-			180deg,
-			rgb(255 255 255 / 0.14),
-			rgb(255 255 255 / 0.05)
-		);
+		background: var(--hud-bg);
 	}
 
 	.dex-glass--sidebar {
-		background: linear-gradient(
-			180deg,
-			rgb(255 255 255 / 0.08),
-			rgb(255 255 255 / 0.03)
-		);
+		background: var(--sidebar-bg);
 	}
 
 	.dex-glass--dock {
-		background: linear-gradient(
-			180deg,
-			rgb(255 255 255 / 0.12),
-			rgb(255 255 255 / 0.05)
-		);
+		background: var(--dock-bg);
 		box-shadow:
-			0 28px 80px rgb(0 0 0 /0.45),
-			inset 0 1px 0 rgb(255 255 255 /0.1);
+			var(--shadow-lg),
+			inset 0 1px 0 var(--glass-border-light);
 		backdrop-filter: blur(var(--blur-md)) saturate(200%);
 	}
 

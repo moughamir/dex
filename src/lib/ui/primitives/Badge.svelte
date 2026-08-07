@@ -23,7 +23,7 @@
 						"dex-glass text-[color:var(--text-primary)] border-[color:var(--border-default)]",
 
 					accent:
-						"bg-[color:var(--dex-primary)] text-white border-transparent",
+						"bg-[color:var(--dex-primary)] text-[color:var(--on-primary)] border-transparent",
 
 					success:
 						"bg-[color:var(--dex-success)] text-white border-transparent",

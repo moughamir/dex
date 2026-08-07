@@ -30,7 +30,11 @@
 			<Sidebar />
 		{/if}
 
-		<main class="relative flex-1 overflow-auto p-8">
+		<main
+			class="relative flex-1 overflow-auto p-8 {dockVisible
+				? 'pb-[calc(var(--status-height)+var(--dock-height)+var(--space-6))]'
+				: 'pb-[calc(var(--status-height)+var(--space-6))]'}"
+		>
 			{@render children?.()}
 		</main>
 	</div>

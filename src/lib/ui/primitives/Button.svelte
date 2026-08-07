@@ -24,7 +24,7 @@
 					primary: [
 						"dex-glass",
 						"dex-glass-elevated",
-						"text-white",
+						"text-[color:var(--text-primary)]",
 						"border-[color:var(--dex-primary)]"
 					],
 

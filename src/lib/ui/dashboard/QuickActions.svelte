@@ -14,24 +14,24 @@
 	title="Quick Actions"
 >
 
-	<div class="grid grid-cols-2 gap-3">
+	<div class="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
 
-		<Button>
+		<Button variant="secondary">
 			<FolderPlus />
 			Project
 		</Button>
 
-		<Button>
+		<Button variant="secondary">
 			<Bot />
 			Agent
 		</Button>
 
-		<Button>
+		<Button variant="secondary">
 			<Database />
 			Database
 		</Button>
 
-		<Button>
+		<Button variant="secondary">
 			<Plug />
 			Plugin
 		</Button>

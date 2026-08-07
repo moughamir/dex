@@ -19,13 +19,13 @@
 				return "grid grid-cols-1 gap-6";
 
 			case 2:
-				return "grid grid-cols-2 gap-6";
+				return "grid grid-cols-1 gap-6 sm:grid-cols-2";
 
 			case 4:
-				return "grid grid-cols-4 gap-6";
+				return "grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4";
 
 			default:
-				return "grid grid-cols-3 gap-6";
+				return "grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3";
 		}
 
 	});

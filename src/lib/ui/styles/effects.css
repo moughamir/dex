@@ -182,8 +182,10 @@
     width: var(--cursor-size);
     height: var(--cursor-size);
 
-    left: var(--cursor-x);
-    top: var(--cursor-y);
+    left: 0;
+    top: 0;
+
+    translate: var(--cursor-x) var(--cursor-y);
 
     transform: translate(-50%, -50%);
 
@@ -195,9 +197,7 @@
 
     opacity: 0.14;
 
-    transition:
-        left 0.08s linear,
-        top 0.08s linear;
+    transition: translate 0.08s linear;
 }
 
 /* ==========================================================================
@@ -241,5 +241,23 @@
 
     to {
         transform: translate(-54%, -42%) scale(1.18);
+    }
+}
+
+/* ==========================================================================
+   Reduced Motion
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    .dex-aurora,
+    .dex-spotlight,
+    .dex-noise,
+    .dex-cursor-glow {
+        animation: none;
+        transition: none;
+    }
+
+    .dex-noise {
+        opacity: calc(var(--noise-opacity) * 0.5);
     }
 }

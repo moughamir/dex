@@ -15,6 +15,7 @@
     --dex-success: oklch(0.76 0.18 150);
     --dex-warning: oklch(0.83 0.18 82);
     --dex-danger: oklch(0.67 0.23 28);
+    --on-primary: #0b1622;
     /* ------------------------------------------------------------------------
    * DEX aliases — legacy `--dex-*` vocabulary mapped onto the semantic tokens
    * ---------------------------------------------------------------------- */
@@ -215,6 +216,7 @@
 [data-theme="dark"] {
     --dex-primary: #5ddcff;
     --dex-secondary: #00d4ff;
+    --on-primary: #05070b;
     --bg-0: #05070b;
     --surface-1: rgba(15, 20, 30, 0.35);
     --surface-2: rgba(15, 20, 30, 0.6);
@@ -232,22 +234,57 @@
     color-scheme: light;
     --dex-primary: #0090b3;
     --dex-secondary: #00709a;
+    --on-primary: #ffffff;
     --bg-0: #e8eef2;
+    --surface-0: rgb(255 255 255 / 0.5);
     --surface-1: rgba(255, 255, 255, 0.45);
     --surface-2: rgba(255, 255, 255, 0.68);
     --surface-3: rgba(15, 20, 30, 0.06);
+    --surface-4: rgba(15, 20, 30, 0.1);
+    --glass-light: rgb(255 255 255 / 0.7);
+    --glass-medium: rgb(255 255 255 / 0.55);
+    --glass-heavy: rgb(255 255 255 / 0.45);
+    --glass-ultra: rgb(255 255 255 / 0.85);
+    --glass-border-light: rgb(255 255 255 / 0.9);
+    --glass-border: rgb(15 20 30 / 0.08);
+    --glass-border-strong: rgb(15 20 30 / 0.14);
+    --hud-bg: rgb(232 238 242 / 0.6);
+    --hud-border: rgb(15 20 30 / 0.1);
+    --hud-highlight: rgb(255 255 255 / 0.6);
+    --sidebar-bg: rgb(232 238 242 / 0.72);
+    --sidebar-hover: rgb(15 20 30 / 0.05);
+    --sidebar-active: rgb(15 20 30 / 0.1);
+    --dock-bg: rgb(255 255 255 / 0.5);
+    --dock-border: rgb(15 20 30 / 0.08);
     --text-primary: #0b141d;
     --text-secondary: #2e4d61;
+    --text-muted: #5b6b7c;
+    --text-disabled: #8a99a8;
+    --border-subtle: rgb(15 20 30 / 0.06);
     --border-default: rgba(0, 112, 154, 0.35);
+    --border-strong: rgb(15 20 30 / 0.14);
+    --shadow-xs: 0 2px 4px rgb(15 20 30 / 0.08);
+    --shadow-sm: 0 4px 12px rgb(15 20 30 / 0.1);
+    --shadow-md: 0 12px 40px rgb(15 20 30 / 0.12);
+    --shadow-lg: 0 20px 70px rgb(15 20 30 / 0.16);
+    --shadow-xl: 0 40px 120px rgb(15 20 30 / 0.2);
+    --shadow-glow: 0 0 60px rgb(0 144 179 / 0.2);
+    --scrollbar-thumb: rgb(15 20 30 / 0.18);
+    --scrollbar-thumb-hover: rgb(15 20 30 / 0.3);
+    --focus-ring:
+        0 0 0 2px rgb(255 255 255 / 0.9),
+        0 0 0 5px color-mix(in srgb, var(--dex-primary) 55%, transparent);
     --dex-success: #16a34a;
     --dex-warning: #d97706;
     --dex-danger: #dc2626;
     --selection-bg: rgba(0, 144, 179, 0.18);
+    --selection-text: #0b141d;
 }
 
 [data-theme="cyber"] {
     --dex-primary: #66e6ff;
     --dex-secondary: #00e5ff;
+    --on-primary: #060a14;
     --bg-0: #060a14;
     --surface-1: rgba(8, 12, 24, 0.45);
     --surface-2: rgba(8, 12, 24, 0.7);

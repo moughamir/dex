@@ -6,7 +6,7 @@
 
 	$effect(() => {
 		const timer = setInterval(() => {
-			now.setTime(now.getTime() + 1000);
+			now.setTime(Date.now());
 		}, 1000);
 
 		return () => clearInterval(timer);

@@ -22,7 +22,8 @@
 		bind:value
 		type="search"
 		placeholder={placeholder}
-		class="h-10 w-full rounded-xl border border-(--border-default) bg-(--surface-2) pl-10 pr-4 outline-none transition focus:border-(--dex-primary)"
+		aria-label="Search"
+		class="h-11 w-full rounded-xl border border-(--border-default) bg-(--surface-2) pl-10 pr-4 outline-none transition focus:border-(--dex-primary)"
 	/>
 
 </div>
