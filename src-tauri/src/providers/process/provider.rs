@@ -239,10 +239,12 @@ impl ProcessProvider {
                     let previous = process.state;
                     process.state = ProcessState::Stopped;
                     if previous != process.state {
+                        let current = process.state;
+                        let _ = process;
                         self.emit(ProcessEvent::StateChanged(ProcessStateChangedEvent {
                             pid,
                             previous,
-                            current: process.state,
+                            current,
                         }));
                     }
                 }

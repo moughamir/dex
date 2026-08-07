@@ -13,3 +13,4 @@ vite.config.ts.timestamp-*
 .slim/deepwork/
 .ignore
 .obsidian/
+patch/
