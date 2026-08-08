@@ -100,3 +100,56 @@ Not BLOCKED: the transparency contract is clean end-to-end, the IPC stays single
 ---
 
 **Files inspected (first-hand):** `tauri.conf.json`, `src-tauri/src/{lib,main}.rs`, `commands/{core,mod}.rs`, `capabilities/default.json`, `Cargo.toml`, `splashscreen/+page.svelte`, `+layout.{ts,svelte}`, `+page.svelte`, `app.html`, `app.css`, `shell/theme.svelte.ts`, `HUD/AppShell/Background/Aurora/Grid/CursorGlow.svelte`, `core/api/{commands,tauri}.ts`, `core/utils/logger.ts`, `svelte.config.js`, `vite.config.js` + commit `019e55f` diff. Specialist lanes covered the 12 required docs, the full transparency chain + viewport/polling scan, the test/verify/IPC inventory, and Tauri 2 ACL semantics.
+
+---
+
+## 8. FINAL REVIEW — re-review of the M1.1 implementation (2026-08-08, second pass)
+
+**Status:** `M1.1 NEEDS CHANGES`
+**Reviewed tree:** branch `agent/m1.1-window` — `bb93321` (feat: window layer + real startup handshake) + `49e635c` (docs: M1.1 final report) on top of `60a710e` (current `develop`, incl. docs pass). Worktree `m1.1-window` clean at `49e635c`. The implementation is **not on `develop`**; it lives only on this branch.
+**Review method:** first-hand read of all 14 implementation files + `M1.1_FINAL_REPORT.md`, parallel specialist lanes for (a) the post-pass docs/ADR-0006 contract and (b) an independent audit of every test claim in the final report, then a local re-run of all nine `verify` gates on the implementation content. **No production code modified.**
+
+### 8.1 Classification of the original findings
+
+| # | Original finding | Class | Evidence |
+| --- | --- | --- | --- |
+| 1 | Splash-specific layout (renders full shell chrome in 420×280) | **NOT FIXED** | `+layout.svelte:26-28` still wraps *every* route in `<HUD>`→`AppShell`; no `src/routes/splashscreen/+layout.svelte` exists (glob: only `+page.svelte`); AppShell renders Background/TopBar/Sidebar/Dock/StatusBar with `sidebarVisible=true, dockVisible=true` defaults (`shell.svelte.ts:22-24`). Final report §4 confirms: "Splashscreen and HUD markup/design untouched." |
+| 2 | Remove fake initialization (2 s Rust sleep + 1.5 s + 1 s timers) | **FIXED** | `lib.rs:19-30` `setup_backend` completes immediately (no sleep); `splashscreen/+page.svelte:10-20` signals "frontend" after a double-`requestAnimationFrame` first-paint, no `setTimeout` left. |
+| 3 | Stuck-on-splash fallback (no recovery path) | **FIXED** | `lib.rs:38-69` `startup_fallback`: after 10 s, if `shown` is still false, force-close splash, `show()`+`set_focus()` main, `log_warn`. Splash catch path (`+page.svelte:21-24`) now only reports "Initialization error"; recovery is the Rust timer. |
+| 4 | Splash logging + capability | **PARTIALLY FIXED** | `console.error` → `logError` (`+page.svelte:22`). Capability: splash stays zero-capability by design — ADR-0006:58-60 explicitly blesses this ("deliberately not granted window capabilities… acceptable today"). **New residual issue:** `+layout.svelte:22` now runs `windowStore.init()` on the splash too; its `core:window` invokes (`scale_factor`, `inner_size`, `current_monitor`, …) are ACL-denied on a zero-capability window, and the denial is swallowed because `log:default` is also not granted there → unhandled rejection on the splash webview, invisible to the app log. See §8.3-4. |
+| 5 | Dev CSP for HMR | **NOT FIXED** | `tauri.conf.json:41-43` unchanged — no `devCsp`; strict CSP still blocks Vite HMR `ws://localhost:1420` in dev. Report §4: "CSP untouched (still strict; no dev relaxation shipped)." |
+| 6 | Multi-monitor / DPI implementation | **FIXED** (code level) | New event-driven layer: `core/api/window.ts` (sole `@tauri-apps/api/window` import point, boundary rule), `core/stores/window.svelte.ts` (logical size, scale factor, monitor, fullscreen, focus; subscribes `onResized`/`onMoved`/`onScaleChanged`/`onFocusChanged`; no polling), `core/utils/window-geometry.ts` (pure `toLogical`/`toPhysical`/`monitorEquals`), `core/types/window.ts`. `onMoved` re-queries `currentMonitor` with a churn guard. Runtime caveat honestly flagged (single monitor, scale 1.00 — not natively exercisable; unit-tested). |
+| 7 | Test the gate | **PARTIALLY FIXED** | Rust: `startup_gate` extracted as a pure predicate and tested over **all 8 flag combos** (`core.rs:181-200`), `StartupTask::try_from_str` tested for canonical keys + 6 invalid inputs (`:141-160`). Frontend: 11 geometry + 8 store tests. **Gap:** `startup_fallback` (the Blocker-2 fix itself) has **no test**; `set_complete`'s stateful mutex flow and splash-close/main-show sequencing are untested; store error paths untested. |
+
+### 8.2 Independent verification of the final report's claims
+
+| Claim (M1.1_FINAL_REPORT.md) | Result |
+| --- | --- |
+| "80 frontend tests / 10 files (was 61/8)" | **VERIFIED** — `bun run test` = 10 files, 80 tests, all pass. |
+| "61 backend tests" + 5 named new tests | **VERIFIED** — `cargo test` = 61 passed; all five named tests exist (`core.rs:141,153,163,173,181`) and pass. |
+| "ALL GATES PASSED" (9-step verify) | **VERIFIED (re-run locally)** — prettier ✓ eslint ✓ svelte-check 0 errors/0 warnings ✓ cargo fmt ✓ clippy `-D warnings` ✓ cargo check ✓ vitest 80/10 ✓ vite build ✓ cargo test 61 ✓. |
+| Native Wayland/Hyprland run (splash→main, fullscreen 1366×768, transparency A/B pixel test) | **PLAUSIBLE, NOT INDEPENDENTLY REPRODUCIBLE HERE** (headless env). Methodology is sound (hyprctl `fullscreen: 2`, wallpaper visible through glass). Config-level evidence confirmed first-hand; runtime desktop gate still pending per ADR-0004. |
+| "No capability change needed: `core:default` bundles `core:window:default`" | **CORRECT for `main`** (has `core:default`), and custom `set_complete` is ACL-exempt (no AppManifest, local origin). **Does not cover the splash**: its `windowStore.init()` window-API calls are denied (see §8.3-4). |
+| "Branch on top of `019e55f`" (§header); §8 M0.4-discrepancy flag | **STALE** — branch is rebased on `60a710e` (docs pass); the M0.4 discrepancy it flags was already resolved by the docs pass (`11_Product_Roadmap.md:71-84` Phase 0 complete; `14_Feature_Matrix.md` M0.4 → Built; 45 milestones). |
+
+### 8.3 Independent re-verification of the 16 M1.1 items
+
+- **Splash isolation** — FAIL (§8.1-1). **Real startup handshake** — PASS: `startup_gate` pure predicate, `shown` flag, fires exactly once under the mutex; backend completes immediately, frontend signals at first paint. **Failure recovery** — PASS: 10 s `startup_fallback` cannot strand the user on a hidden main window. **No artificial delays** — PASS. **Transparent** — PASS (config + full chain, unchanged). **Fullscreen** — PASS (config-level; manual gate pending). **Resize behavior** — PASS (frontend `onResized`, physical→logical). **DPI/scale** — PASS (code-level: `toLogical`/`toPhysical` at sf 1/1.5/2/3; `onScaleChanged`; runtime scale-1.00 env caveat). **Multi-monitor** — PASS (code-level: `currentMonitor` + `onMoved` churn-guarded re-query; unit-tested; not natively exercisable). **Wayland** — PASS (no X11 code; M4.4 Hyprland socket boundary respected). **IPC architecture** — PASS (single `generate_handler!`, one serde struct arg, snake_case, `z.null()` wire, typed `setComplete` client registered in `services`). **Capabilities/security** — PARTIAL: main-window least-privilege unchanged; splash window runs denied window-API calls via the shared layout (§8.1-4); unused grants (opener, five window perms) pre-existing. **CSP** — PASS (strict prod CSP intact); dev HMR still blocked (finding 5). **Test coverage** — IMPROVED but gappy: gate predicate exhaustively tested; fallback/stateful/error paths untested (§8.1-7). **Performance** — PASS: no polling, no fake delays; startup is real-readiness-bound. **Scope discipline** — PASS: only window/startup/DPI + product-doc status flips; no Phase 2+ work; Roadmap M1.1 `[x]` and Feature Matrix M1.1 → Built are legitimate post-green updates.
+
+### 8.4 Required changes before M1.1 acceptance
+
+1. **Splash-specific layout (original Blocker 1 — still open).** Add `src/routes/splashscreen/+layout.svelte` (bare transparent wrapper) or gate `<HUD>`/`AppShell` off the `/splashscreen` route in `+layout.svelte:26-28`. The shipped startup surface still renders the full desktop shell (sidebar/dock/statusbar) inside a 420×280 window — the exact blocker from §3.1, confirmed by the report's own "markup untouched" statement.
+2. **Dev CSP for HMR (original finding 5 — still open).** Add a dev-only `devCsp` permitting `ws://localhost:1420` in `tauri.conf.json`; leave the production CSP untouched.
+3. **Reconcile ADR-0006 with the shipped handshake.** The docs pass (post-review) codified the *removed* fake-init design as normative: ADR-0006:36-38 ("~2 s stand-in"), ADR-0006:40-42 ("staged fake init 1500 ms + 1000 ms ≈ 2.5 s"), and `SetupState { frontend_task, backend_task }` (ADR-0006:29-32) omits the new `shown` field and the 10 s fallback entirely. Update the ADR to the shipped contract (immediate backend completion, double-rAF frontend readiness, `shown` gate, fallback timer) so docs and code agree.
+4. **Don't run `windowStore.init()` on the zero-capability splash.** Either gate it to the main window (e.g. skip when window label is `splashscreen`) or grant the splash a minimal window-read capability. Today `+layout.svelte:22` produces ACL-denied invokes + a swallowed-then-unhandled rejection on the splash webview.
+5. **Test the Blocker-2 fix.** Add a Rust test for `startup_fallback` (extract its decision into a pure predicate like `startup_gate`, or unit-test that it only acts while `shown == false` and that a completed handshake suppresses it). The one regression-riskiest path added by this milestone is currently untested on both sides.
+
+Non-blocking follow-ups: final report's stale base-commit/§8 claims (§8.2); unused capability grants + dead `--bg-*` tokens (pre-existing hygiene); `greet` ADR-0002 drift (pre-existing).
+
+### 8.5 Final verdict
+
+**`M1.1 NEEDS CHANGES`**
+
+Not BLOCKED: the milestone's core substance is delivered and verified — fake delays gone, a real exactly-once handshake with a 10 s failure fallback, an event-driven multi-monitor/DPI layer with pure-logic tests, all nine gates green (re-run locally: 80 frontend + 61 Rust tests), transparency/fullscreen/IPC/CSP contracts intact, Roadmap/Feature Matrix honestly updated, and the docs pass resolved the M0.4 discrepancy this implementation flagged.
+
+Not READY: **original Blocker 1 (splash renders the full shell chrome) is untouched**, the dev-HMR CSP fix is not shipped, ADR-0006 (newest doc) contradicts the implementation it sits on top of, `windowStore.init()` now executes ACL-denied window calls on the zero-capability splash, and the new failure-recovery path itself is untested. These are all small, contained, in-scope changes — same shape as the original pass — so this is one more required round, not a redesign.
