@@ -69,8 +69,8 @@ surface (**M5.6 Settings** — theme, plugins, AI, system).
 
 ## Prerequisites
 
-- DEX built and running. Verification order: `bun run check`, `cargo check` in
-  `src-tauri/`, then `bun run tauri dev` on a Wayland/Hyprland session.
+- DEX built and running. Verification order: `bun run verify`, then `bun run tauri:dev` on a
+  Wayland/Hyprland session.
 - For Step 2: the local model runtime of the chosen Provider (Ollama here)
   installed and a model pulled.
 - For Step 3: a Memory Provider backend (a local database or an embedding

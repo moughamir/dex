@@ -11,19 +11,19 @@ production.
 
 ## Current state — honest
 
-The repository does **not** yet have a frontend test runner, a lint runner, or
-a formatter configured. The `tests/` directory is scaffolding only
-(`tests/{unit,integration,e2e,frontend,backend}/` each contain a `.gitkeep`),
-and `scripts/*.ts` are empty scaffolding. Rust has `cargo test` available
-inside `src-tauri/`, but no test suite is written yet.
+Frontend tests run via `bun run test` (`vitest run`): 8 files under
+`tests/frontend/`, node environment, with `$lib` and lucide-svelte stubs
+configured in `vitest.config.ts`. Rust tests run via `bun run cargo:test`
+(cwd-independent, `--manifest-path`): 56 unit tests across the providers,
+database migrations, utils, and commands. The other `tests/` directories —
+`tests/{backend,unit,integration,e2e}/` — remain scaffolding.
 
-This gap is tracked by roadmap milestone **M0.4 (Development Tooling)**, which
-is open. M0.4 will add ESLint, Prettier, Rustfmt, Clippy, a test runner, git
-hooks, and the CI skeleton. Until M0.4 lands, the verification order below is
-the gate, and the manual desktop check carries the load that automated tests
-will later carry. This document describes the intended setup and the testing
-rules that will be enforced once the tooling exists — it does not claim the
-tooling is live.
+The tooling is live: ESLint, Prettier, Rustfmt, Clippy, the vitest runner, and
+the CI skeleton all landed with milestone **M0.4 (Development Tooling)**, which
+is shipped. `bun run verify` is the authoritative gate, and CI runs exactly it
+on push/PR to `develop`/`main`. The manual desktop check remains part of the
+verification picture because compositor and transparent-window behavior cannot
+be tested headless (ADR-0004).
 
 ## Why test at all
 
@@ -50,8 +50,8 @@ flowchart TD
     UNIT["unit — pure logic, stores, zod schemas"]
     INT["integration — IPC contract, services, Rust commands"]
     E2E["e2e — shell behavior on a real desktop"]
-    RUST["Rust — cargo test in src-tauri/"]
-    VERIFY["verification order: bun run check → cargo check → tauri dev"]
+    RUST["Rust — bun run cargo:test"]
+    VERIFY["verification order: bun run verify (9-step gate)"]
 
     UNIT --> INT
     INT --> E2E
@@ -112,10 +112,11 @@ run on Wayland/Hyprland, not in a browser tab.
 
 ### Rust tests
 
-`cargo test` inside `src-tauri/` covers the Rust side: unit tests for pure
-logic and integration tests for command handlers and the database access layer.
-Rust owns all system access (ADR-0001), so the Rust test suite is the primary
-guard on filesystem, SQLite, and Hyprland behavior.
+`bun run cargo:test` (`--manifest-path`, cwd-independent) covers the Rust
+side: 56 unit tests across the providers, database migrations, utils, and
+commands, plus integration tests for command handlers and the database access
+layer. Rust owns all system access (ADR-0001), so the Rust test suite is the
+primary guard on filesystem, SQLite, and Hyprland behavior.
 
 ## What must be tested at each layer — summary
 
@@ -124,26 +125,29 @@ guard on filesystem, SQLite, and Hyprland behavior.
 | Unit | zod schemas, stores, pure helpers, Rust pure logic | fast, run on every change |
 | Integration | IPC contract clients, Rust commands, events | run on every change |
 | E2E | shell behavior on a real desktop | run at milestone gates |
-| Rust | `cargo test` in `src-tauri/` | run on every change |
+| Rust | `bun run cargo:test` in `src-tauri/` | run on every change |
 
-## Verification order
+## Verification (the gate)
 
-The verification order is fixed and is the gate for every change:
+Run `bun run verify` (`scripts/verify.ts`) from any cwd before merging. It runs nine gates in order, fail-fast:
 
-1. `bun run check` — frontend types (`svelte-kit sync && svelte-check`).
-2. `cargo check` — Rust, inside `src-tauri/`.
-3. `bun run tauri dev` — desktop, manual, requires Wayland/Hyprland.
+1. `format:check` — frontend formatting (`prettier --check src/`)
+2. `cargo:fmt:check` — backend formatting (`cargo fmt --check`, `--manifest-path`)
+3. `lint` — frontend lint (`eslint src/`)
+4. `check` — frontend types (`svelte-kit sync && svelte-check`)
+5. `cargo:clippy` — backend lint (`clippy --all-targets --all-features -D warnings`)
+6. `cargo:check` — backend types
+7. `test` — frontend tests (`vitest run`)
+8. `build` — frontend production build (`vite build`)
+9. `cargo:test` — backend tests
 
-Once M0.4 lands, the automated test runner slots into this order after the
-type checks and before the manual desktop check. The manual check remains
-because compositor and transparent-window behavior cannot be automated
-reliably (ADR-0004).
+CI runs exactly this gate on push/PR to `develop`/`main`. The individual `bun run check` and `bun run cargo:check` remain valid single-gate checks during development; `bun run tauri:dev` stays a manual desktop gate (transparent/compositor behavior cannot be tested headless, ADR-0004). A change failing any gate is not ready for review.
 
 ## Roadmap
 
-- **M0.4 (Development Tooling, open):** ESLint, Prettier, Rustfmt, Clippy, a
-  test runner, git hooks, and the CI skeleton. This is when the automated test
-  suite becomes enforceable in CI.
+- **M0.4 (Development Tooling, shipped):** ESLint, Prettier, Rustfmt, Clippy,
+  the vitest runner, and the CI skeleton. The automated test suite is now
+  enforceable in CI via `bun run verify`.
 - **M9.2 (Testing, Phase 9):** the full unit, integration, UI, and Rust test
   suites are completed and hardened as part of the production milestone. This
   is the gate that makes v1.0 shippable.

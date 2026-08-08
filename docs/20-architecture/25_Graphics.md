@@ -7,8 +7,8 @@ engine-agnostic renderer contracts, the rendering stack, the ownership
 boundary, the renderer lifecycle, and the performance contract. It explains
 *why* the shell renders the way it does and *how* the pieces compose. It is
 not an implementation guide; the formal renderer contracts live in
-`src/lib/graphics/contracts.ts` and the renderer decision is recorded in
-ADR-0006.
+`src/lib/graphics/contracts.ts`. The renderer decision has not been made yet;
+it will be recorded in an ADR when the renderer is chosen in Phase 2.
 
 ## Background — why a graphics layer exists
 

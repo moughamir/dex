@@ -8,7 +8,7 @@ Rust.
 ## Stack
 
 - Frontend: SvelteKit (SPA) · Svelte 5 runes · TypeScript strict · CSS
-  variables · Three.js (Phase 1) · Bun
+  variables · Three.js (Phase 2) · Bun
 - Backend: Tauri 2 · Rust · Tokio · Serde · SQLite (rusqlite)
 - Platform: Hyprland · Wayland · Arch Linux
 
@@ -38,7 +38,9 @@ Highlights:
 ```sh
 bun install        # never npm
 bun run dev        # Vite only, port 1420
-bun run tauri dev  # full desktop window (Wayland/Hyprland, webkit2gtk)
+bun run tauri:dev  # full desktop window (Wayland/Hyprland, webkit2gtk); manual desktop check
+bun run verify     # authoritative gate: nine fail-fast checks (format, Rust format, lint,
+                   # types, clippy, Rust types, tests, build, Rust tests); CI runs exactly this
 bun run check      # svelte-check
 cargo check        # inside src-tauri/
 ```
@@ -48,5 +50,6 @@ See [`AGENTS.md`](AGENTS.md) for repo mechanics and conventions.
 ## Status
 
 Phase 0 (foundation): layer model, ADRs, design system, typed IPC layer,
-theme store, Rust command scaffolding — no business features yet. See
+theme store, Rust command scaffolding, and the M0.4 nine-gate verification
+(`bun run verify`) + CI — no business features yet. See
 [`docs/10-product/11_Product_Roadmap.md`](docs/10-product/11_Product_Roadmap.md).

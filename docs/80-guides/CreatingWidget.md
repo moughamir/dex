@@ -30,8 +30,8 @@ shell when they ship (CLI First, principle 3), so the steps transfer unchanged.
 
 ## Prerequisites
 
-- DEX built and running. Verification order: `bun run check`, `cargo check`
-  in `src-tauri/`, then `bun run tauri dev` on a Wayland/Hyprland session.
+- DEX built and running. Verification order: `bun run verify`, then `bun run tauri:dev` on a
+  Wayland/Hyprland session.
 - The `dex` CLI on `PATH` (after M3.1; see Capability gates).
 - A directory that will become the Widget root; the manifest and the entry
   document live there.

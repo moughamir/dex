@@ -12,7 +12,7 @@ model, the boundaries between subsystems, and the rules that keep the system
 composable and safe. Decisions recorded here are binding; structural or
 cross-cutting changes go through `50-adr/`.
 
-Stack: Svelte 5 (runes) · TypeScript (strict) · Three.js (Phase 1+) ·
+Stack: Svelte 5 (runes) · TypeScript (strict) · Three.js (Phase 2) ·
 CSS variables · Bun · Tauri v2 · Rust · Tokio · Serde · SQLite (rusqlite).
 
 ## Background
@@ -83,7 +83,7 @@ src/
       types/       shared domain models
     ui/            reusable visuals only
       layout/      the HUD shell (TopBar, Dock, StatusBar, HUD)
-      primitives/  GlassPanel, Button, Icon, Tooltip, Divider, …
+      primitives/  GlassPanel, Button, Tooltip, Divider, …
       styles/      tokens.css + design system docs
       themes/      ThemePalette TS mirrors (light/dark/cyber)
     features/      business features; each owns components/, services/, stores/,
@@ -158,13 +158,15 @@ Details and rationale: ADR-0001.
 
 - DOM/UI is composited by the browser; the shell window is transparent, so the
   Wayland desktop shows through (ADR-0004).
-- `graphics/` will host the Three.js renderer (Phase 1+): a WebGL canvas with
+- `graphics/` will host the Three.js renderer (Phase 2): a WebGL canvas with
   `alpha: true` composited under the DOM chrome. Contracts live in
   `graphics/contracts.ts`; implementations arrive with the first feature that
   needs GPU visuals. The renderer owns its frame loop, resources, and
   lifecycle; it never reaches into features.
-- Animation contract: `transform`/`opacity` only, 150–250 ms,
-  `cubic-bezier(.22,.61,.36,1)`, `prefers-reduced-motion` respected
+- Animation contract: `transform`/`opacity` only, durations from the
+  `--duration-*` scale (`--duration-fast/normal/slow/slower` =
+  120/220/360/600 ms) with the single easing `--ease-standard`
+  (`cubic-bezier(0.2, 0.8, 0.2, 1)`), `prefers-reduced-motion` respected
   (ADR-0003).
 
 ## Design System
@@ -211,8 +213,12 @@ Details and rationale: ADR-0001.
   features and existing deps (`cva`, `clsx`, `zod`).
 - Conventional commits (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`,
   `style:`, `perf:`).
-- Verification order: `bun run check` → `cargo check` (in `src-tauri/`) →
-  `bun run tauri dev` (desktop, manual).
+- Verification order: the standard gate is `bun run verify` — nine steps,
+  fail-fast, in order: `format:check` → `cargo:fmt:check` → `lint` → `check`
+  → `cargo:clippy` → `cargo:check` → `test` → `build` → `cargo:test`. CI runs
+  exactly this on push/PR to `develop`/`main`. `bun run tauri:dev` stays the
+  manual desktop check — transparent/compositor behavior is not testable
+  headless (ADR-0004).
 
 ## Evolution Rules
 
@@ -229,7 +235,9 @@ Implemented in Phase 0: layer model + ADRs (0001–0005), design tokens +
 primitives, transparency contract, typed IPC layer (`core/api`,
 `core/services` pattern), theme store, Rust command scaffolding (incl.
 `tauri-plugin-log` + `log:default` grant), strict CSP, engineering docs.
-Roadmap milestones M0.1–M0.3 are done; M0.4 (dev tooling/CI) is open.
+Roadmap milestones M0.1–M0.4 are done — Phase 0 is shipped, and the standard
+gate `bun run verify` (nine steps, fail-fast) is wired into CI on push/PR to
+`develop`/`main`. Phase 1 (M1.1 Window) is the current phase and in progress.
 Business features are explicitly out of scope until Phase 1.
 
 ## Related Documents
