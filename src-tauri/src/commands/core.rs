@@ -49,6 +49,16 @@ pub fn startup_gate(frontend: bool, backend: bool, shown: bool) -> bool {
     !shown && frontend && backend
 }
 
+/// Pure fallback decision predicate for [`crate::startup_fallback`].
+///
+/// The failure-recovery path acts only when the handshake timeout has elapsed
+/// (`elapsed_secs >= timeout_secs`) AND the splashscreen → main transition has
+/// not completed (`shown` is false). A completed handshake suppresses it, and
+/// it never acts before the timeout — no matter which side is still pending.
+pub fn fallback_should_fire(shown: bool, elapsed_secs: u64, timeout_secs: u64) -> bool {
+    !shown && elapsed_secs >= timeout_secs
+}
+
 #[derive(Debug, Deserialize)]
 pub struct GreetArgs {
     pub name: String,
@@ -106,7 +116,9 @@ pub async fn set_complete(
 
 #[cfg(test)]
 mod tests {
-    use super::{greet, startup_gate, GreetArgs, GreetOutput, StartupTask};
+    use super::{
+        fallback_should_fire, greet, startup_gate, GreetArgs, GreetOutput, SetupState, StartupTask,
+    };
     use crate::utils::errors::AppError;
 
     #[test]
@@ -197,5 +209,95 @@ mod tests {
                 "frontend={frontend} backend={backend} shown={shown}"
             );
         }
+    }
+
+    #[test]
+    fn fallback_fires_after_timeout_when_handshake_not_done() {
+        // Timeout elapsed and the handshake has not completed: the fallback acts.
+        assert!(fallback_should_fire(false, 10, 10));
+        assert!(fallback_should_fire(false, 11, 10));
+    }
+
+    #[test]
+    fn fallback_is_noop_before_timeout_when_handshake_not_done() {
+        // Timeout not elapsed and the handshake has not completed: no-op.
+        assert!(!fallback_should_fire(false, 9, 10));
+        assert!(!fallback_should_fire(false, 0, 10));
+    }
+
+    #[test]
+    fn fallback_is_suppressed_by_completed_handshake_after_timeout() {
+        // Timeout elapsed but a completed handshake already showed the window:
+        // the fallback is suppressed.
+        assert!(!fallback_should_fire(true, 10, 10));
+        assert!(!fallback_should_fire(true, 100, 10));
+    }
+
+    #[test]
+    fn fallback_is_noop_before_timeout_after_handshake() {
+        // Neither condition holds: no-op.
+        assert!(!fallback_should_fire(true, 9, 10));
+        assert!(!fallback_should_fire(true, 0, 10));
+    }
+
+    #[test]
+    fn fallback_fires_when_elapsed_equals_timeout_boundary() {
+        // Boundary: elapsed == timeout fires exactly at the boundary when shown.
+        assert!(fallback_should_fire(false, 10, 10));
+        assert!(!fallback_should_fire(false, 10, 11));
+    }
+
+    #[test]
+    fn handshake_stateful_sequencing_fires_exactly_once() {
+        // Frontend-then-backend arrival order, mirroring set_complete's steps.
+        let mut state = SetupState {
+            frontend_task: false,
+            backend_task: false,
+            shown: false,
+        };
+        state.frontend_task = true;
+        assert!(!startup_gate(
+            state.frontend_task,
+            state.backend_task,
+            state.shown
+        ));
+        state.backend_task = true;
+        assert!(startup_gate(
+            state.frontend_task,
+            state.backend_task,
+            state.shown
+        ));
+        state.shown = true;
+        // Completed handshake: a late duplicate arrival is a no-op.
+        assert!(!startup_gate(
+            state.frontend_task,
+            state.backend_task,
+            state.shown
+        ));
+
+        // Backend-then-frontend arrival order.
+        let mut state = SetupState {
+            frontend_task: false,
+            backend_task: false,
+            shown: false,
+        };
+        state.backend_task = true;
+        assert!(!startup_gate(
+            state.frontend_task,
+            state.backend_task,
+            state.shown
+        ));
+        state.frontend_task = true;
+        assert!(startup_gate(
+            state.frontend_task,
+            state.backend_task,
+            state.shown
+        ));
+        state.shown = true;
+        assert!(!startup_gate(
+            state.frontend_task,
+            state.backend_task,
+            state.shown
+        ));
     }
 }

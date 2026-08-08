@@ -47,7 +47,11 @@ async fn startup_fallback(app: tauri::AppHandle) {
             Err(_) => return,
         };
 
-        if state_lock.shown {
+        if !commands::core::fallback_should_fire(
+            state_lock.shown,
+            STARTUP_HANDSHAKE_TIMEOUT_SECS,
+            STARTUP_HANDSHAKE_TIMEOUT_SECS,
+        ) {
             return;
         }
 
