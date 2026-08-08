@@ -11,11 +11,15 @@ production.
 
 ## Current state — honest
 
-Frontend tests run via `bun run test` (`vitest run`): 8 files under
-`tests/frontend/`, node environment, with `$lib` and lucide-svelte stubs
-configured in `vitest.config.ts`. Rust tests run via `bun run cargo:test`
-(cwd-independent, `--manifest-path`): 56 unit tests across the providers,
-database migrations, utils, and commands. The other `tests/` directories —
+Frontend tests run via `bun run test` (`vitest run`): 11 files under
+`tests/frontend/` — contracts, events, helpers, ipc-error, navigation-config,
+shell-store, storage, theme-store, utils, window-geometry, window-store — 88
+tests in the default **node** environment, with `$lib` and lucide-svelte stubs
+configured in `vitest.config.ts`. Behavior tests that render components opt
+into a DOM per file (see [Component behavior tests](#component-behavior-tests)
+below). Rust tests run via `bun run cargo:test` (cwd-independent,
+`--manifest-path`): 56 unit tests across the providers, database migrations,
+utils, and commands. The other `tests/` directories —
 `tests/{backend,unit,integration,e2e}/` — remain scaffolding.
 
 The tooling is live: ESLint, Prettier, Rustfmt, Clippy, the vitest runner, and
@@ -79,6 +83,50 @@ and the most numerous.
   (`AppError` emits exactly `{ "type", "message" }`), model conversions, and
   any pure domain logic.
 
+### Component behavior tests
+
+Added in **M1.3 (UI Components)** for the overlay primitives (Modal,
+ContextMenu, Dropdown, Card). These tests render **real Svelte 5 runes
+components** and assert _behavior_ — open/close transitions, keyboard and
+focus handling, Escape and click-outside dismissal — **not visual appearance**
+(layout, colors, and motion stay in the manual desktop gate).
+
+**Strategy — node stays the default.** `vitest.config.ts` keeps
+`environment: "node"`. A behavior test opts into a DOM with a per-file
+docblock as its first line:
+
+```ts
+// @vitest-environment jsdom
+import { render, screen, fireEvent } from "@testing-library/svelte";
+```
+
+Vitest 4 honors the per-file environment override out of the box — the file
+runs in jsdom while node stays the default for everything else. Existing node
+tests are **not migrated**; they keep running in the default environment
+untouched.
+
+**Two setup requirements confirmed during the M1.3 infrastructure task:**
+
+1. **Client-mode compilation.** Vitest transforms `.svelte` files with
+   `ssr: true`, so Svelte components compile to server output and
+   `mount()` is unavailable (`lifecycle_function_unavailable`). The docblock
+   alone switches the runtime _environment_ but not the _compile mode_.
+   Rendering real Svelte 5 runes components therefore requires the
+   `svelteTesting()` plugin from `@testing-library/svelte/vite` registered in
+   `vitest.config.ts` — it adds `browser` to `resolve.conditions` so Svelte
+   resolves its client build. This is a documented `@testing-library/svelte`
+   requirement for Svelte 5 and is a one-line `vitest.config.ts` change
+   (kept out of this milestone's diff; the first behavior test lands with it).
+2. **The lucide-svelte stub still applies.** Behavior tests render real
+   components, and any component under test that imports icons resolves
+   through the existing `lucide-svelte` alias in `vitest.config.ts`. The stub
+   must keep exporting every icon a rendered component imports (extend
+   `tests/frontend/stubs/lucide-svelte.js` as components grow).
+
+Because each behavior test mounts into jsdom, tests must not assert layout
+geometry, computed styles, or animation state — jsdom does not run real layout
+or transitions. Those stay in the manual desktop gate (ADR-0004).
+
 ### Integration tests
 
 Integration tests exercise a seam: the IPC contract between the frontend
@@ -120,12 +168,13 @@ primary guard on filesystem, SQLite, and Hyprland behavior.
 
 ## What must be tested at each layer — summary
 
-| Layer | Scope | Gate |
-|---|---|---|
-| Unit | zod schemas, stores, pure helpers, Rust pure logic | fast, run on every change |
-| Integration | IPC contract clients, Rust commands, events | run on every change |
-| E2E | shell behavior on a real desktop | run at milestone gates |
-| Rust | `bun run cargo:test` in `src-tauri/` | run on every change |
+| Layer              | Scope                                                                          | Gate                      |
+| ------------------ | ------------------------------------------------------------------------------ | ------------------------- |
+| Unit               | zod schemas, stores, pure helpers, Rust pure logic                             | fast, run on every change |
+| Component behavior | rendered Svelte 5 components in jsdom (open/close, keyboard, focus, dismissal) | fast, run on every change |
+| Integration        | IPC contract clients, Rust commands, events                                    | run on every change       |
+| E2E                | shell behavior on a real desktop                                               | run at milestone gates    |
+| Rust               | `bun run cargo:test` in `src-tauri/`                                           | run on every change       |
 
 ## Verification (the gate)
 

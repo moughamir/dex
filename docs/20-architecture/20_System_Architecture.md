@@ -231,19 +231,24 @@ Details and rationale: ADR-0001.
 
 ## Phase 0 Deliverable Status
 
-Implemented in Phase 0: layer model + ADRs (0001–0006), design tokens +
+Implemented in Phase 0: layer model + ADRs (0001–0007), design tokens +
 primitives, transparency contract, typed IPC layer (`core/api`,
 `core/services` pattern), theme store, Rust command scaffolding (incl.
 `tauri-plugin-log` + `log:default` grant), strict CSP, engineering docs.
+
 Roadmap milestones M0.1–M0.4 are done — Phase 0 is shipped, and the standard
 gate `bun run verify` (nine steps, fail-fast) is wired into CI on push/PR to
-`develop`/`main`. M1.1 (Window) is delivered; the current milestone is M1.2
-(HUD). Business features are explicitly out of scope until Phase 1.
+`develop`/`main`. M1.1 (Window) and M1.2 (HUD) are delivered; the current
+milestone is M1.3 (UI Components). The M1.3 overlay-primitive decisions —
+floating positioning, body portals, and translucent modal backdrops — are
+recorded in ADR-0007 (D1–D3); an overlay rendered inside a glass panel without
+a portal is review-rejectable (D2), and opaque modal backdrops are contract
+violations (D3). Business features are explicitly out of scope until Phase 1.
 
 ## Related Documents
 
 - Layer ownership, IPC contract, design tokens, transparency, plugin boundary,
-  window startup lifecycle: `50-adr/` (ADR-0001–0006)
+  window startup lifecycle, overlay primitives: `50-adr/` (ADR-0001–0007)
 - Product roadmap and milestones: `10-product/11_Product_Roadmap.md`
 - Design system usage: `40-engineering/DesignSystem.md`
 - Frontend subsystem: `20-architecture/21_Frontend.md`

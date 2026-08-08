@@ -12,7 +12,7 @@ The system lives in `src/lib/ui/`:
 - `styles/tokens.css` — the single source of truth for design values
 - `themes/*.ts` — programmatic mirror for the graphics engine / JS
 - `primitives/` — reusable components (glass, button, badge, separator,
-  tooltip, divider)
+  tooltip, divider, card, modal, context menu, dropdown)
 - `layout/` — the HUD chrome (topbar, viewport, dock, statusbar)
 
 ## Background
@@ -195,6 +195,10 @@ import {
   Tooltip,
   Divider,
   ViewPlaceholder,
+  Card,
+  Modal,
+  ContextMenu,
+  Dropdown,
 } from "$lib/ui/primitives";
 ```
 
@@ -265,6 +269,199 @@ Props: `orientation?` (`"horizontal" | "vertical"`, default `"horizontal"`),
 <Divider />
 ```
 
+### Card — glass content grouping
+
+Presentational surface for grouping related content into a glass panel. A Card
+has no behavior and no ARIA of its own — it is a container, not a control. The
+caller chooses the semantic element (`section`, `article`) and the heading
+levels inside the slots.
+
+Anatomy: optional `header` slot, default body slot, optional `footer` slot,
+rendered in that order; hairline separators (`--border-subtle`) sit between
+header/body and body/footer.
+
+Props: `element?` (`"div" | "section" | "article" | "aside"`, default
+`"div"`), `variant?` (`"default" | "raised" | "floating"`, default
+`"default"`), `padding?` (`"none" | "sm" | "md" | "lg"`, default `"md"`),
+`radius?` (`"md" | "lg" | "xl"`, default `"lg"`), `interactive?: boolean`,
+`glow?: boolean`, `class?: string`, `contentClass?: string`; forwards rest
+props (events, id, ...).
+
+Slots: `header?`, default (body), `footer?`.
+
+Variants: `default` (standard panel), `raised` (elevated `--shadow-xl`),
+`floating` (stronger `--blur-lg` backdrop for busy content).
+
+Tokens: `--glass-*` (border, highlight), `--surface-*` (fill), `--radius-*`,
+`--border-*` (internal hairlines), `--shadow-*` (depth), `--blur-*`
+(backdrop).
+
+Motion: when `interactive`, hover lifts via `translateY(-2px)` + shadow
+change, 120ms (`--duration-fast`), `--ease-standard`;
+`prefers-reduced-motion` disables. Transform/opacity only.
+
+Accessibility: no ARIA — presenting content is the native job of the element.
+When `interactive`, the caller wraps the Card in a real `<button>`/`<a>`; the
+Card never fakes a control.
+
+Keyboard: none — presentational. A wrapping button/anchor owns keyboard
+behavior and keeps the `:focus-visible` ring (Accessibility.md).
+
+```svelte
+<Card element="article" variant="raised">
+  {#snippet header()}<h3>Session</h3>{/snippet}
+  <p>Body</p>
+  {#snippet footer()}<Button variant="secondary">Open</Button>{/snippet}
+</Card>
+```
+
+### Modal — overlay dialog
+
+A modal dialog for focused, interruptive tasks (confirmations, property
+editors). Rendered through a portal to `document.body` (D2) so glass panels
+can't clip it, above a translucent glass backdrop (D3) that keeps the desktop
+visible behind the blur — never an opaque dim (ADR-0004).
+
+Anatomy: fixed backdrop (full-window `backdrop-filter: blur(var(--blur-md))`
+over `var(--surface-1)` — translucent in every theme) > glass surface >
+optional `header` (title + close), default body slot, optional `footer`.
+
+Props: `open: boolean` (controlled), `onclose?: () => void` (Svelte 5 callback
+prop; fired by Escape, backdrop click, or the header close affordance),
+`title?: string`, `description?: string`, `portalTarget?: HTMLElement`
+(default `document.body`), `class?: string`. Slots: default (body), `header?`,
+`footer?`. A custom `header` snippet replaces the built-in title + close
+button entirely; a Modal using it must label itself via an explicit
+`aria-labelledby`.
+
+ARIA: `role="dialog"`, `aria-modal="true"`, `aria-labelledby` derived from
+`title` (a Modal without `title` or an explicit `aria-labelledby` is a
+contract violation), `aria-describedby` when `description` is set.
+
+Tokens: `--z-dialog` (150), glass surface via `--surface-2` + `--glass-*`
+hairlines, `--radius-lg`–`xl`, `--shadow-xl`, backdrop blur `--blur-md` +
+translucent fill (D3).
+
+Motion: backdrop fades opacity in; surface scales 0.98 → 1, 220ms
+(`--duration-normal`), `--ease-standard`; `prefers-reduced-motion` disables.
+
+Accessibility: on open, focus moves to the first focusable element (or the
+surface); on close it returns to the trigger. Tab/Shift+Tab cycle inside the
+dialog (no keyboard traps). Scroll locking is deliberately out of scope for
+M1.3 — the primitive stays under 300 lines; the compositor viewport owns
+scrolling.
+
+Keyboard: Escape closes; Tab cycles focus within the trap; Shift+Tab reverses.
+Pointer: a `pointerdown` on the backdrop (outside the surface) closes.
+
+```svelte
+<Modal open={confirm} title="Delete workspace?" onclose={() => (confirm = false)}>
+  <p>This removes the workspace and its history.</p>
+  {#snippet footer()}
+    <Button variant="ghost" onclick={cancel}>Cancel</Button>
+    <Button variant="danger" onclick={del}>Delete</Button>
+  {/snippet}
+</Modal>
+```
+
+### ContextMenu — right-click menu
+
+A popover menu of commands bound to a wrapped trigger, opened with
+`contextmenu` (right-click) or `Shift+F10`. Positioned with
+`@floating-ui/dom` (D1) — one of the two floating-ui consumers (the other is
+Dropdown); Tooltip stays pure CSS.
+
+Anatomy: invisible wrapper over the `trigger` snippet > floating menu surface
+(`role="menu"`) > `role="menuitem"` items. The menu portals to
+`document.body` (D2).
+
+Props: `trigger: Snippet` (required — the element the menu binds to),
+`items?: MenuItem[]` (`{ id, label, icon?, disabled?, separator?, checked? }`),
+`onSelect?: (id: string) => void`, `placement?: Placement` (floating-ui,
+default `"bottom-start"`), `class?: string` (menu surface). Slots: default —
+custom item markup inside the `role="menu"` container when `items` can't
+express the layout.
+
+Menu surface: GlassPanel-floating treatment — `--glass-*` hairline +
+highlight, `--surface-2` fill, `--radius-md`, `--shadow-lg`/`--shadow-xl`,
+`backdrop-filter: blur(var(--blur-lg))`, z-index `--z-menu` (**110 — new
+token, added to tokens.css with M1.3; sits between `--z-overlay` (100) and
+`--z-dialog` (150) so menus always clear HUD chrome and overlays**).
+
+Positioning: `computePosition(triggerEl, menuEl, { placement, strategy:
+"fixed", middleware: [offset(8), flip(), shift()] })` + `autoUpdate` — flip
+and shift keep the menu inside the window at every edge.
+
+Motion: fade + 2–4px translate on open, 120–220ms, `--ease-standard`;
+`prefers-reduced-motion` disables.
+
+Accessibility: `role="menu"` surface, `role="menuitem"` items, `aria-disabled`
+on disabled items, `aria-checked` (`role="menuitemcheckbox"`) on checked
+items; focus moves to the first item on open and returns to the trigger on
+close.
+
+Keyboard: `contextmenu` / `Shift+F10` opens; ArrowDown/ArrowUp move through
+items (wrap at ends); Home/End jump to first/last; Enter/Space activates the
+focused item and calls `onSelect`; Escape closes and restores focus to the
+trigger; Tab closes without selecting; an outside `pointerdown` or a second
+`contextmenu` closes.
+
+```svelte
+<ContextMenu
+  items={[
+    { id: "duplicate", label: "Duplicate" },
+    { id: "sep", separator: true },
+    { id: "delete", label: "Delete", disabled: true },
+  ]}
+  onSelect={runCommand}
+>
+  {#snippet trigger()}<GlassPanel interactive>Right-click me</GlassPanel>{/snippet}
+</ContextMenu>
+```
+
+### Dropdown — accessible select-like menu
+
+A button-triggered menu of choices. Keyboard-first and ARIA-complete; the
+trigger is always a real `<button>`.
+
+Anatomy: trigger button > floating menu surface (`role="menu"`) > items. Same
+portal (D2), positioning (D1), and surface tokens as ContextMenu.
+
+Props: `label?: string` (renders a built-in `Button` trigger), `trigger?:
+Snippet` (custom trigger — Dropdown wires `aria-haspopup`, `aria-expanded`,
+click, and ArrowDown-to-open onto it; the snippet root must be a focusable
+interactive element, e.g. a `Button`), `items?: MenuItem[]` (same shape as
+ContextMenu), `selected?: string` (id of the checked item), `onSelect?: (id:
+string) => void`, `placement?` (default `"bottom-start"`), `class?: string`.
+Slots: default — custom item markup.
+
+Menu surface, positioning, motion, tokens: identical to ContextMenu —
+`--z-menu` (110), `computePosition` + `offset(8)`/`flip()`/`shift()`,
+portaled to `document.body`, fade + translate 120–220ms.
+
+ARIA: trigger carries `aria-haspopup="menu"` and `aria-expanded` (synced with
+the open state); items are `role="menuitem"`; the selected item renders
+`role="menuitemradio"` with `aria-checked="true"` and a check glyph.
+
+Keyboard: ArrowDown / Enter / Space opens and moves to the first item;
+ArrowUp/ArrowDown navigate (wrap at ends); Home/End jump to first/last;
+Enter/Space selects the focused item, calls `onSelect`, and closes; Escape
+closes and restores focus to the trigger; Tab closes without selecting; an
+outside `pointerdown` closes. The trigger stays focusable and Tab-reachable at
+all times.
+
+```svelte
+<Dropdown
+  label="Theme"
+  items={[
+    { id: "dark", label: "Dark" },
+    { id: "light", label: "Light" },
+  ]}
+  selected={theme}
+  onSelect={setTheme}
+/>
+```
+
 ## Motion policy
 
 - Durations 120–360ms, token-driven: `--duration-fast` (120ms) for hover and
@@ -305,6 +502,8 @@ Props: `orientation?` (`"horizontal" | "vertical"`, default `"horizontal"`),
   (`--dex-primary`, `--dex-accent`, ...).
 - Use `GlassPanel` for chrome surfaces; `Button` for actions; lucide-svelte
   for glyphs.
+- Use `@floating-ui/dom` for popover positioning (ContextMenu, Dropdown — D1);
+  keep Tooltip pure CSS (no floating-ui).
 - Keep motion to transform/opacity, 120–360ms, `--ease-standard`.
 - Label every icon-only control.
 - Mirror CSS semantic changes into `themes/*.ts` (ADR-0003).
@@ -315,7 +514,9 @@ Props: `orientation?` (`"horizontal" | "vertical"`, default `"horizontal"`),
 - Don't paint an opaque window background (ADR-0004) — the window is
   transparent; the desktop shows through the glass.
 - Don't touch primitive tokens for theme changes — override the semantic layer.
-- Don't add icon libraries, floating-ui, or new npm dependencies.
+- Don't add icon libraries or new npm dependencies. `@floating-ui/dom` is
+  approved **only** for popover positioning (ContextMenu, Dropdown — D1);
+  don't add alternative positioning libraries (`bits-ui`, ...).
 
 ## Wiring
 
@@ -332,6 +533,8 @@ Props: `orientation?` (`"horizontal" | "vertical"`, default `"horizontal"`),
 
 - Design tokens and transparency decisions: [`../50-adr/`](../50-adr/)
   (ADR-0003, ADR-0004)
+- Overlay primitives (portals, floating positioning, translucent backdrops):
+  [`../50-adr/0007-overlay-primitives.md`](../50-adr/0007-overlay-primitives.md)
 - System architecture: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
 - Frontend subsystem: [`../20-architecture/21_Frontend.md`](../20-architecture/21_Frontend.md)
 - Graphics subsystem: [`../20-architecture/25_Graphics.md`](../20-architecture/25_Graphics.md)
