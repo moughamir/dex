@@ -27,36 +27,55 @@ a splashscreen overlay is the documented pattern.
      `shadow: false`, `hiddenTitle: true`, `visible: false`.
 
 2. **Readiness barrier** — a shared `SetupState { frontend_task: bool,
-   backend_task: bool }` held in Tauri managed state behind a `Mutex`
-   (`commands/core.rs`). Each half completes its init and calls the
-   `set_complete` command with its task name (`"frontend"` / `"backend"`).
-   When both flags are set, the handler closes the splashscreen window;
-   the main window then shows and focuses.
+   backend_task: bool, shown: bool }` held in Tauri managed state behind a single
+   `Mutex` (`commands/core.rs`). Each half reports completion through the
+   `set_complete` command with its task name (`"frontend"` / `"backend"`;
+   anything else is a validation error). The pure predicate
+   `startup_gate(frontend, backend, shown) = !shown && frontend && backend`
+   decides the handoff, so the splashscreen → main transition fires exactly once:
+   it closes the splashscreen window, then shows and focuses the main window, and
+   sets `shown = true`. A later `set_complete` is a no-op.
 
-3. **Backend init** — Rust `setup` runs `database::init(<app_data_dir>/dex.db)`,
-   then `setup_backend` (a ~2 s stand-in for real service bring-up), then
-   `set_complete("backend")`.
+3. **Backend init** — Rust `setup` runs `database::init(<app_data_dir>/dex.db)`
+   synchronously, then spawns `setup_backend`, which completes immediately:
+   there is no artificial delay. The spawned async lane is the seam where real
+   asynchronous service bring-up (providers, DB warm-up) lands in later
+   milestones; today it simply reports `set_complete("backend")`.
 
-4. **Frontend init** — the splashscreen route runs a staged fake init
-   (1500 ms + 1000 ms ≈ 2.5 s) and then calls `set_complete("frontend")`
-   directly via `COMMANDS.setComplete` (the `core/api` boundary, ADR-0002).
+4. **Frontend init** — the splashscreen route signals readiness on first paint:
+   it awaits a double `requestAnimationFrame`, then calls
+   `set_complete("frontend")` via the `core/api` boundary (ADR-0002). There is no
+   staged fake init. On failure it logs via `logError` and shows "Initialization
+   error"; recovery is the Rust fallback, not the frontend.
 
-5. **Error contract** — `set_complete` returns `AppError::validation` for an
+5. **Failure fallback** — Rust spawns `startup_fallback`, which sleeps for
+   `STARTUP_HANDSHAKE_TIMEOUT_SECS = 10 s` and then, only if `shown` is still
+   false, force-completes the transition (closes splashscreen, shows and focuses
+   main, sets `shown = true`) and logs a warning via `log_warn`. After a
+   successful handshake it is a no-op. The app can never be stranded on a hidden
+   main window.
+
+6. **Error contract** — `set_complete` returns `AppError::validation` for an
    unknown task name and `AppError::internal` if the state mutex cannot be
    locked. The command takes exactly one serde struct arg and returns `null`
    on success (infallible wire result → `z.null()` in the TS registry).
 
-6. **First end-to-end command** — `set_complete` is the first command wired
+7. **First end-to-end command** — `set_complete` is the first command wired
    through the full ADR-0002 checklist: Rust handler + `generate_handler!`
    entry + `COMMANDS` zod contract. `greet` remains Rust-only (no TS contract).
 
 ## Consequences
 
-- Deterministic handoff: the main window never renders before both halves are
-  ready; the user always sees either the splashscreen or a fully initialized
-  shell.
-- The splashscreen window is deliberately not granted window capabilities
-  (the capability set targets `windows: ["main"]` only) — acceptable today
-  because the splash never needs them; revisit if it grows interactive chrome.
+- Deterministic, exactly-once handoff: the main window never renders before both
+  halves are ready, and the transition cannot double-fire; the user always sees
+  either the splashscreen or a fully initialized shell, never a stranded hidden
+  main window.
+- The splashscreen window is deliberately zero-capability (the capability set
+  targets `windows: ["main"]` only). This least-privilege posture stays valid
+  because the root layout gates the main-window `windowStore.init()` off the
+  splash route — no window calls that would be ACL-denied on the splash run
+  there.
+- No artificial startup delays: the splash is shown only for as long as real
+  init actually takes, respecting the cold-start budget.
 - Future startup work (providers, plugin loads) slots into the `setup_backend`
-  step without changing the handoff contract.
+  async lane without changing the handoff contract.
