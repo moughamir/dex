@@ -6,6 +6,7 @@
     "vadimcn.vscode-lldb",
     "bradlc.vscode-tailwindcss",
     "esbenp.prettier-vscode",
-    "dbaeumer.vscode-eslint"
+    "dbaeumer.vscode-eslint",
+    "tamasfe.even-better-toml"
   ]
 }

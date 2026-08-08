@@ -435,6 +435,11 @@ export const COMMANDS = {
     z.object({ id: z.string() }),
     ModemInfoSchema,
   ),
+  setComplete: defineCommand(
+    "set_complete",
+    z.object({ task: z.string() }),
+    z.null(),
+  ),
   settingsGet: defineCommand("settings_get", z.object({}), SettingsSchema),
   settingsSet: defineCommand(
     "settings_set",
