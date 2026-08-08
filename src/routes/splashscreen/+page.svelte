@@ -2,22 +2,24 @@
   import { onMount } from "svelte";
   import { Shield, Sparkles } from "lucide-svelte";
   import { GlassPanel } from "$lib/ui/primitives";
-  import { invoke } from "$lib/core/api/tauri";
-  import { COMMANDS } from "$lib/core/api/commands";
+  import { setComplete } from "$lib/core/services";
+  import { logError } from "$lib/core/utils/logger";
 
   let statusText = $state("Initializing DEX core...");
 
+  const nextPaint = () =>
+    new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+    );
+
   onMount(async () => {
     try {
-      // Simulate frontend initialization tasks (loading config, themes, caches)
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      statusText = "Loading system services...";
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      statusText = "Ready!";
-
-      await invoke(COMMANDS.setComplete, { task: "frontend" });
+      statusText = "Initializing DEX core…";
+      await nextPaint();
+      statusText = "Ready";
+      await setComplete("frontend");
     } catch (err) {
-      console.error("Failed to complete frontend initialization:", err);
+      logError("splashscreen: failed to signal frontend ready", err);
       statusText = "Initialization error";
     }
   });

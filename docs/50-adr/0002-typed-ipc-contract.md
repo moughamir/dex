@@ -29,6 +29,11 @@ Rust structs, so the Rust edge already validates on the way in.
    - Frontend edge: every command is described by a zod schema pair
      (args + result). `invoke` validates args before the round trip (fail
      fast) and the result after (detect contract drift). See `core/api/tauri.ts`.
+   - **Wire shape (Tauri 2 gotcha):** Tauri keys invoke payloads by the Rust
+     parameter name. Because commands declare their single struct arg as
+     `args`, the frontend must send `{ args: { ...fields } }` — field-spread
+     payloads fail with `command <name> missing required key args`. The shared
+     `invoke` owns this wrap; contract clients always pass plain fields.
 
 2. **Contract definition** lives in `core/api/commands.ts`:
 
