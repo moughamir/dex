@@ -7,8 +7,8 @@ every layer of the stack — frontend (Svelte), IPC boundary (zod-validated
 invoke), and Rust (`src-tauri/`) — to its debugging tools, explains how the
 error envelope and the logging rules shape what you see, and lists the common
 failure modes with their fixes. Read it when something does not work; the
-[Verification order](#verification-order) at the end is the gate for every
-change.
+[Verification (the gate)](#verification-the-gate) section at the end is the
+gate for every change.
 
 ## The three layers and where failures surface
 
@@ -76,7 +76,7 @@ new code. When you need to trace a frontend value:
 
 1. Add `logger.debug(...)` at the point of interest (see
    [Logging](#logging-discipline) for levels).
-2. Run `bun run tauri dev` and read the output where the log plugin writes it
+2. Run `bun run tauri:dev` and read the output where the log plugin writes it
    (stdout and the app log directory).
 3. Remove or gate the debug line before committing — debug logging is not
    shipping behavior.
@@ -136,9 +136,8 @@ cargo test
 ```
 
 `cargo check` is the fast gate: type and borrow errors surface here. `cargo
-test` runs the Rust tests; the repository currently ships no tests (empty
-`tests/` scaffolding, roadmap M0.4), so it compiles and reports zero — run it
-anyway once tests land.
+test` runs the Rust tests; the crate currently ships 56 unit tests (providers,
+capability, migrations, errors) and they pass — run it after any Rust change.
 
 ### Undeclared Rust modules are not compiled
 
@@ -146,7 +145,8 @@ anyway once tests land.
 file is compiled only if its module is declared with `mod` in its parent
 `mod.rs` (or `lib.rs`). Do not add a `mod` for a 0-byte file — it fails to
 compile. Only real, populated modules are declared today (`commands::core`,
-`utils::errors`).
+`database::{connection, migrations}`, `providers/*`,
+`utils::{errors, logger}`).
 
 ### Rust logging
 
@@ -164,7 +164,7 @@ source.
   are used as intended — `debug` for tracing, `info` for lifecycle, `error`
   for failures.
 - In `bun run dev` the facade falls back to the browser console; in
-  `bun run tauri dev` it writes through the plugin. One import, both modes.
+  `bun run tauri:dev` it writes through the plugin. One import, both modes.
 - Successful commands write nothing to stderr (CLI scripting contract), and
   debug tracing is removed or gated before commit.
 
@@ -173,7 +173,7 @@ source.
 | Symptom | Layer | Cause | Resolution |
 |---|---|---|---|
 | `bun run check` reports type errors | Frontend | Strict TS violation, often a wrong return shape from a contract client | Fix at the reported file/line; re-run `bun run check`. |
-| Works in `bun run dev`, fails in the desktop window | IPC / Rust | No Tauri runtime in the browser tab, or a real IPC/Rust failure | Debug in `bun run tauri dev`; check the log output for the rejection envelope. |
+| Works in `bun run dev`, fails in the desktop window | IPC / Rust | No Tauri runtime in the browser tab, or a real IPC/Rust failure | Debug in `bun run tauri:dev`; check the log output for the rejection envelope. |
 | Command "does nothing", no error | IPC | Registered in only one of `commands.ts` / `invoke_handler`, or a duplicate `invoke_handler` shadows the first | Check both sides of the wire contract; ensure exactly one `invoke_handler` in `lib.rs`. |
 | Event handler never fires | IPC | Payload failed schema validation and was dropped | Compare the emitted payload with the `EVENTS` registry schema; the drop is logged. |
 | `validation` error on a call you think is valid | IPC | Args failed zod schema — wrong field name, wrong type, unknown field | Validate against the `defineCommand` schemas in `core/api/commands.ts`; serde defaults (snake_case) are the wire authority. |
@@ -183,19 +183,21 @@ source.
 | CSP violations in the webview console (dev only) | Window | Strict CSP blocks Vite HMR in dev | Loosen the policy **only for the dev configuration** — never ship the loosened policy (ADR-0005). |
 | Port 1420 busy | Tooling | `strictPort: true` in `vite.config.js` | Free the port; Vite will not silently pick another. |
 
-## Verification order
+## Verification (the gate)
 
-The fixed gate for every change, in order:
+Run `bun run verify` (`scripts/verify.ts`) from any cwd before merging. It runs nine gates in order, fail-fast:
 
-1. `bun run check` — frontend types.
-2. `cargo check` in `src-tauri/` — Rust.
-3. `bun run tauri dev` — desktop, manual; required for any change that touches
-   the shell surface, because transparent-window and compositor behavior
-   cannot be verified in a browser tab (ADR-0004).
+1. `format:check` — frontend formatting (`prettier --check src/`)
+2. `cargo:fmt:check` — backend formatting (`cargo fmt --check`, `--manifest-path`)
+3. `lint` — frontend lint (`eslint src/`)
+4. `check` — frontend types (`svelte-kit sync && svelte-check`)
+5. `cargo:clippy` — backend lint (`clippy --all-targets --all-features -D warnings`)
+6. `cargo:check` — backend types
+7. `test` — frontend tests (`vitest run`)
+8. `build` — frontend production build (`vite build`)
+9. `cargo:test` — backend tests
 
-A change that fails step 1 or 2 is not ready for review. If a bug passes all
-three but still misbehaves, the failure is environmental (compositor, display
-server) — reproduce on the desktop with the log output before filing it.
+CI runs exactly this gate on push/PR to `develop`/`main`. The individual `bun run check` and `bun run cargo:check` remain valid single-gate checks during development; `bun run tauri:dev` stays a manual desktop gate (transparent/compositor behavior cannot be tested headless, ADR-0004). A change failing any gate is not ready for review.
 
 ## Related Documents
 

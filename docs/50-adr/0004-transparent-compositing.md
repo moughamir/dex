@@ -7,8 +7,10 @@
 
 ## Context
 
-The Tauri window is configured `fullscreen: true, transparent: true,
-decorations: false` (`src-tauri/tauri.conf.json`). DEX is the operating layer
+`src-tauri/tauri.conf.json` defines two windows: `splashscreen` (420×280,
+transparent, undecorated, always-on-top, url `/splashscreen`) and `main`
+(800×600, fullscreen: true, transparent, decorations: false, shadow: false,
+hiddenTitle, visible: false). DEX is the operating layer
 above Hyprland: the user's desktop, wallpaper, and Wayland compositor output
 must be visible through the shell. AGENTS.md states: keep `html`/`body`
 transparent, use `backdrop-filter` glass panels, never paint an opaque window
@@ -23,8 +25,9 @@ imported by any route, so the global reset is silently dead.
 1. **Transparency is a hard contract, not a style choice.** `html` and `body`
    backgrounds are always `transparent`. The HUD viewport area shows the
    desktop; all visual backdrop comes from glass surfaces
-   (`backdrop-filter: blur(var(--dex-glass-blur))` over translucent
-   `--dex-surface-*` tokens).
+   (`backdrop-filter: blur(var(--blur-*))` over translucent
+   `--glass-*`/`--surface-*` tokens; blur values come from the `--blur-*`
+   scale, 2/4/8/14/20/32 px).
 2. **No opaque full-window paint anywhere** — no `background: #...` on
    `body`, no fullscreen overlay layers with solid fill. Content panels may be
    opaque on their own surface, but never window-sized.

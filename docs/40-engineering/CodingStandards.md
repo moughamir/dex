@@ -74,8 +74,8 @@ governed by a named constant or token. DEX forbids them in both languages.
 ### Rust
 
 - The crate compiles under the default `cargo check` with no warnings treated
-  as acceptable. Clippy is not yet wired into CI (roadmap M0.4); until then,
-  `cargo check` is the gate and reviewers watch for the obvious lints.
+  as acceptable. Clippy runs as step 5 of `bun run verify`
+  (`cargo:clippy --all-targets --all-features -D warnings`).
 - Serde wire models use serde defaults (snake_case). No
   `#[serde(rename_all = ...)]` on command args or results — ADR-0002.
 - `AppError` is the only error type surfaced across IPC; its `Serialize` impl
@@ -202,18 +202,21 @@ workflow — branch model, commit hygiene, review — is in `GitWorkflow.md`.
   commit (`001_init.sql`, `002_settings.sql`). Each schema change is a new
   migration + Rust model + zod schema in one slice (ADR-0001).
 
-## Verification
+## Verification (the gate)
 
-The verification order is fixed and is the gate for every change:
+Run `bun run verify` (`scripts/verify.ts`) from any cwd before merging. It runs nine gates in order, fail-fast:
 
-1. `bun run check` — frontend types (`svelte-kit sync && svelte-check`).
-2. `cargo check` — Rust, inside `src-tauri/`.
-3. `bun run tauri dev` — desktop, manual, requires Wayland/Hyprland.
+1. `format:check` — frontend formatting (`prettier --check src/`)
+2. `cargo:fmt:check` — backend formatting (`cargo fmt --check`, `--manifest-path`)
+3. `lint` — frontend lint (`eslint src/`)
+4. `check` — frontend types (`svelte-kit sync && svelte-check`)
+5. `cargo:clippy` — backend lint (`clippy --all-targets --all-features -D warnings`)
+6. `cargo:check` — backend types
+7. `test` — frontend tests (`vitest run`)
+8. `build` — frontend production build (`vite build`)
+9. `cargo:test` — backend tests
 
-A change that fails `bun run check` or `cargo check` is not ready for review.
-The manual desktop check is required for any change that touches the shell
-surface, because transparent-window and compositor behavior cannot be verified
-in a browser tab (ADR-0004).
+CI runs exactly this gate on push/PR to `develop`/`main`. The individual `bun run check` and `bun run cargo:check` remain valid single-gate checks during development; `bun run tauri:dev` stays a manual desktop gate (transparent/compositor behavior cannot be tested headless, ADR-0004). A change failing any gate is not ready for review.
 
 ## Related Documents
 

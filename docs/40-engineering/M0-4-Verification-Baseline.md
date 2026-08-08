@@ -1,5 +1,13 @@
 # M0.4 Verification Baseline
 
+> **Superseded (2026-08-08).** This file is a *historical* baseline recording
+> the verification state while M0.4 (Development Tooling, CI) was still open.
+> M0.4 has since shipped: the authoritative gate is now `bun run verify` —
+> nine steps, fail-fast, run by CI on push/PR to `develop`/`main` (see
+> `AGENTS.md` and [`CI.md`](CI.md)). The pass/fail tables below describe the
+> pre-ship state and are kept as the dated record; do not treat them as
+> current.
+
 **Status:** Phase 0 (foundation). M0.4 (Development Tooling, CI) is open.
 **Date:** 2026-08-07
 **Scope:** Records the current authoritative verification commands and their pass/fail state. Does **not** change application code; no tooling is added in this step.

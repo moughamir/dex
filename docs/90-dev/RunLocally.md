@@ -3,7 +3,7 @@
 ## Purpose
 
 This document explains the two ways to run DEX during development — `bun run
-dev` (frontend only) and `bun run tauri dev` (full desktop window) — what each
+dev` (frontend only) and `bun run tauri:dev` (full desktop window) — what each
 one exercises, and the runtime characteristics of the desktop window. Read it
 before your first run so the difference is clear and the transparent-window
 rules are understood.
@@ -16,9 +16,9 @@ different levels of the stack:
 | Command | What runs | Needs a display? | What you can do |
 |---|---|---|---|
 | `bun run dev` | Vite dev server only (frontend in a browser tab) | no | Iterate on UI layout, tokens, primitives, and theme switching |
-| `bun run tauri dev` | Vite dev server **plus** the Tauri window (Rust process + WebKit) | yes (Wayland/Hyprland) | Exercise the real window, IPC, logging plugin, and compositor behavior |
+| `bun run tauri:dev` | Vite dev server **plus** the Tauri window (Rust process + WebKit) | yes (Wayland/Hyprland) | Exercise the real window, IPC, logging plugin, and compositor behavior |
 
-`bun run tauri dev` always boots the frontend through the same Vite dev server
+`bun run tauri:dev` always boots the frontend through the same Vite dev server
 (`beforeDevCommand` in `src-tauri/tauri.conf.json` runs `bun run dev`), so
 HMR works in both modes. The difference is what surrounds the frontend: a
 browser tab versus the native Tauri window.
@@ -45,18 +45,18 @@ window itself. A feature that calls a contract client in `core/services/`
 will fail inside a plain browser tab, because there is no Tauri runtime to
 answer `invoke`. Use this mode for visual iteration, not for IPC work.
 
-## Full desktop window — `bun run tauri dev`
+## Full desktop window — `bun run tauri:dev`
 
 ```sh
-bun run tauri dev
+bun run tauri:dev
 ```
 
 **What happens:** Tauri runs `bun run dev` as `beforeDevCommand`, waits for
 `devUrl` (`http://localhost:1420`) to come up, then opens a native window and
 loads the SPA into it. The Rust process runs the full shell: the two plugins
-(`opener`, `log`), the single `invoke_handler`, and the registered commands
-(currently `commands::core::greet`). Logs flow through the log plugin to
-stdout and the app log directory.
+(`opener`, `log`), the single `invoke_handler`, and the registered commands:
+`commands::core::greet` and `commands::core::set_complete`. Logs flow through
+the log plugin to stdout and the app log directory.
 
 **Requirements:**
 
@@ -64,12 +64,12 @@ stdout and the app log directory.
   against the compositor.
 - **webkit2gtk-4.1** installed (see [Build.md](Build.md)) — the WebKit engine
   the window renders into.
-- A display. `bun run tauri dev` cannot run over a headless SSH session.
+- A display. `bun run tauri:dev` cannot run over a headless SSH session.
 
 **What it exercises:** everything. IPC round trips (zod-validated invoke),
 the Rust error envelope, the log plugin, window transparency against the
 compositor, and the shell layout at fullscreen resolution. This is the mode
-the verification order requires for any change that touches the shell surface
+the verification gate requires for any change that touches the shell surface
 (ADR-0004: transparent behavior cannot be checked in a browser tab).
 
 ## Window characteristics
@@ -100,6 +100,20 @@ The window is **transparent**, and the shell must stay that way:
   composited **under** the DOM chrome, and also never paints an opaque
   backdrop (`src/lib/graphics/README.md`).
 
+### Startup sequence
+
+`src-tauri/tauri.conf.json` defines two windows:
+
+- **splashscreen** — 420×280, transparent, undecorated, always-on-top, url
+  `/splashscreen`.
+- **main** — fullscreen, transparent, undecorated, hidden until ready.
+
+On startup, the Rust `setup()` runs `database::init(<app_data_dir>/dex.db)`
+and spawns `setup_backend`, which sleeps 2 s then calls
+`set_complete("backend")`. The splash page runs its simulated frontend init
+(≈2.5 s) then calls `set_complete("frontend")`. When **both** are complete,
+the splash closes and the main window shows and focuses.
+
 ## Dev-mode CSP notes
 
 `src-tauri/tauri.conf.json` sets a strict Content-Security-Policy:
@@ -113,7 +127,7 @@ remote connects, only the IPC channel and local resources.
 
 In dev mode, Vite's HMR injects scripts and websocket connections that the
 strict policy may block. If you see CSP violations in the webview console
-while running `bun run tauri dev`:
+while running `bun run tauri:dev`:
 
 1. Loosen the policy **only in the dev configuration** — a per-environment
    dev override.
@@ -126,10 +140,10 @@ while running `bun run tauri dev`:
 - `bun run dev` prints the Vite dev-server banner with
   `http://localhost:1420` and keeps running. Opening it shows the HUD shell
   (top bar, viewport with grid, dock, status bar) with the default dark theme.
-- `bun run tauri dev` opens a borderless fullscreen window on the Hyprland
+- `bun run tauri:dev` opens a borderless fullscreen window on the Hyprland
   session. The shell renders with glass panels over the desktop; the HMR
   overlay, if any, is the only visible Vite artifact.
-- Ctrl-C stops either process. Stopping `bun run tauri dev` also stops the
+- Ctrl-C stops either process. Stopping `bun run tauri:dev` also stops the
   Vite child process it started.
 
 ## Related Documents

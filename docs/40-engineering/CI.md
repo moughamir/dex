@@ -17,9 +17,11 @@ authoritative gate, `bun run verify` (`scripts/verify.ts`), on push/PR to
 `cargo:fmt:check` → `lint` → `check` → `cargo:clippy` → `cargo:check` →
 `test` → `build` → `cargo:test`. Every cargo step passes `--manifest-path`, so
 the gate is cwd-independent and CI runs exactly the same commands a developer
-runs locally.
+runs locally. CI runs a single "Verify" job on push/PR to `develop`/`main`
+(ubuntu-latest, Bun 1.3.14, Rust stable with rustfmt + clippy, webkit2gtk
+system dependencies, `bun install --frozen-lockfile`, then `bun run verify`).
 
-The manual desktop check (`bun run tauri dev`) is still not in CI — it requires
+The manual desktop check (`bun run tauri:dev`) is still not in CI — it requires
 Wayland/Hyprland and a real compositor (ADR-0004).
 
 This document describes the **intended** full pipeline as the design that M0.4
@@ -67,7 +69,7 @@ flowchart LR
 
 ### What CI does not run
 
-The manual desktop check (`bun run tauri dev`) is **not** part of CI. It
+The manual desktop check (`bun run tauri:dev`) is **not** part of CI. It
 requires Wayland/Hyprland and a real compositor (ADR-0004), which CI runners
 do not provide. CI covers every check that can run headless; the desktop check
 remains a manual gate at review and at milestone gates.

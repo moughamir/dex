@@ -24,7 +24,7 @@ form of the roadmap's phase gates.
   cannot be reverted safely.
 - **Safe collaboration.** The repository has no remote today and two branches
   (`develop`, `main`). The workflow below is the contract that keeps that
-  structure sound as contributors and CI arrive (roadmap M0.4).
+  structure sound as contributors arrive (CI has been live since M0.4).
 
 ## Branch model
 
@@ -114,8 +114,26 @@ domain + contract client + feature module + tests, per ADR-0001.
 2. Make focused commits with conventional messages.
 3. Open a pull request against `develop`. The description states the problem,
    the approach, and the verification performed.
-4. The PR must pass the verification order before review: `bun run check` →
-   `cargo check` → `bun run tauri dev` (manual, desktop).
+4. The PR must pass the `bun run verify` gate before review:
+
+   Run `bun run verify` (`scripts/verify.ts`) from any cwd before merging. It
+   runs nine gates in order, fail-fast:
+
+   1. `format:check` — frontend formatting (`prettier --check src/`)
+   2. `cargo:fmt:check` — backend formatting (`cargo fmt --check`, `--manifest-path`)
+   3. `lint` — frontend lint (`eslint src/`)
+   4. `check` — frontend types (`svelte-kit sync && svelte-check`)
+   5. `cargo:clippy` — backend lint (`clippy --all-targets --all-features -D warnings`)
+   6. `cargo:check` — backend types
+   7. `test` — frontend tests (`vitest run`)
+   8. `build` — frontend production build (`vite build`)
+   9. `cargo:test` — backend tests
+
+   CI runs exactly this gate on push/PR to `develop`/`main`. The individual
+   `bun run check` and `bun run cargo:check` remain valid single-gate checks
+   during development; `bun run tauri:dev` stays a manual desktop gate
+   (transparent/compositor behavior cannot be tested headless, ADR-0004). A
+   change failing any gate is not ready for review.
 5. Reviewers approve, the branch is merged, and the branch is deleted.
 
 ## Review checklist
@@ -138,9 +156,9 @@ is the concrete form of the engineering rules:
 - **Tokens, not literals.** No hardcoded colors, radii, durations, or z-index.
 - **Dependency policy.** Any new dependency is justified in the PR.
 - **Tests.** The change is covered at the appropriate layer (see
-  `Testing.md`). A behavior change without a test is a review blocker once the
-  test runner exists (roadmap M0.4); until then, the reviewer verifies the
-  change manually.
+  `Testing.md`). A behavior change without a test is a review blocker (the
+  vitest runner has been live since M0.4); where automated coverage cannot
+  apply, the reviewer verifies the change manually.
 
 ## Merge strategy
 
@@ -149,8 +167,8 @@ is the concrete form of the engineering rules:
   conventional commit that reads as a unit of work.
 - **Merge (or fast-forward)** `develop` into `main` at a milestone gate or
   release, preserving the milestone history.
-- **No merge of a red branch.** A branch that fails `bun run check` or
-  `cargo check` is not merged, regardless of review approval.
+- **No merge of a red branch.** A branch that fails any verify gate is not
+  merged, regardless of review approval.
 
 ## Related Documents
 

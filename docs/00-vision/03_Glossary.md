@@ -160,13 +160,13 @@ principle.
 
 **Trigger** — An event that starts a Workflow execution (file change, cron schedule, CLI command, startup).
 
-**Condition** — A test evaluated before a Workflow action executes; if false, the action is skipped.
+**Condition** — A test evaluated after a Workflow action executes; the Workflow is defined as trigger → action → condition → result (Master PRD AU-1), and if the condition fails the result is not produced/skipped.
 
 **Action** — A single operation performed by a Workflow (run command, send notification, activate Workspace).
 
 **Result** — The outcome of a Workflow action (success, failure, partial).
 
-**Workflow** — A sequence of Trigger → Condition → Action → Result steps that automate a development routine.
+**Workflow** — A sequence of Trigger → Action → Condition → Result steps that automate a development routine.
 
 **Macro** — A recorded sequence of keyboard, mouse, or shell operations that can be replayed.
 

@@ -18,18 +18,20 @@ turn a green `develop` into a signed, distributed, recoverable artifact.
 
 ## Current state — honest
 
-Release tooling is not yet configured. Roadmap milestone **M0.4 (Development
-Tooling)** is open: there is no CI, no lint or test runner, no commit hooks,
-and no remote. `.github/workflows/release.yml` and `scripts/release.ts` are
-empty scaffolding, and no `CHANGELOG.md` exists yet. The repository has two
-branches (`develop`, `main`) and no tag; the version `0.1.0` is current in
+Release tooling is not yet configured. **M0.4 (Development Tooling) is
+shipped**: `bun run verify` is the authoritative nine-gate check and
+`.github/workflows/ci.yml` runs it on push/PR to `develop`/`main`. The release
+pipeline itself is not wired yet — `.github/workflows/release.yml` and
+`scripts/release.ts` remain scaffolding; a release process is planned for a
+later milestone. No `CHANGELOG.md` exists yet. The repository has two branches
+(`develop`, `main`) and no tag; the version `0.1.0` is current in
 `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
 
-Until M0.4 and the Phase 9 production milestones land, a release is executed
-manually by the release engineer following the stages below. Each stage names
-the milestone that delivers its tooling; nothing in this document depends on
-tooling that does not exist. The stages are the process; the tooling only
-makes the process machine-enforced.
+Until the release pipeline and the Phase 9 production milestones land, a
+release is executed manually by the release engineer following the stages
+below. Each stage names the milestone that delivers its tooling; nothing in
+this document depends on tooling that does not exist. The stages are the
+process; the tooling only makes the process machine-enforced.
 
 ## Why this process
 
@@ -119,9 +121,9 @@ an installer reads it.
   messages say why a change exists; the changelog says what it means to a
   user. `git log` with conventional-commit subjects is the reliable draft
   source (`GitWorkflow.md`).
-- M0.4 delivers the commit-lint hooks and the CI skeleton that make the
-  draft machine-reliable; until then the release engineer curates the
-  changelog at this stage and the reviewer checks it at Stage 3.
+- M0.4 ships the CI skeleton that machine-runs the verification gates. The
+  release engineer curates the changelog at this stage and the reviewer checks
+  it at Stage 3.
 
 **Exit criteria:**
 
@@ -169,17 +171,28 @@ over-granted capability.
 **Process — the verification order, on the exact candidate commit, from a
 clean checkout:**
 
-1. `bun install` against the committed lockfile — a new frontend dependency
-   enters only with justification (`CodingStandards.md` dependency policy).
-2. `bun run check` — the frontend type gate.
-3. `cargo check` in `src-tauri/` — the Rust type gate, with no new warnings.
-4. Lint and tests, once M0.4 lands: ESLint + Prettier, Rustfmt + Clippy, and
-   the test suites defined in `Testing.md`. Until then the release engineer
-   and the reviewer perform this step by hand.
-5. `bun run tauri dev` — the manual desktop pass on Wayland/Hyprland.
-   Transparent-window and compositor behavior cannot be verified headless
-   (ADR-0004). The release engineer exercises shell boot, theme switching,
-   the HUD surface, and the feature slice the release ships.
+`bun install` runs first against the committed lockfile — a new frontend
+dependency enters only with justification (`CodingStandards.md` dependency
+policy). Then the gate:
+
+Run `bun run verify` (`scripts/verify.ts`) from any cwd before merging. It runs nine gates in order, fail-fast:
+
+1. `format:check` — frontend formatting (`prettier --check src/`)
+2. `cargo:fmt:check` — backend formatting (`cargo fmt --check`, `--manifest-path`)
+3. `lint` — frontend lint (`eslint src/`)
+4. `check` — frontend types (`svelte-kit sync && svelte-check`)
+5. `cargo:clippy` — backend lint (`clippy --all-targets --all-features -D warnings`)
+6. `cargo:check` — backend types
+7. `test` — frontend tests (`vitest run`)
+8. `build` — frontend production build (`vite build`)
+9. `cargo:test` — backend tests
+
+CI runs exactly this gate on push/PR to `develop`/`main`. The individual
+`bun run check` and `bun run cargo:check` remain valid single-gate checks
+during development. After the gate, `bun run tauri:dev` is the manual desktop
+pass on Wayland/Hyprland: transparent-window and compositor behavior cannot be
+verified headless (ADR-0004). The release engineer exercises shell boot, theme
+switching, the HUD surface, and the feature slice the release ships.
 
 **Release-specific gates** (each is a diff review against the last release):
 
@@ -228,8 +241,8 @@ discipline applies today by hand.
 - Every packaging target for the release is built and launched on a clean
   machine before the release is accepted. A target that cannot be installed
   and started is a release blocker.
-- When CI is live (M0.4 and M9.x), the pipeline builds the packages from the
-  tag as release artifacts per `CI.md`; the manual step remains the
+- When the release pipeline is live (M9.x), the pipeline builds the packages
+  from the tag as release artifacts per `CI.md`; the manual step remains the
   install-and-launch check that CI runners cannot do headless.
 
 **Exit criteria:**
@@ -260,8 +273,8 @@ byte-equal to what was reviewed, is not a DEX release.
   the reviewed file.
 - **Artifact signing.** Release artifacts are signed with the release key and
   a checksum file is published alongside. Signatures and checksums are
-  verified before announcement. The signing step lands with M0.4/CI and the
-  Phase 9 hardening milestones; until then the release engineer signs with the
+  verified before announcement. The signing step lands with the Phase 9
+  hardening milestones; until then the release engineer signs with the
   release key and records the signatures with the artifacts.
 - **Manifest validation** is enforced at Plugin install/update time
   (ADR-0005). The release gate is that no mechanism ships that can install a
@@ -300,8 +313,9 @@ never adds a network or telemetry dependence (Offline First, Principle 2).
    moved or deleted.
 4. Push the tag and publish the signed artifacts with their checksums and the
    changelog entry. The intended channel is a GitHub release driven by
-   `.github/workflows/release.yml` once the remote and CI exist (M0.4); today
-   the release engineer publishes the signed artifacts manually.
+   `.github/workflows/release.yml` once the remote exists and the release
+   pipeline is wired; today the release engineer publishes the signed
+   artifacts manually.
 5. Distribution adds no telemetry and no network requirement. The artifact
    behaves identically with no network (Offline First, Principle 2; the
    Non-Goals).
@@ -330,8 +344,8 @@ rollback target, and the buggy version keeps its tag and its changelog entry.
   stops, and a patch release is cut.
 - **P1 — functional regression:** a `fix:` patch release follows Stages 1–6.
   Gates the fix does not touch may be re-run at the release engineer's
-  discretion, but `bun run check`, `cargo check`, and the manual desktop pass
-  are never skipped.
+  discretion, but the `bun run verify` gate and the manual desktop pass
+  (`bun run tauri:dev`) are never skipped.
 - **P2 — cosmetic or non-blocking:** fixed in the next scheduled release.
 
 **Rollback:**
@@ -357,9 +371,10 @@ rollback target, and the buggy version keeps its tag and its changelog entry.
 
 ## Roadmap
 
-- **M0.4 (open):** lint and test tooling, commit hooks, the CI skeleton, and
-  the remote. This is when the verification gates in Stage 3 become
-  machine-run and the distribution channel in Stage 6 becomes real.
+- **M0.4 (shipped):** lint and test tooling, the vitest runner, and the CI
+  skeleton. The Stage 3 verification gates are machine-run by `bun run verify`
+  in CI; the distribution channel in Stage 6 and the release pipeline remain
+  for a later milestone.
 - **M9.3 (Production):** packaging automation for Arch, AppImage, and Flatpak —
   the Stage 4 targets become pipeline-built.
 - **M9.5 (Production):** v1.0. The release process above, hardened by M0.4 and

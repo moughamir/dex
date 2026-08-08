@@ -26,7 +26,11 @@ flowchart LR
 ```
 
 The frontend reaches data only through contract clients in `core/services/`,
-which call Rust commands. Rust services read and write through the
+which call Rust commands. Today the `COMMANDS` registry forward-declares 25
+contracts, but only 9 have live typed service clients in `core/services/`
+(system, network, process, modem, settings, widgets, terminal, plugins,
+history); the rest land with their owning milestone. Rust services read and
+write through the
 `database/` access layer. The schema itself is declared in
 `database/migrations/*.sql`, which is the source of truth — the SQL files
 define the schema; the Rust models and the zod schemas are representations of
@@ -35,10 +39,13 @@ it, not independent definitions.
 ## Schema Truth and Migrations
 
 The schema lives in `database/migrations/` as numbered SQL files,
-`NNN_<domain>.sql`. The directory currently holds empty numbered files
-(`001_init.sql` through `005_history.sql`) and an empty committed
-`database/dex.db`; no schema is committed yet. The naming convention is the
-contract: each file is one ordered, immutable migration.
+`NNN_<domain>.sql`. Today only `001_init.sql` is registered and applied by
+the migrations runner (it establishes the `schema_version` table and WAL
+mode). `002_settings.sql`, `003_widgets.sql`, and `004_plugins.sql` exist on
+disk but are **not** registered, so nothing has applied them yet;
+`005_history.sql` is empty (0 bytes). `database/dex.db` is committed but
+empty. The naming convention is the contract: each file is one ordered,
+immutable migration.
 
 Migrations are **append-only** (ADR-0001). A committed migration file is
 never edited — not to fix a typo, not to add a column. Every schema change is
@@ -104,9 +111,10 @@ contracts are owned by the specifications:
   [`../30-specs/Knowledge.md`](../30-specs/Knowledge.md).
 - **Journal** — the durable event log, distinct from the in-memory event bus.
   Contract: [`../30-specs/Journal.md`](../30-specs/Journal.md).
-- **Settings, widgets, plugins, history** — the empty numbered migration
-  files hint at these domains; their schemas are written when each owning
-  phase lands.
+- **Settings, widgets, plugins, history** — the numbered migration files
+  hint at these domains (`002_settings.sql`–`004_plugins.sql` exist on disk
+  but are not registered; `005_history.sql` is empty); they are applied when
+  each owning phase lands.
 
 Each domain follows the one-slice-per-feature rule: migration + Rust model +
 zod schema, delivered together, append-only.

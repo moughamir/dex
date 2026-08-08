@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The roadmap is the product-level plan for DEX: ten phases, thirty-four
+The roadmap is the product-level plan for DEX: ten phases, forty-five
 milestones, and the deliverables that carry each milestone to a working
 vertical slice. It is the source of truth for what ships and in what order.
 Architecture reference: `20-architecture/20_System_Architecture.md` +
@@ -18,8 +18,9 @@ production-ready.
 
 ## Phase Gate
 
-Every milestone ends with a working vertical slice and green checks
-(`bun run check`, `cargo check`, `bun run tauri dev`).
+Every milestone ends with a working vertical slice and green checks under
+the standard gate: `bun run verify` (nine steps, fail-fast) plus
+`bun run tauri:dev` as the manual desktop check.
 
 ## Success Criteria
 
@@ -67,7 +68,7 @@ timeline
     9 Production : performance, testing, packaging, docs, release
 ```
 
-## Phase 0 — Foundation (current)
+## Phase 0 — Foundation (complete)
 
 **Goal:** the layer every feature depends on. No business features.
 
@@ -78,10 +79,11 @@ timeline
 - [x] **M0.3 Core Infrastructure** — typed IPC layer + command registry,
       contract clients, event bus, theme store, logger, error envelope
       (ADR-0002, ADR-0005; `core/api`, `core/services`, `core/utils`)
-- [ ] **M0.4 Development Tooling** — ESLint, Prettier, Rustfmt, Clippy,
-      test runner, git hooks, CI skeleton
+- [x] **M0.4 Development Tooling** — nine-step `bun run verify` gate, ESLint,
+      Prettier, Rustfmt, Clippy, vitest runner, CI on push/PR to
+      `develop`/`main`
 
-## Phase 1 — Desktop Shell
+## Phase 1 — Desktop Shell (current)
 
 **Goal:** first usable shell surface, proving the seams end to end.
 

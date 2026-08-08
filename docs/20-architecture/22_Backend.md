@@ -36,8 +36,8 @@ in the first call would become uncallable with no error. Every new command is
 flowchart TD
     MAIN["main.rs"] --> LIB["lib.rs — Builder<br/>plugins · single invoke_handler"]
     LIB --> CMD["commands/ — thin #[tauri::command] handlers"]
-    CMD --> SVC["services/ — domain logic"]
-    SVC --> SYS["system/ — Hyprland · Wayland · hardware"]
+    CMD --> SVC["services/ — domain logic (planned)"]
+    SVC --> SYS["system/ — Hyprland · Wayland · hardware (planned)"]
     SVC --> DB["database/ — SQLite access (rusqlite)"]
     SVC --> EV["events/ — emission"]
     CMD --> EV
@@ -70,8 +70,9 @@ The backend is organized by responsibility, mirroring the frontend's
 Only real modules are declared in their `mod.rs`; modules whose owning phase
 has not landed are **not declared** and therefore not compiled. A module is
 declared when its first real file exists — never by `mod`-ing an empty file.
-Today the live modules are `commands::core` and `utils::errors`; the rest of
-the tree is scaffolding that joins as its roadmap phase lands.
+Today the live modules are `commands::core`, `database::{connection,
+migrations}`, `providers/*`, and `utils/*`; the rest of the tree is
+scaffolding that joins as its roadmap phase lands.
 
 ## Command Surface
 
@@ -144,9 +145,12 @@ described in [`24_EventBus.md`](24_EventBus.md).
 ## Capabilities and Plugins
 
 The backend's reach is gated by capability grants in
-`src-tauri/capabilities/`. `default.json` grants the main window
-`core:default`, `opener:default`, and `log:default` — the minimum the shell
-needs today. New native extensions (Plugins) receive **per-plugin capability
+`src-tauri/capabilities/`. `default.json` scopes its grants to the `main`
+window only: `core:default`, `opener:default`, `log:default`, plus
+`core:window:allow-set-decorations`, `core:window:allow-set-shadow`,
+`core:window:allow-set-effects`, `core:window:allow-set-background-color`,
+and `core:window:allow-set-title-bar-style` — the minimum the shell needs
+today. New native extensions (Plugins) receive **per-plugin capability
 grants**, never default elevation; manifests are schema-validated at
 install/update (ADR-0005). The plugin host lives in `plugins/` and is owned
 by [`27_Plugins.md`](27_Plugins.md).

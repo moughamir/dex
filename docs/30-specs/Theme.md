@@ -2,6 +2,9 @@
 
 Contract version 1 (draft).
 
+The token vocabulary follows `src/lib/ui/styles/tokens.css` (the live source),
+as implemented per ADR-0003.
+
 ## Purpose
 
 Theming is the contract by which users and authors create themes without
@@ -19,39 +22,34 @@ renderer.
 
 ## Why themes are semantic-layer overrides
 
-Components consume semantic tokens only (`var(--dex-surface-1)`,
-`var(--dex-text-1)`, …) — never primitive ramps and never hardcoded values
-(ADR-0003). Because components are theme-agnostic, restyling DEX is a matter of
-editing the semantic layer. A theme therefore overrides *only* the semantic
-layer; primitives (color ramps, spacing, radii, durations, z-index, blur) are
-shared across themes and are not themeable.
+Components consume semantic tokens only (`var(--surface-1)`,
+`var(--text-primary)`, `var(--dex-primary)`, …) — never primitive ramps and
+never hardcoded values (ADR-0003). Because components are theme-agnostic,
+restyling DEX is a matter of editing the semantic layer. A theme therefore
+overrides *only* the semantic layer; primitives (color ramps, spacing, radii,
+durations, z-index, blur) are shared across themes and are not themeable.
 
 ## Token architecture
 
 ```mermaid
 classDiagram
     class Primitives {
-        --dex-gray-950
-        --dex-cyan-500
-        --dex-space-4
-        --dex-radius-md
-        --dex-duration-base
-        --dex-z-modal
-        --dex-blur-glass
+        --bg-0
+        --space-4
+        --radius-md
+        --duration-normal
+        --z-dialog
+        --blur-lg
         themeable = no
     }
     class Semantic {
-        --dex-surface-1..3
-        --dex-text-1..3
-        --dex-accent
-        --dex-accent-strong
-        --dex-accent-soft
-        --dex-border
-        --dex-border-subtle
-        --dex-grid-line
-        --dex-focus-ring
-        --dex-background
-        --dex-on-accent
+        --surface-1..3
+        --text-primary/secondary/muted
+        --border-subtle/default
+        --dex-primary/secondary/accent
+        --bg-0
+        --selection-*
+        --focus-ring
         themeable = yes
     }
     class ThemeOverride["Theme (data-theme)"] {
@@ -78,15 +76,28 @@ value in a component.
 
 A theme may override exactly the following semantic tokens:
 
-- Surfaces: `--dex-surface-1`, `--dex-surface-2`, `--dex-surface-3`
-- Text: `--dex-text-1`, `--dex-text-2`, `--dex-text-3`
-- Accent: `--dex-accent`, `--dex-accent-strong`, `--dex-accent-soft`
-- Lines: `--dex-border`, `--dex-border-subtle`, `--dex-grid-line`,
-  `--dex-focus-ring`
-- Backdrop: `--dex-background`, `--dex-on-accent`
+- Surfaces: `--surface-0`, `--surface-1`, `--surface-2`, `--surface-3`,
+  `--surface-4`
+- Text: `--text-primary`, `--text-secondary`, `--text-muted`,
+  `--text-disabled`
+- Brand: `--dex-primary`, `--dex-secondary`, `--dex-accent`,
+  `--dex-success`, `--dex-warning`, `--dex-danger`, `--on-primary`
+- Borders: `--border-subtle`, `--border-default`, `--border-strong`
+- Glass: `--glass-light`, `--glass-medium`, `--glass-heavy`,
+  `--glass-ultra`, `--glass-border-light`, `--glass-border`,
+  `--glass-border-strong`
+- HUD / sidebar / dock: `--hud-bg`, `--hud-border`, `--hud-highlight`,
+  `--sidebar-bg`, `--sidebar-hover`, `--sidebar-active`, `--dock-bg`,
+  `--dock-border`
+- Backdrop: `--bg-0`, `--bg-1`, `--bg-2`, `--bg-3`, `--bg-4`
+- Shadows: `--shadow-xs`, `--shadow-sm`, `--shadow-md`, `--shadow-lg`,
+  `--shadow-xl`, `--shadow-glow`, `--shadow-accent`
+- Focus and selection: `--focus-ring`, `--selection-bg`, `--selection-text`
+- Scrollbars: `--scrollbar-thumb`, `--scrollbar-thumb-hover`
 
-A theme may not override a primitive token. An attempt to override a token
-outside the themeable set is a `validation` error.
+A theme may not override a primitive token (color ramps, blur, radius, space,
+duration, ease, z-index). An attempt to override a token outside the themeable
+set is a `validation` error.
 
 ## data-theme switching contract
 
@@ -108,7 +119,7 @@ flowchart LR
     STORE["theme store (theme.svelte.ts)"]
     STORE -->|"data-theme on <html>"| CSS["CSS semantic overrides"]
     STORE -->|"palette"| PALETTE["ThemePalette (themes/*.ts)"]
-    CSS --> RENDER["renderer consumes var(--dex-*)"]
+    CSS --> RENDER["renderer consumes var(--surface-*) / var(--dex-*)"]
     PALETTE --> GPU["graphics engine / JS"]
 ```
 
@@ -122,9 +133,10 @@ export one `ThemePalette` const per theme.
 ```ts
 // src/lib/ui/themes/types.ts (illustrative shape; the real file is the contract)
 interface ThemePalette {
-  name: string;
+  name: "light" | "dark" | "cyber";
   accent: string;
   accentStrong: string;
+  background: string;
   surface1: string;
   surface2: string;
   surface3: string;
@@ -132,17 +144,19 @@ interface ThemePalette {
   text2: string;
   border: string;
   gridLine: string;
-  background: string;
+  success: string;
+  warning: string;
+  danger: string;
+  selection: string;
 }
 ```
 
 **Sync rule (ADR-0003):** when a semantic value changes in `tokens.css`, update
 the matching palette file in `themes/`. The comment block at the top of
 `themes/types.ts` states this rule. `ThemePalette` carries only what JS/GPU
-need; role tokens that stay in CSS (`--dex-accent-soft`, `--dex-border-subtle`,
-`--dex-focus-ring`, `--dex-text-3`, `--dex-on-accent`) are not mirrored. The CSS
-is authoritative for the UI; the TS mirror is authoritative for programmatic
-use.
+need; role tokens that stay in CSS (`--surface-4`, `--text-muted`, `--glass-*`,
+`--focus-ring`, `--selection-*`) are not mirrored. The CSS is authoritative for
+the UI; the TS mirror is authoritative for programmatic use.
 
 ## Theme authoring format
 
@@ -155,12 +169,11 @@ token set.
 name: solar
 version: 1.0.0
 overrides:
-  --dex-surface-1: rgba(40, 44, 30, 0.35)
-  --dex-surface-2: rgba(40, 44, 30, 0.6)
-  --dex-text-1: "#f4f1de"
+  --surface-1: rgba(40, 44, 30, 0.35)
+  --surface-2: rgba(40, 44, 30, 0.6)
+  --text-primary: "#f4f1de"
   --dex-accent: "#e07a5f"
-  --dex-accent-strong: "#e07a5f"
-  --dex-background: "#1a1d14"
+  --bg-0: "#1a1d14"
 ```
 
 | Field | Type | Required | Meaning |
@@ -206,7 +219,7 @@ flowchart TD
     I --> S["theme store (persisted choice)"]
     S --> ATTR["data-theme on <html>"]
     ATTR --> CSS2["CSS applies semantic overrides"]
-    CSS2 --> UI["components consume var(--dex-*)"]
+    CSS2 --> UI["components consume var(--surface-*) / var(--dex-*)"]
     S --> PAL["ThemePalette mirror (sync rule)"]
     PAL --> G["graphics engine / JS"]
 ```

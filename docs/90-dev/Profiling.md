@@ -44,11 +44,28 @@ session — never in a browser tab.
 
 ## Tooling status
 
-No profiler tooling is configured in the repository yet. The current
-performance gates are `bun run check`, `cargo check`, and the manual desktop
-check (`bun run tauri dev`); the roadmap milestone **M0.4 (Development
-Tooling)** — ESLint, Prettier, Rustfmt, Clippy, test runner, git hooks, CI
-skeleton — is open. Systematic measurement lands in two later milestones:
+No profiler tooling is configured in the repository yet. The roadmap
+milestone **M0.4 (Development Tooling)** — ESLint, Prettier, Rustfmt, Clippy,
+test runner, git hooks, CI skeleton — is shipped; the verification gate it
+landed is the fixed gate for every change:
+
+### Verification (the gate)
+
+Run `bun run verify` (`scripts/verify.ts`) from any cwd before merging. It runs nine gates in order, fail-fast:
+
+1. `format:check` — frontend formatting (`prettier --check src/`)
+2. `cargo:fmt:check` — backend formatting (`cargo fmt --check`, `--manifest-path`)
+3. `lint` — frontend lint (`eslint src/`)
+4. `check` — frontend types (`svelte-kit sync && svelte-check`)
+5. `cargo:clippy` — backend lint (`clippy --all-targets --all-features -D warnings`)
+6. `cargo:check` — backend types
+7. `test` — frontend tests (`vitest run`)
+8. `build` — frontend production build (`vite build`)
+9. `cargo:test` — backend tests
+
+CI runs exactly this gate on push/PR to `develop`/`main`. The individual `bun run check` and `bun run cargo:check` remain valid single-gate checks during development; `bun run tauri:dev` stays a manual desktop gate (transparent/compositor behavior cannot be tested headless, ADR-0004). A change failing any gate is not ready for review.
+
+Systematic measurement lands in two later milestones:
 
 - **M2.4 (Performance, Phase 2)** — the graphics FPS monitor: object pooling,
   texture cache, and an FPS monitor that enforces the renderer's per-frame
@@ -97,7 +114,7 @@ budget. The permanent harness that automates this measurement lands with M9.1.
 
 ## Procedure B — Frame rate during motion (60 FPS)
 
-1. Run `bun run tauri dev` on the Hyprland session.
+1. Run `bun run tauri:dev` on the Hyprland session.
 2. Trigger the shell's motion: panel transitions, dock hover, theme
    switching.
 3. Verify sustained smoothness on the compositor. If your setup exposes a
@@ -120,7 +137,7 @@ The Rust side owns command handlers, SQLite, and system access. The intended
 workflow — the tooling that makes it routine lands with M9.1 — uses native
 profilers:
 
-1. Reproduce the slow path with `bun run tauri dev`.
+1. Reproduce the slow path with `bun run tauri:dev`.
 2. Attach `perf` to the Rust process (`perf record -p <pid>`) or launch the
    process under `samply record`, which opens the results in the Firefox
    Profiler UI.

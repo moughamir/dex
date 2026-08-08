@@ -5,7 +5,7 @@
 This document is the canonical build guide for the DEX repository. It covers
 the prerequisites, the exact build commands, the expected outcome of each
 step, and the common failure modes with their fixes. Read it before your first
-build; the verification order at the end is the gate for every change.
+build; the verification gate at the end is the gate for every change.
 
 DEX is a Tauri 2 desktop shell: a SvelteKit (SPA) frontend in `src/` and a Rust
 crate (`omnizya-dex`) in `src-tauri/`. Building it means building both halves.
@@ -26,7 +26,7 @@ part of that toolchain; missing one produces a specific, identifiable failure
 ### 1. Operating system and display
 
 - **Arch Linux** with a working **Wayland** session and **Hyprland**.
-- A running display is required only for `bun run tauri dev` (the desktop
+- A running display is required only for `bun run tauri:dev` (the desktop
   window). `bun run check`, `cargo check`, and `cargo test` do not need a
   display.
 
@@ -148,9 +148,8 @@ cargo test
 ```
 
 **Expected outcome:** the test harness runs and reports a passing result. The
-repository currently ships no Rust tests (the `tests/` tree is empty
-scaffolding, roadmap M0.4), so the command compiles and reports zero tests
-run. It is still the correct command to run once tests land.
+crate's unit tests (providers, capability, migrations, errors) currently pass
+(56 tests). Run this command again after any Rust change.
 
 ### Step 5 — (Optional) Production frontend build
 
@@ -160,7 +159,7 @@ bun run build
 
 This runs `vite build` and emits the static SPA into `build/` (the
 `frontendDist` referenced by `src-tauri/tauri.conf.json`). It is not required
-for local development — `bun run tauri dev` builds on demand — but it is the
+for local development — `bun run tauri:dev` builds on demand — but it is the
 step `beforeBuildCommand` runs when packaging a release.
 
 ## Common failures and fixes
@@ -193,7 +192,8 @@ loosened policy. The shipped policy is the security baseline (ADR-0005).
 A file is only compiled if its module is declared with `mod` in its parent
 `mod.rs` (or `lib.rs`). Do not add a `mod` for a 0-byte file — it will fail to
 compile. Only real, populated modules are declared today (`commands::core`,
-`utils::errors`).
+`database::{connection, migrations}`, `providers/*`,
+`utils::{errors, logger}`).
 
 ### Duplicate `invoke_handler`
 
@@ -202,18 +202,23 @@ second call silently shadows the first, so commands registered in the first
 call stop working with no error. Append new commands to the single
 `generate_handler![...]` (ADR-0002).
 
-## Verification order
+## Verification (the gate)
 
-The fixed gate for every change, in order:
+Run `bun run verify` (`scripts/verify.ts`) from any cwd before merging. It runs nine gates in order, fail-fast:
 
-1. `bun run check` — frontend types.
-2. `cargo check` in `src-tauri/` — Rust.
-3. `bun run tauri dev` — desktop, manual, requires Wayland/Hyprland and a
-   display (see [RunLocally.md](RunLocally.md)).
+1. `format:check` — frontend formatting (`prettier --check src/`)
+2. `cargo:fmt:check` — backend formatting (`cargo fmt --check`, `--manifest-path`)
+3. `lint` — frontend lint (`eslint src/`)
+4. `check` — frontend types (`svelte-kit sync && svelte-check`)
+5. `cargo:clippy` — backend lint (`clippy --all-targets --all-features -D warnings`)
+6. `cargo:check` — backend types
+7. `test` — frontend tests (`vitest run`)
+8. `build` — frontend production build (`vite build`)
+9. `cargo:test` — backend tests
 
-A change that fails step 1 or 2 is not ready for review. Step 3 is required
-for any change that touches the shell surface, because transparent-window and
-compositor behavior cannot be verified in a browser tab (ADR-0004).
+CI runs exactly this gate on push/PR to `develop`/`main`. The individual `bun run check` and `bun run cargo:check` remain valid single-gate checks during development; `bun run tauri:dev` stays a manual desktop gate (transparent/compositor behavior cannot be tested headless, ADR-0004). A change failing any gate is not ready for review.
+
+Rust tasks can be run cwd-independently via `bun run cargo:check` / `bun run cargo:test` (they pass `--manifest-path`).
 
 ## Related Documents
 
