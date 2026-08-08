@@ -173,9 +173,11 @@ New dependencies require justification. Every dependency is carried in every
 build, on every user, forever (Lightweight Core, Principle 7).
 
 - **Prefer platform features and existing dependencies.** The approved set is
-  `zod` (schema validation), `cva` + `clsx` (variant styling), and the Tauri
-  plugins already granted. Do not add icon libraries, `floating-ui`, or
-  utility frameworks.
+  `zod` (schema validation), `cva` + `clsx` (variant styling), the Tauri
+  plugins already granted, and `@floating-ui/dom` — approved **for popover
+  positioning only** (ContextMenu, Dropdown; D1, ADR-0007). Do not add icon
+  libraries, other positioning libraries or floating-ui alternatives (e.g.
+  `bits-ui`), utility frameworks, or any new npm dependency.
 - **A new dependency must be justified in the PR** with the problem it solves
   and why the existing set cannot solve it. A dependency added "because it is
   convenient" is rejected.
@@ -225,6 +227,8 @@ CI runs exactly this gate on push/PR to `develop`/`main`. The individual `bun ru
 - Layer model and folder ownership: [`../50-adr/0001-layer-ownership.md`](../50-adr/0001-layer-ownership.md)
 - Typed IPC contract: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
 - Design tokens: [`../50-adr/0003-design-tokens.md`](../50-adr/0003-design-tokens.md)
+- Overlay primitives (portals, floating positioning, translucent backdrops):
+  [`../50-adr/0007-overlay-primitives.md`](../50-adr/0007-overlay-primitives.md)
 - System architecture: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
 - Design system (tokens, motion, primitives): [`DesignSystem.md`](DesignSystem.md)
 - Git workflow: [`GitWorkflow.md`](GitWorkflow.md)

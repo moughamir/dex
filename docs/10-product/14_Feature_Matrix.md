@@ -88,7 +88,7 @@ Status: **Built** = delivered (milestone checked in the roadmap).
 | Development Tooling (nine-step `bun run verify` gate, ESLint, Prettier, Rustfmt, Clippy, vitest runner, CI on push/PR to develop/main) | Engineering | 0 | M0.4 | Built |
 | Window (transparent, fullscreen, multi-monitor, DPI-aware) | Desktop Shell | 1 | M1.1 | Built |
 | HUD (TopBar, Dock, StatusBar, Viewport) | Desktop Shell | 1 | M1.2 | Built |
-| UI Components (GlassPanel, Button, Card, Tooltip, Modal, ContextMenu, Dropdown) | UI Primitives | 1 | M1.3 | Planned |
+| UI Components (GlassPanel, Button, Card, Tooltip, Modal, ContextMenu, Dropdown) | UI Primitives | 1 | M1.3 | Built |
 | Theme (dark, cyber, dynamic; live switching) | Theming | 1 | M1.4 | Planned |
 | Three.js Core (renderer, scene, camera, lights) | Graphics | 2 | M2.1 | Planned |
 | Effects (bloom, fog, background, grid, particles) | Graphics | 2 | M2.2 | Planned |

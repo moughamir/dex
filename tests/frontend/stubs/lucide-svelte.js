@@ -8,12 +8,17 @@
  * `DOCK_WORKSPACES`) do not need real components, so `vitest.config.ts`
  * aliases `lucide-svelte` here.
  *
+ * Since M1.3, primitives under test (`Card`, `Modal`, `ContextMenu`,
+ * `Dropdown`) render icons (`Check`, `X`, and `MenuItem.icon`) in jsdom.
+ * The stub component returns `null` so it renders nothing without
+ * warnings while remaining a valid function component.
+ *
  * The exported names mirror the icons currently consumed by `src/` config
- * modules under test. If a new icon is imported by a module under test,
- * add it here.
+ * modules and primitives under test. If a new icon is imported by a
+ * module under test, add it here.
  */
 function createIcon() {
-  return function Icon() {};
+  return () => null;
 }
 
 export const House = createIcon();
@@ -21,3 +26,5 @@ export const Database = createIcon();
 export const FolderKanban = createIcon();
 export const Bot = createIcon();
 export const Package = createIcon();
+export const Check = createIcon();
+export const X = createIcon();
