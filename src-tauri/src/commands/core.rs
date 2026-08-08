@@ -8,9 +8,45 @@ use tauri::Manager;
 
 use crate::utils::errors::AppError;
 
+/// Shared startup-handshake state, managed as a single `Mutex<SetupState>`.
+///
+/// `frontend_task` / `backend_task` are set exactly once each by
+/// `set_complete`; `shown` records whether the splashscreen → main transition
+/// has already run so the handshake fires exactly once.
 pub struct SetupState {
     pub frontend_task: bool,
     pub backend_task: bool,
+    pub shown: bool,
+}
+
+/// Which side of the startup handshake reported completion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StartupTask {
+    Frontend,
+    Backend,
+}
+
+impl StartupTask {
+    /// Parses a wire task string into a [`StartupTask`].
+    ///
+    /// Only the canonical snake_case keys `frontend` and `backend` are
+    /// accepted; anything else is a validation error (ADR-0002).
+    pub fn try_from_str(s: &str) -> Result<StartupTask, AppError> {
+        match s {
+            "frontend" => Ok(StartupTask::Frontend),
+            "backend" => Ok(StartupTask::Backend),
+            other => Err(AppError::validation(format!(
+                "invalid task completed: {other}"
+            ))),
+        }
+    }
+}
+
+/// Pure transition predicate: the splashscreen gives way to the main window
+/// exactly once, when both sides have reported in and the transition has not
+/// already run.
+pub fn startup_gate(frontend: bool, backend: bool, shown: bool) -> bool {
+    !shown && frontend && backend
 }
 
 #[derive(Debug, Deserialize)]
@@ -45,17 +81,16 @@ pub async fn set_complete(
         .lock()
         .map_err(|e| AppError::internal(format!("mutex lock failed: {e}")))?;
 
-    match args.task.as_str() {
-        "frontend" => state_lock.frontend_task = true,
-        "backend" => state_lock.backend_task = true,
-        other => {
-            return Err(AppError::validation(format!(
-                "invalid task completed: {other}"
-            )))
-        }
+    match StartupTask::try_from_str(&args.task)? {
+        StartupTask::Frontend => state_lock.frontend_task = true,
+        StartupTask::Backend => state_lock.backend_task = true,
     }
 
-    if state_lock.backend_task && state_lock.frontend_task {
+    if startup_gate(
+        state_lock.frontend_task,
+        state_lock.backend_task,
+        state_lock.shown,
+    ) {
         if let Some(splash) = app.get_webview_window("splashscreen") {
             let _ = splash.close();
         }
@@ -63,6 +98,7 @@ pub async fn set_complete(
             let _ = main.show();
             let _ = main.set_focus();
         }
+        state_lock.shown = true;
     }
 
     Ok(())
@@ -70,7 +106,8 @@ pub async fn set_complete(
 
 #[cfg(test)]
 mod tests {
-    use super::{greet, GreetArgs, GreetOutput};
+    use super::{greet, startup_gate, GreetArgs, GreetOutput, StartupTask};
+    use crate::utils::errors::AppError;
 
     #[test]
     fn greet_welcomes_a_named_user() {
@@ -98,5 +135,67 @@ mod tests {
         let output: GreetOutput =
             greet(GreetArgs { name: "Ada".into() }).expect("greet should succeed");
         assert!(!output.message.is_empty());
+    }
+
+    #[test]
+    fn startup_task_accepts_the_canonical_wire_keys() {
+        assert!(matches!(
+            StartupTask::try_from_str("frontend"),
+            Ok(StartupTask::Frontend)
+        ));
+        assert!(matches!(
+            StartupTask::try_from_str("backend"),
+            Ok(StartupTask::Backend)
+        ));
+    }
+
+    #[test]
+    fn startup_task_rejects_invalid_wire_keys() {
+        for bad in ["", "front", "Backend", "both", "unknown", "frontend "] {
+            let err: AppError =
+                StartupTask::try_from_str(bad).expect_err("invalid task should fail");
+            assert_eq!(err.code(), "validation");
+            assert_eq!(err.to_string(), format!("invalid task completed: {bad}"));
+        }
+    }
+
+    #[test]
+    fn startup_gate_fires_only_when_both_sides_are_done() {
+        // Neither side, or only one side, reported in: no transition.
+        assert!(!startup_gate(false, false, false));
+        assert!(!startup_gate(true, false, false));
+        assert!(!startup_gate(false, true, false));
+        // Both sides reported in and the transition has not run yet.
+        assert!(startup_gate(true, true, false));
+    }
+
+    #[test]
+    fn startup_gate_fires_exactly_once() {
+        // First evaluation with both flags set triggers the transition.
+        assert!(startup_gate(true, true, false));
+        // A second call after the window is shown is a no-op.
+        assert!(!startup_gate(true, true, true));
+    }
+
+    #[test]
+    fn startup_gate_covers_all_flag_combinations() {
+        let cases = [
+            (false, false, false, false),
+            (false, false, true, false),
+            (false, true, false, false),
+            (false, true, true, false),
+            (true, false, false, false),
+            (true, false, true, false),
+            (true, true, false, true),
+            (true, true, true, false),
+        ];
+
+        for (frontend, backend, shown, expected) in cases {
+            assert_eq!(
+                startup_gate(frontend, backend, shown),
+                expected,
+                "frontend={frontend} backend={backend} shown={shown}"
+            );
+        }
     }
 }

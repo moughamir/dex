@@ -86,7 +86,7 @@ Status: **Built** = delivered in Phase 0 (milestone checked in the roadmap).
 | Design System (tokens, typography, colors, icons, motion, theme engine) | Theming | 0 | M0.2 | Built |
 | Core Infrastructure (typed IPC, command registry, contract clients, event bus, theme store, logger, error envelope) | Core Infrastructure | 0 | M0.3 | Built |
 | Development Tooling (nine-step `bun run verify` gate, ESLint, Prettier, Rustfmt, Clippy, vitest runner, CI on push/PR to develop/main) | Engineering | 0 | M0.4 | Built |
-| Window (transparent, fullscreen, multi-monitor, DPI-aware) | Desktop Shell | 1 | M1.1 | Planned |
+| Window (transparent, fullscreen, multi-monitor, DPI-aware) | Desktop Shell | 1 | M1.1 | Built |
 | HUD (TopBar, Dock, StatusBar, Viewport) | Desktop Shell | 1 | M1.2 | Planned |
 | UI Components (GlassPanel, Button, Card, Tooltip, Modal, ContextMenu, Dropdown) | UI Primitives | 1 | M1.3 | Planned |
 | Theme (dark, cyber, dynamic; live switching) | Theming | 1 | M1.4 | Planned |
