@@ -1,73 +1,71 @@
 <script lang="ts">
-	import { Bell, Settings2, Search } from "lucide-svelte";
+  import { Bell, Settings2, Search } from "lucide-svelte";
 
-	import { shellStore } from "$lib/core/stores/shell.svelte";
-	import { workspaceLabel } from "$lib/core/utils/helpers";
+  import { shellStore } from "$lib/core/stores/shell.svelte";
+  import { workspaceLabel } from "$lib/core/utils/helpers";
 
-	import { Button, GlassPanel, Tooltip } from "$lib/ui/primitives";
-	import { SearchBox } from "$lib/ui/navigation";
+  import { Button, GlassPanel, Tooltip } from "$lib/ui/primitives";
+  import { SearchBox } from "$lib/ui/navigation";
 
-	const label = $derived(workspaceLabel(shellStore.activeWorkspace));
+  const label = $derived(workspaceLabel(shellStore.activeWorkspace));
 
-	let query = $state("");
-	let searchOpen = $state(false);
+  let query = $state("");
+  let searchOpen = $state(false);
 </script>
 
 <header
-	class="absolute inset-x-0 top-0 z-(--z-hud) flex h-(--hud-height) items-center px-6"
-	data-tauri-drag-region
+  class="absolute inset-x-0 top-0 z-(--z-hud) flex h-(--hud-height) items-center px-6 py-1.5"
+  data-tauri-drag-region
 >
-	<GlassPanel
-		variant="hud"
-		padding="sm"
-		class="flex h-full w-full items-center gap-4"
-	>
-		<div class="flex items-center gap-3" data-tauri-drag-region>
-			<div
-				class="flex size-10 items-center justify-center rounded-xl bg-(--dex-primary) font-bold text-[color:var(--on-primary)]"
-			>
-				D
-			</div>
+  <GlassPanel variant="hud" padding="sm" class="h-full w-full px-3">
+    <div class="flex items-center gap-2.5" data-tauri-drag-region>
+      <div
+        class="flex size-8 items-center justify-center rounded-lg bg-(--dex-primary) text-xs font-bold text-[color:var(--on-primary)]"
+      >
+        D
+      </div>
 
-			<div>
-				<h1 class="text-sm font-semibold">DEX</h1>
+      <div class="leading-tight" data-tauri-drag-region>
+        <h1 class="text-xs font-semibold">DEX</h1>
 
-				<p class="text-xs text-(--text-muted)">
-					{label}
-				</p>
-			</div>
-		</div>
+        <p class="text-[11px] text-(--text-muted)">
+          {label}
+        </p>
+      </div>
+    </div>
 
-		<div class="flex-1"></div>
+    <div class="flex-1"></div>
 
-		{#if searchOpen}
-			<div class="w-full max-w-md">
-				<SearchBox bind:value={query} />
-			</div>
-		{/if}
+    <div class="flex items-center gap-1.5">
+      {#if searchOpen}
+        <div class="w-64 max-w-md">
+          <SearchBox bind:value={query} />
+        </div>
+      {/if}
 
-		<Tooltip label="Search">
-			<Button
-				variant="ghost"
-				size="icon"
-				aria-label="Search"
-				aria-expanded={searchOpen}
-				onclick={() => (searchOpen = !searchOpen)}
-			>
-				<Search />
-			</Button>
-		</Tooltip>
+      <Tooltip label="Search">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Search"
+          aria-expanded={searchOpen}
+          onclick={() => (searchOpen = !searchOpen)}
+        >
+          <Search class="size-4" />
+        </Button>
+      </Tooltip>
 
-		<Tooltip label="Notifications">
-			<Button variant="ghost" size="icon" aria-label="Notifications">
-				<Bell />
-			</Button>
-		</Tooltip>
+      <Tooltip label="Notifications">
+        <Button variant="ghost" size="icon" aria-label="Notifications">
+          <Bell class="size-4" />
+        </Button>
+      </Tooltip>
 
-		<Tooltip label="Settings">
-			<Button variant="ghost" size="icon" aria-label="Settings">
-				<Settings2 />
-			</Button>
-		</Tooltip>
-	</GlassPanel>
+      <Tooltip label="Settings">
+        <Button variant="ghost" size="icon" aria-label="Settings">
+          <Settings2 class="size-4" />
+        </Button>
+      </Tooltip>
+    </div>
+  </GlassPanel>
 </header>

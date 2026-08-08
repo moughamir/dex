@@ -8,3 +8,4 @@ export { default as Badge } from "./Badge.svelte";
 export { default as Separator } from "./Separator.svelte";
 export { default as Tooltip } from "./Tooltip.svelte";
 export { default as Divider } from "./Divider.svelte";
+export { default as ViewPlaceholder } from "./ViewPlaceholder.svelte";

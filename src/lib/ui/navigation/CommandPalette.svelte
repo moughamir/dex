@@ -1,10 +1,7 @@
 <script lang="ts">
-	import SearchBox from "./SearchBox.svelte";
+  import SearchBox from "./SearchBox.svelte";
 
-	let query = $state("");
+  let query = $state("");
 </script>
 
-<SearchBox
-	bind:value={query}
-	placeholder="Search commands..."
-/>
+<SearchBox bind:value={query} placeholder="Search commands..." />

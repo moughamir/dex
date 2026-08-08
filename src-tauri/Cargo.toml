@@ -37,3 +37,14 @@ sysinfo = "0.39.6"
 nix = { version = "0.31.3", features = ["process", "signal", "fs", "user"] }
 portable-pty = "0.9.0"
 tracing = "0.1.44"
+
+[profile.dev]
+incremental = true
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
+

@@ -41,7 +41,8 @@ export class IpcError extends Error {
    */
   static fromUnknown(cause: unknown): IpcError {
     const parsed = ErrorEnvelope.safeParse(cause);
-    if (parsed.success) return new IpcError(parsed.data.type, parsed.data.message);
+    if (parsed.success)
+      return new IpcError(parsed.data.type, parsed.data.message);
     const message = cause instanceof Error ? cause.message : String(cause);
     return new IpcError("unknown", message);
   }

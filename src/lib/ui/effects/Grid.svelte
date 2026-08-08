@@ -1,3 +1,3 @@
 <div class="dex-effect">
-	<div class="dex-grid"></div>
+  <div class="dex-grid"></div>
 </div>

@@ -6,6 +6,6 @@ export const themes = {
   dark,
   cyber,
   light,
-}
+};
 export type ThemeName = keyof typeof themes;
 export const defaultTheme: ThemeName = "dark";

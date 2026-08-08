@@ -1,28 +1,42 @@
 <script lang="ts">
-	import { onMount } from "svelte";
+  import { onMount } from "svelte";
 
-	let x = $state(window.innerWidth / 2);
-	let y = $state(window.innerHeight / 2);
+  onMount(() => {
+    let ticking = false;
+    let lastX = window.innerWidth / 2;
+    let lastY = window.innerHeight / 2;
 
-	function update(event: PointerEvent) {
-		x = event.clientX;
-		y = event.clientY;
-	}
+    document.documentElement.style.setProperty("--cursor-x", `${lastX}px`);
+    document.documentElement.style.setProperty("--cursor-y", `${lastY}px`);
 
-	$effect(() => {
-		document.documentElement.style.setProperty("--cursor-x", `${x}px`);
-		document.documentElement.style.setProperty("--cursor-y", `${y}px`);
-	});
+    function update(event: PointerEvent) {
+      lastX = event.clientX;
+      lastY = event.clientY;
 
-	onMount(() => {
-		window.addEventListener("pointermove", update);
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(() => {
+          document.documentElement.style.setProperty(
+            "--cursor-x",
+            `${lastX}px`,
+          );
+          document.documentElement.style.setProperty(
+            "--cursor-y",
+            `${lastY}px`,
+          );
+          ticking = false;
+        });
+      }
+    }
 
-		return () => {
-			window.removeEventListener("pointermove", update);
-		};
-	});
+    window.addEventListener("pointermove", update, { passive: true });
+
+    return () => {
+      window.removeEventListener("pointermove", update);
+    };
+  });
 </script>
 
 <div class="dex-effect">
-	<div class="dex-cursor-glow"></div>
+  <div class="dex-cursor-glow"></div>
 </div>

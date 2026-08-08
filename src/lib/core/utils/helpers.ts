@@ -6,10 +6,10 @@ import type { WorkspaceId } from "$lib/core/config/navigation";
  * Falls back to "Digital Experience" when the workspace is unknown.
  */
 export function workspaceLabel(id: WorkspaceId): string {
-	return (
-		DOCK_WORKSPACES.find((workspace) => workspace.id === id)?.label ??
-		"Digital Experience"
-	);
+  return (
+    DOCK_WORKSPACES.find((workspace) => workspace.id === id)?.label ??
+    "Digital Experience"
+  );
 }
 
 /**
@@ -17,16 +17,16 @@ export function workspaceLabel(id: WorkspaceId): string {
  * longest workspace `href` prefix. Falls back to "dashboard".
  */
 export function resolveWorkspace(pathname: string): WorkspaceId {
-	let match: { id: WorkspaceId; href: string } | undefined;
+  let match: { id: WorkspaceId; href: string } | undefined;
 
-	for (const workspace of DOCK_WORKSPACES) {
-		if (
-			pathname.startsWith(workspace.href) &&
-			(match === undefined || workspace.href.length > match.href.length)
-		) {
-			match = workspace;
-		}
-	}
+  for (const workspace of DOCK_WORKSPACES) {
+    if (
+      pathname.startsWith(workspace.href) &&
+      (match === undefined || workspace.href.length > match.href.length)
+    ) {
+      match = workspace;
+    }
+  }
 
-	return match?.id ?? "dashboard";
+  return match?.id ?? "dashboard";
 }

@@ -27,7 +27,11 @@ export async function terminalInput(id: string, data: string): Promise<null> {
   return invoke(COMMANDS.terminalInput, { id, data });
 }
 
-export async function terminalResize(id: string, cols: number, rows: number): Promise<null> {
+export async function terminalResize(
+  id: string,
+  cols: number,
+  rows: number,
+): Promise<null> {
   return invoke(COMMANDS.terminalResize, { id, cols, rows });
 }
 

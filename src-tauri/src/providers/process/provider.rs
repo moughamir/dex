@@ -442,15 +442,14 @@ impl Provider for ProcessProvider {
     }
 }
 
+/// Result of diffing two process snapshots: `(spawned, exited)` where each
+/// spawned entry carries `(pid, parent_pid, name)` and each exited entry is
+/// just the pid.
+type ProcessDiff = (Vec<(u32, Option<u32>, String)>, Vec<u32>);
+
 /// Diff two process snapshots and report which pids appeared and which
 /// disappeared.
-///
-/// Returns `(spawned, exited)` where each spawned entry carries
-/// `(pid, parent_pid, name)` and each exited entry is just the pid.
-fn diff(
-    prev: &HashMap<u32, Process>,
-    next: &HashMap<u32, Process>,
-) -> (Vec<(u32, Option<u32>, String)>, Vec<u32>) {
+fn diff(prev: &HashMap<u32, Process>, next: &HashMap<u32, Process>) -> ProcessDiff {
     let spawned = next
         .iter()
         .filter(|(pid, _)| !prev.contains_key(pid))
@@ -516,9 +515,10 @@ mod tests {
 
     use super::{diff, map_kill_errno, map_process_status, priority_from_nice, ProcessProvider};
     use crate::providers::process::{
-        error::ProcessError, events::ProcessExitedEvent, events::ProcessSpawnedEvent,
-        events::ProcessStateChangedEvent, Process, ProcessEvent, ProcessPriority, ProcessState,
-        Task, TaskState,
+        error::ProcessError, events::ProcessExitedEvent, events::ProcessPriorityChangedEvent,
+        events::ProcessResourceUpdatedEvent, events::ProcessSpawnedEvent,
+        events::ProcessStateChangedEvent, resource::ProcessResourceUsage, Process, ProcessEvent,
+        ProcessPriority, ProcessState, Task, TaskState,
     };
 
     fn process(pid: u32) -> Process {
@@ -654,6 +654,62 @@ mod tests {
 
         let (spawned, _) = diff(&prev, &next);
         assert_eq!(spawned, vec![(42, Some(7), "bash".to_string())]);
+    }
+
+    #[test]
+    fn diff_reports_multiple_spawns_and_exits_in_one_pass() {
+        // pid 2 survives both snapshots: it must appear in neither list.
+        let mut prev = HashMap::new();
+        prev.insert(1, process(1));
+        prev.insert(2, process(2));
+        prev.insert(3, process(3));
+
+        let mut next = HashMap::new();
+        next.insert(2, process(2));
+        next.insert(3, process(3));
+        next.insert(4, process(4));
+        next.insert(5, process(5));
+
+        let (spawned, exited) = diff(&prev, &next);
+        assert_eq!(exited, vec![1]);
+
+        let mut spawned_pids: Vec<u32> = spawned.iter().map(|(pid, _, _)| *pid).collect();
+        spawned_pids.sort_unstable();
+        assert_eq!(spawned_pids, vec![4, 5]);
+        for (pid, parent_pid, name) in spawned {
+            assert_eq!(parent_pid, Some(1));
+            assert_eq!(name, format!("proc-{pid}"));
+        }
+    }
+
+    #[test]
+    fn diff_from_empty_snapshot_reports_all_as_spawned() {
+        let prev = HashMap::new();
+        let mut next = HashMap::new();
+        next.insert(1, process(1));
+        next.insert(2, process(2));
+
+        let (spawned, exited) = diff(&prev, &next);
+        assert!(exited.is_empty());
+        assert_eq!(spawned.len(), 2);
+        for (pid, parent_pid, name) in spawned {
+            assert_eq!(parent_pid, Some(1));
+            assert_eq!(name, format!("proc-{pid}"));
+        }
+    }
+
+    #[test]
+    fn diff_to_empty_snapshot_reports_all_as_exited() {
+        let mut prev = HashMap::new();
+        prev.insert(1, process(1));
+        prev.insert(2, process(2));
+        let next = HashMap::new();
+
+        let (spawned, mut exited) = diff(&prev, &next);
+        assert!(spawned.is_empty());
+        // HashMap iteration order is unspecified; sort for determinism.
+        exited.sort_unstable();
+        assert_eq!(exited, vec![1, 2]);
     }
 
     #[test]
@@ -795,6 +851,57 @@ mod tests {
         assert_eq!(drained[1].0, "dex.process.exited");
         assert_eq!(drained[0].1["pid"], 1);
         assert_eq!(drained[1].1["pid"], 1);
+        assert!(provider.events().is_empty());
+    }
+
+    #[test]
+    fn refresh_tasks_leaves_non_running_tasks_untouched() {
+        let mut provider = ProcessProvider::new();
+        provider.add_task(Task {
+            id: "done".to_string(),
+            name: "already-completed".to_string(),
+            pid: Some(300),
+            state: TaskState::Completed,
+            exit_code: Some(0),
+        });
+        provider.add_task(Task {
+            id: "failed".to_string(),
+            name: "already-failed".to_string(),
+            pid: Some(400),
+            state: TaskState::Failed,
+            exit_code: None,
+        });
+
+        provider.refresh_tasks();
+
+        assert_eq!(provider.task("done").unwrap().state, TaskState::Completed);
+        assert_eq!(provider.task("failed").unwrap().state, TaskState::Failed);
+        // The sweep is limited to `Running` tasks: nothing is re-marked and
+        // no exit events are emitted.
+        assert!(provider.events().is_empty());
+    }
+
+    #[test]
+    fn drain_events_returns_empty_when_nothing_pending() {
+        let mut provider = ProcessProvider::new();
+        assert!(provider.drain_events().is_empty());
+    }
+
+    #[test]
+    fn drain_events_drops_resource_and_priority_updates() {
+        let mut provider = ProcessProvider::new();
+        provider.emit(ProcessEvent::ResourceUpdated(ProcessResourceUpdatedEvent {
+            pid: 1,
+            resources: ProcessResourceUsage::default(),
+        }));
+        provider.emit(ProcessEvent::PriorityChanged(ProcessPriorityChangedEvent {
+            pid: 1,
+            previous: 0,
+            current: 5,
+        }));
+
+        let drained = provider.drain_events();
+        assert!(drained.is_empty());
         assert!(provider.events().is_empty());
     }
 }

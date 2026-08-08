@@ -1,10 +1,10 @@
 # AGENTS.md
 
-DEX — a programmable desktop layer for Hyprland. Phase 0 (foundation) is current; M0.1–M0.3 done, M0.4 (tooling/CI) open. Architecture decisions live in `docs/50-adr/` (read ADR-0001–0005 before touching cross-cutting code) and `docs/20-architecture/20_System_Architecture.md`. Detailed engineering rules live in `docs/40-engineering/` (CodingStandards, Testing, CI, GitWorkflow, Release). AGENTS.md is the operational ground truth for commands and repo mechanics.
+DEX — a programmable desktop layer for Hyprland. Phase 0 (foundation) is current; M0.1–M0.4 done (tooling/CI landed in M0.4). Architecture decisions live in `docs/50-adr/` (read ADR-0001–0005 before touching cross-cutting code) and `docs/20-architecture/20_System_Architecture.md`. Detailed engineering rules live in `docs/40-engineering/` (CodingStandards, Testing, CI, GitWorkflow, Release). AGENTS.md is the operational ground truth for commands and repo mechanics.
 
 ## Stack
 
-- SvelteKit 2 (Svelte 5 runes) + Vite 6 + TypeScript strict, Tauri 2 (Rust: tokio/serder/rusqlite/zbus), **Bun** package manager.
+- SvelteKit 2 (Svelte 5 runes) + Vite 6 + TypeScript strict, Tauri 2 (Rust: tokio/serde/rusqlite/zbus), **Bun** package manager.
 - SPA only: `adapter-static` + `index.html` fallback, `ssr = false` (`src/routes/+layout.ts`). No Node server.
 - Frontend `src/` (Svelte); backend `src-tauri/` (Rust crate `omnizya_dex_lib` / bin `omnizya_dex`).
 
@@ -12,19 +12,23 @@ DEX — a programmable desktop layer for Hyprland. Phase 0 (foundation) is curre
 
 - `bun install` — never `npm`/`pnpm`.
 - `bun run dev` — Vite-only dev server, **port 1420** (`strictPort: true` in `vite.config.js`). Frontend work only; window chrome is not rendered here.
-- `bun run check` (`check:watch` for watch mode) — `svelte-kit sync && svelte-check`. Frontend type gate; must pass clean.
-- `bun run tauri dev` — full transparent desktop window. Requires Wayland/Hyprland + webkit2gtk + a display; **not headless, not in CI**.
-- `cargo check` (then `cargo test`) inside `src-tauri/`.
-- **No CI configured.** `tests/{unit,integration,e2e,frontend,backend}/` are empty, `.github/workflows/*.yml` are empty placeholders, and no JS test runner / lint / formatter is wired (M0.4). Verification runs locally.
+- `bun run verify` — **the authoritative M0.4 gate** (`scripts/verify.ts`, run from any cwd). Nine steps, fail-fast, in order: `format:check` → `cargo:fmt:check` → `lint` → `check` → `cargo:clippy` → `cargo:check` → `test` → `build` → `cargo:test`. CI runs exactly this. Run before any merge.
+- `bun run check` (`check:watch`) — `svelte-kit sync && svelte-check`. Frontend type gate; must pass clean.
+- `bun run lint` — `eslint src/`. `bun run format:check` / `format:write` — `prettier --check src/` / `--write`.
+- `bun run test` — `vitest run` (frontend, `tests/frontend/`, node env, `$lib` + lucide-svelte stubs via `vitest.config.ts`).
+- `bun run cargo:check` / `cargo:test` / `cargo:build` / `cargo:fmt:check` / `cargo:clippy` — Rust toolchain tasks mapped via package scripts (all `--manifest-path`, cwd-independent).
+- `bun run gate` — legacy alias for `bun run check && bun run cargo:check`; prefer `bun run verify`.
+- `bun run tauri:dev` (`tauri:build`) — full transparent desktop window dev/build via Bun. Requires Wayland/Hyprland + webkit2gtk + a display; **not headless, not in CI**.
+- **CI is wired**: `.github/workflows/ci.yml` runs `bun run verify` on push/PR to `develop`/`main`. No release pipeline yet (M0.4 deliberately ships the verify gate only).
 
 ## Live vs. placeholder
 
 Phase 0 ships the shell + the IPC plumbing. The rest is scaffolding — much of it inert, not merely empty.
 
-- **The only live IPC command is `greet`**, wired end-to-end: Rust `commands/core.rs` (`#[tauri::command] greet`) → single `generate_handler![commands::core::greet]` in `lib.rs` → TS contract `COMMANDS.greet` (`core/api/commands.ts`) → typed client `core/services/greet.ts`. Adding a command requires a contract in **both** `core/api/commands.ts` and `src-tauri/src/lib.rs`.
-- **Live `core/` plumbing**: `core/api/{commands,tauri,events}.ts`, `core/services/greet.ts`, `core/utils/{logger,storage}.ts`, `core/stores/theme.svelte.ts` (bootstrapped in `+layout.svelte`), `core/config/{theme,layout,navigation}.ts`. (`core/stores/shell.svelte.ts` is real but currently not wired in.) Everything else under `core/{services,types,events,hooks,composables}` is an empty placeholder — do not import it.
-- **Rust is mostly inert, not just empty.** `lib.rs` declares only `mod commands;` and `mod utils;`. The large `providers/` tree (dbus, modem, network, process, health, …), plus `state/`, `events/`, `ipc/`, `database/`, `models/`, `plugins/`, `services/`, `system/` — none are `mod`-declared, so **none are compiled**, even though several provider files contain real skeleton code. Don't build on them; declare a module only when its slice ships. (82 of 123 `*.rs` under `src-tauri/src/` are empty.)
-- `database/migrations/*.sql`, `database/seeds/default.sql` and `database/dex.db` are empty/committed. **Migrations are append-only** (ADR-0001): never edit a committed migration; each schema change is a new migration + Rust model + zod schema in one slice.
+- **IPC wiring**: the Rust `invoke_handler` registers exactly one command — `commands::core::greet` (`src-tauri/src/lib.rs`). The TS `COMMANDS` registry (`core/api/commands.ts`) is broader: it forward-declares ~30 contracts (`system_snapshot`, `process_list`, `history_list`, …) with zod schemas, plus typed contract clients in `core/services/`. Those Rust handlers do not exist yet — `commands/mod.rs` declares only `core`. Do not treat the forward contracts as live; a command is callable only when it is in **both** `COMMANDS` and the `generate_handler!` (ADR-0002).
+- **Live `core/` plumbing**: `core/api/{commands,tauri,events}.ts`, `core/services/{system,network,process,modem,settings,widgets,terminal,plugins,history}.ts`, `core/utils/{logger,storage,date,format,helpers}.ts`, `core/stores/theme.svelte.ts` (bootstrapped in `+layout.svelte`), `core/config/{theme,layout,navigation}.ts`, and the `core/types/*` wire types. (`core/stores/shell.svelte.ts` is real but currently not wired in.) Everything else under `core/{services,types,events,hooks,composables}` is an empty placeholder — do not import it.
+- **Rust is mixed: `providers/` and `database/` are compiled and tested; the rest is inert.** `lib.rs` declares `mod commands; mod database; pub mod providers; mod utils;`. Compiled today: `commands::core`, `database::{connection, migrations}`, `providers/{capability, dbus, error, health, modem, network, process, provider, registry, state}`, `utils/{errors, logger}` — 56 unit tests pass (network/process providers, capability, migrations, errors). `models/` is **not** `mod`-declared, so it is not compiled (don't build on it); `ai/`, `ipc/`, `plugins/`, `services/`, `state/`, `system/`, `config/`, `commands/{ai,database,hyprland,plugins,settings,system,terminal,widgets}.rs` and `database/{queries,repository,schema}.rs` are empty/inert placeholders. (35 of 96 `*.rs` under `src-tauri/src/` are empty.) Declare a module only when its slice ships.
+- `database/migrations/*.sql` are real, committed, **append-only** (ADR-0001): 001–005 define `settings`, `widget_layout`, `plugins`, `history`. Never edit a committed migration; each schema change is a new migration + Rust model + zod schema in one slice. `database/seeds/default.sql` and `database/dex.db` are empty/committed.
 
 ## How new code is wired (ADR-0002 IPC checklist)
 
@@ -51,8 +55,18 @@ Phase 0 ships the shell + the IPC plumbing. The rest is scaffolding — much of 
 
 ## Verification order (the gate)
 
-1. `bun run check` — frontend types (`svelte-kit sync && svelte-check`).
-2. `cargo check` — Rust, inside `src-tauri/`.
-3. `bun run tauri dev` — manual desktop. Transparent/compositor behavior can't be tested headless (ADR-0004), so this stays a manual gate even after CI lands.
+Run `bun run verify` (`scripts/verify.ts`) from any cwd before merging. It runs all nine gates in order, fail-fast:
 
-A change failing `bun run check` or `cargo check` is not ready for review. Automated suites (`cargo test`, bun test) slot in after M0.4; until then the manual desktop check covers behavior.
+1. `format:check` — frontend formatting (`prettier --check src/`).
+2. `cargo:fmt:check` — backend formatting (`cargo fmt --check`, `--manifest-path`).
+3. `lint` — frontend lint (`eslint src/`).
+4. `check` — frontend types (`svelte-kit sync && svelte-check`).
+5. `cargo:clippy` — backend lint (`clippy --all-targets --all-features -D warnings`).
+6. `cargo:check` — backend types.
+7. `test` — frontend tests (`vitest run`).
+8. `build` — frontend production build (`vite build`).
+9. `cargo:test` — backend tests.
+
+The individual `bun run check` / `cargo:check` remain valid single-gate checks during development. After CI lands, `bun run tauri:dev` stays a manual desktop gate: transparent/compositor behavior can't be tested headless (ADR-0004).
+
+A change failing any gate is not ready for review.

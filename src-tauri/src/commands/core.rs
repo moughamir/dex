@@ -23,3 +23,36 @@ pub fn greet(args: GreetArgs) -> Result<GreetOutput, AppError> {
         message: format!("Hello, {}! You've been greeted from Rust!", args.name),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{greet, GreetArgs, GreetOutput};
+
+    #[test]
+    fn greet_welcomes_a_named_user() {
+        let output = greet(GreetArgs {
+            name: "Dexter".into(),
+        })
+        .expect("greet should succeed");
+        assert_eq!(
+            output.message,
+            "Hello, Dexter! You've been greeted from Rust!"
+        );
+    }
+
+    #[test]
+    fn greet_handles_empty_names_without_panicking() {
+        let output = greet(GreetArgs {
+            name: String::new(),
+        })
+        .expect("greet should succeed");
+        assert!(output.message.starts_with("Hello, !"));
+    }
+
+    #[test]
+    fn greet_returns_typed_output() {
+        let output: GreetOutput =
+            greet(GreetArgs { name: "Ada".into() }).expect("greet should succeed");
+        assert!(!output.message.is_empty());
+    }
+}

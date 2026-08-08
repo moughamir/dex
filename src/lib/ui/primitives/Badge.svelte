@@ -1,74 +1,67 @@
 <script lang="ts">
-	import { cva, type VariantProps } from "class-variance-authority";
-	import { twMerge } from "tailwind-merge";
-	import type { HTMLAttributes } from "svelte/elements";
-	import type { Snippet } from "svelte";
+  import { cva, type VariantProps } from "class-variance-authority";
+  import { twMerge } from "tailwind-merge";
+  import type { HTMLAttributes } from "svelte/elements";
+  import type { Snippet } from "svelte";
 
-	const variants = cva(
-		[
-			"inline-flex",
-			"items-center",
-			"justify-center",
-			"rounded-full",
-			"px-2.5",
-			"py-1",
-			"text-xs",
-			"font-medium",
-			"border"
-		],
-		{
-			variants: {
-				variant: {
-					default:
-						"dex-glass text-[color:var(--text-primary)] border-[color:var(--border-default)]",
+  const variants = cva(
+    [
+      "inline-flex",
+      "items-center",
+      "justify-center",
+      "rounded-full",
+      "px-2.5",
+      "py-1",
+      "text-xs",
+      "font-medium",
+      "border",
+    ],
+    {
+      variants: {
+        variant: {
+          default:
+            "dex-glass text-[color:var(--text-primary)] border-[color:var(--border-default)]",
 
-					accent:
-						"bg-[color:var(--dex-primary)] text-[color:var(--on-primary)] border-transparent",
+          outline:
+            "bg-transparent text-[color:var(--text-muted)] border-[color:var(--border-default)]",
 
-					success:
-						"bg-[color:var(--dex-success)] text-white border-transparent",
+          accent:
+            "bg-[color:var(--dex-primary)] text-[color:var(--on-primary)] border-transparent",
 
-					warning:
-						"bg-[color:var(--dex-warning)] text-black border-transparent",
+          success:
+            "bg-[color:var(--dex-success)] text-white border-transparent",
 
-					danger:
-						"bg-[color:var(--dex-danger)] text-white border-transparent"
-				}
-			},
+          warning:
+            "bg-[color:var(--dex-warning)] text-black border-transparent",
 
-			defaultVariants: {
-				variant: "default"
-			}
-		}
-	);
+          danger: "bg-[color:var(--dex-danger)] text-white border-transparent",
+        },
+      },
 
-	type Props =
-		HTMLAttributes<HTMLSpanElement> &
-		VariantProps<typeof variants> & {
-			children?: Snippet;
-			class?: string;
-		};
+      defaultVariants: {
+        variant: "default",
+      },
+    },
+  );
 
-	let {
-		variant,
-		children,
-		class: className,
-		...rest
-	}: Props = $props();
+  type Props = HTMLAttributes<HTMLSpanElement> &
+    VariantProps<typeof variants> & {
+      children?: Snippet;
+      class?: string;
+    };
 
-	const classes = $derived(
-		twMerge(
-			variants({
-				variant
-			}),
-			className
-		)
-	);
+  let { variant, children, class: className, ...rest }: Props = $props();
+
+  const classes = $derived(
+    twMerge(
+      variants({
+        variant,
+      }),
+      className,
+    ),
+  );
 </script>
 
-<span
-	class={classes}
-	{...rest}
->
-	{@render children?.()}
+<span class={classes} {...rest}>
+  {@render children?.()}
 </span>

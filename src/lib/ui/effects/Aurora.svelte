@@ -1,3 +1,3 @@
 <div class="dex-effect">
-	<div class="dex-aurora"></div>
+  <div class="dex-aurora"></div>
 </div>

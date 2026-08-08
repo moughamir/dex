@@ -7,36 +7,36 @@
    ========================================================================== */
 
 :root {
-    font-family: Inter, "SF Pro Display", "Geist", system-ui, sans-serif;
+  font-family: Inter, "SF Pro Display", "Geist", system-ui, sans-serif;
 
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 html,
 body,
 #svelte {
-	width: 100%;
-	height: 100%;
-	margin: 0;
-	padding: 0;
-	overflow: hidden;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
 
-	background: transparent;
+  background: transparent;
 }
 
 body {
-	color: var(--text-primary);
+  color: var(--text-primary);
 }
 /* ========================================================================== */
 /* App */
 /* ========================================================================== */
 
 #app {
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden;
-    isolation: isolate;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  isolation: isolate;
 }
 
 /* ========================================================================== */
@@ -49,13 +49,13 @@ h3,
 h4,
 h5,
 h6 {
-    margin: 0;
-    font-weight: 600;
-    letter-spacing: -0.02em;
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 p {
-    color: var(--text-secondary);
+  color: var(--text-secondary);
 }
 
 /* ========================================================================== */
@@ -63,8 +63,8 @@ p {
 /* ========================================================================== */
 
 ::selection {
-    color: var(--selection-text);
-    background: var(--selection-bg);
+  color: var(--selection-text);
+  background: var(--selection-bg);
 }
 
 /* ========================================================================== */
@@ -72,8 +72,8 @@ p {
 /* ========================================================================== */
 
 a {
-    color: inherit;
-    text-decoration: none;
+  color: inherit;
+  text-decoration: none;
 }
 
 /* ========================================================================== */
@@ -81,7 +81,7 @@ a {
 /* ========================================================================== */
 
 button {
-    font: inherit;
+  font: inherit;
 }
 
 /* ========================================================================== */
@@ -89,8 +89,8 @@ button {
 /* ========================================================================== */
 
 img {
-    display: block;
-    max-width: 100%;
+  display: block;
+  max-width: 100%;
 }
 
 /* ========================================================================== */
@@ -100,13 +100,13 @@ img {
 input,
 textarea,
 select {
-    font: inherit;
+  font: inherit;
 }
 
 input:focus,
 textarea:focus,
 select:focus {
-    outline: none;
+  outline: none;
 }
 
 /* ========================================================================== */
@@ -114,32 +114,32 @@ select:focus {
 /* ========================================================================== */
 
 ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-    background: transparent;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-    border: 2px solid transparent;
-    border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  border-radius: var(--radius-full);
 
-    background: var(--scrollbar-thumb);
+  background: var(--scrollbar-thumb);
 
-    background-clip: content-box;
+  background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--scrollbar-thumb-hover);
-    background-clip: content-box;
+  background: var(--scrollbar-thumb-hover);
+  background-clip: content-box;
 }
 
 /* Firefox */
 
 * {
-    scrollbar-color: var(--scrollbar-thumb) transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 /* ========================================================================== */
@@ -147,71 +147,78 @@ select:focus {
 /* ========================================================================== */
 
 .glass {
-    background: var(--glass-medium);
+  background: var(--glass-medium);
 
-    border: 1px solid var(--glass-border);
+  border: 1px solid var(--glass-border);
 
-    backdrop-filter: blur(var(--blur-lg));
+  backdrop-filter: blur(var(--blur-lg));
 
-    -webkit-backdrop-filter: blur(var(--blur-lg));
+  -webkit-backdrop-filter: blur(var(--blur-lg));
 }
 
 .glass-heavy {
-    background: var(--glass-heavy);
+  background: var(--glass-heavy);
 
-    border: 1px solid var(--glass-border-strong);
+  border: 1px solid var(--glass-border-strong);
 
-    backdrop-filter: blur(var(--blur-xl));
+  backdrop-filter: blur(var(--blur-xl));
 
-    -webkit-backdrop-filter: blur(var(--blur-xl));
+  -webkit-backdrop-filter: blur(var(--blur-xl));
 }
 
 .glow {
-    box-shadow: var(--shadow-glow), var(--shadow-md);
+  box-shadow: var(--shadow-glow), var(--shadow-md);
 }
 
 .floating {
-    box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-lg);
 
-    transition:
-        transform var(--duration-normal) var(--ease-standard),
-        box-shadow var(--duration-normal) var(--ease-standard);
+  transition:
+    transform var(--duration-normal) var(--ease-standard),
+    box-shadow var(--duration-normal) var(--ease-standard);
 }
 
 .floating:hover {
-    transform: translateY(-3px);
+  transform: translateY(-3px);
 
-    box-shadow: var(--shadow-xl), var(--shadow-glow);
+  box-shadow: var(--shadow-xl), var(--shadow-glow);
 }
 
 .panel {
-    border-radius: var(--radius-xl);
+  border-radius: var(--radius-xl);
 }
 
 .blur-bg {
-    backdrop-filter: blur(var(--blur-xl));
-    -webkit-backdrop-filter: blur(var(--blur-xl));
+  backdrop-filter: blur(var(--blur-xl));
+  -webkit-backdrop-filter: blur(var(--blur-xl));
 }
 
 /* ========================================================================== */
 /* Motion */
 /* ========================================================================== */
 
-* {
-    transition:
-        background-color var(--duration-fast) var(--ease-standard),
-        border-color var(--duration-fast) var(--ease-standard),
-        color var(--duration-fast) var(--ease-standard);
+button,
+a,
+input,
+select,
+textarea,
+[role="button"],
+.dex-interactive,
+.dex-transition {
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
 }
 
 @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-    }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* ========================================================================== */
@@ -219,8 +226,8 @@ select:focus {
 /* ========================================================================== */
 
 :focus-visible {
-    outline: none;
-    box-shadow: var(--focus-ring);
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 /* ========================================================================== */
@@ -228,7 +235,7 @@ select:focus {
 /* ========================================================================== */
 
 [data-tauri-drag-region] {
-    -webkit-app-region: drag;
+  -webkit-app-region: drag;
 }
 
 button,
@@ -236,5 +243,5 @@ input,
 textarea,
 select,
 a {
-    -webkit-app-region: no-drag;
+  -webkit-app-region: no-drag;
 }

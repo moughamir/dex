@@ -97,6 +97,7 @@ docs/
     CodingStandards.md
     DesignSystem.md
     GitWorkflow.md
+    M0-4-Verification-Baseline.md
     Performance.md
     Release.md
     Testing.md
@@ -493,6 +494,46 @@ src-tauri/
       manifest.rs
       mod.rs
       registry.rs
+    providers/
+      dbus/
+        connection.rs
+        error.rs
+        message.rs
+        mod.rs
+        provider.rs
+        signal.rs
+      modem/
+        errors.rs
+        events.rs
+        mod.rs
+        modem.rs
+        provider.rs
+        signal.rs
+        sim.rs
+      network/
+        adapter.rs
+        connection.rs
+        errors.rs
+        events.rs
+        mod.rs
+        provider.rs
+        statistics.rs
+      process/
+        error.rs
+        events.rs
+        mod.rs
+        proc_reader.rs
+        process.rs
+        provider.rs
+        resource.rs
+        task.rs
+      capability.rs
+      error.rs
+      health.rs
+      mod.rs
+      provider.rs
+      registry.rs
+      state.rs
     services/
       hyprland.rs
       mod.rs
@@ -523,6 +564,7 @@ src-tauri/
   .gitignore
   build.rs
   Cargo.toml
+  rustfmt.toml
   tauri.conf.json
 static/
   favicon.png
@@ -535,7 +577,6 @@ static/
 .gitignore
 .prettierrc
 .repomixignore
-AGENTS.md
 eslint.config.js
 package.json
 README.md
@@ -548,6 +589,194 @@ vitest.config.ts
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="docs/40-engineering/M0-4-Verification-Baseline.md">
+# M0.4 Verification Baseline
+
+**Status:** Phase 0 (foundation). M0.4 (Development Tooling, CI) is open.
+**Date:** 2026-08-07
+**Scope:** Records the current authoritative verification commands and their pass/fail state. Does **not** change application code; no tooling is added in this step.
+
+## 1. Repository layout (relevant to verification)
+
+| Artifact | Path | Notes |
+|---|---|---|
+| Frontend package config | `package.json` (root) | Scripts live here. |
+| Rust crate | `src-tauri/Cargo.toml` | **This is the only `Cargo.toml`.** There is no root-level workspace manifest. |
+| Tauri config | `src-tauri/tauri.conf.json` | `beforeDevCommand: bun run dev`, `beforeBuildCommand: bun run build`, `frontendDist: ../build`. |
+| SvelteKit config | `svelte.config.js` (root) | `adapter-static` with `index.html` fallback (SPA mode), `ssr = false`. |
+| Vite config | `vite.config.js` (root) | `strictPort: true`, port 1420. |
+| ESLint config | `eslint.config.js` (root) | Flat config, TS + Svelte + Prettier. |
+| Prettier config | `.prettierrc` (root) | Svelte plugin enabled. |
+| Vitest config | `vitest.config.ts` (root) | Includes `tests/frontend/**/*.test.ts`. |
+| GitHub workflows | `.github/workflows/ci.yml`, `.github/workflows/release.yml` | Both are **populated** (not empty — see §4). |
+| Test dirs | `tests/{frontend,backend,unit,integration,e2e}/` | `tests/frontend/` has a stub + one real test; the rest hold `.gitkeep`. |
+| Rust scripts | `scripts/{build,check,lint,release,migrate,seed,clean}.ts` | **Empty scaffolding** — not wired into any pipeline. |
+
+## 2. Canonical verification commands
+
+There is no root-level `Cargo.toml`. The Rust toolchain must therefore be pointed
+at the crate manifest explicitly. Two equivalent forms exist; both are valid:
+
+```
+# From repository root (no cd):
+cargo <subcommand> --manifest-path ./src-tauri/Cargo.toml [args...]
+
+# From inside the crate dir:
+cd src-tauri && cargo <subcommand> [args...]
+```
+
+The `package.json` `cargo:check` script already uses the `--manifest-path` form:
+```
+"cargo:check": "cargo check --manifest-path ./src-tauri/Cargo.toml"
+```
+
+This is the single source of truth for the local Rust path ambiguity. All other
+Rust commands (clippy, test, fmt) must follow the same pattern.
+
+### Full verification order
+
+| # | Command | Layer | Required to pass |
+|---|---|---|---|
+| 1 | `bun install` | deps | ✅ |
+| 2 | `bun run check` | Frontend types | ✅ |
+| 3 | `cargo check --manifest-path ./src-tauri/Cargo.toml` | Rust types | ✅ |
+| 4 | `cargo clippy --manifest-path ./src-tauri/Cargo.toml --all-targets --all-features` | Rust lint | ⚠️ (warnings; see §3.2) |
+| 5 | `cargo fmt --manifest-path ./src-tauri/Cargo.toml --check` | Rust format | ✅ |
+| 6 | `bun run lint` | Frontend lint (ESLint) | ✅ |
+| 7 | `bun run format:check` | Frontend format (Prettier) | ❌ (see §3.3) |
+| 8 | `bun run test` | Frontend tests (Vitest) | ✅ |
+| 9 | `cargo test --manifest-path ./src-tauri/Cargo.toml` | Rust tests | ✅ (compiles, 0 tests) |
+| 10 | `bun run build` | Build (vite build) | ✅ |
+| 11 | `bun run tauri dev` | Desktop (manual) | ✅ when run on Wayland |
+
+**Order rationale (per `docs/40-engineering/Testing.md` §Verification order):**
+type checks first (frontend, then Rust), then lint/format/tests, then build,
+then the manual desktop check. The desktop check is a manual gate because the
+transparent compositor window (ADR-0004) cannot be exercised headless.
+
+## 3. Current pass/fail state
+
+### 3.1 Commands that pass
+
+| Command | Result |
+|---|---|
+| `bun install` | Pass |
+| `bun run check` | 0 errors, 0 warnings |
+| `cargo check --manifest-path ./src-tauri/Cargo.toml` | Pass — **9 warnings** (dead-code in `src/utils/logger.rs`; see §3.2) |
+| `cargo fmt --manifest-path ./src-tauri/Cargo.toml --check` | Pass (clean) |
+| `bun run lint` | Pass (0 errors) |
+| `bun run test` | Pass — 1 file, 8 tests |
+| `cargo test --manifest-path ./src-tauri/Cargo.toml` | Pass — 0 tests (no `#[test]` functions exist yet) |
+| `bun run build` | Pass — writes SPA bundle to `build/` (~1m40s) |
+
+### 3.2 Rust warnings (9 `cargo check`, 10 `cargo clippy`)
+
+All originate from two sources:
+
+1. **`src/utils/logger.rs`** — `static INIT`, `fn init`, and the six `log_trace` /
+   `log_debug` / `log_info` / `log_warn` / `log_error` fns are declared `pub` but
+   never called. They are skeleton code not yet wired into `lib.rs`.
+2. **`src/providers/process/provider.rs:453`** — `clippy::type_complexity` on a
+   return type `(Vec<(u32, Option<u32>, String)>, Vec<u32>)`. This file is inside
+   the not-yet-`mod`-declared `providers/` tree (see AGENTS.md: providers are not
+   compiled).
+
+> **CI impact:** The `ci.yml` backend job runs
+> `cargo clippy --all-targets --all-features -D warnings`. With `-D warnings`
+> the type-complexity warning becomes a hard error (10 errors on lib, 8 on
+> lib-test), so the CI clippy stage would **fail** if run today. Resolving this
+> is an M0.4 task (allow attribute or type alias), **out of scope** for this
+> baseline.
+
+### 3.3 Frontend format check (fails)
+
+`bun run format:check` reports **75 files** in `src/` that do not conform to
+Prettier style (mostly `.svelte`/`.css`/`.ts` files under `src/lib/ui/`).
+
+> **CI impact:** The `ci.yml` frontend job runs only `lint`, **not**
+> `format:check`. So format failures do not currently break CI. Adding a
+> `format:check` step to CI is an M0.4 task.
+
+### 3.4 No test runner gaps
+
+- `bun run test` (Vitest) discovers `tests/frontend/*.test.ts` → currently
+  `navigation-config.test.ts` (8 passing assertions).
+- `cargo test` compiles cleanly but asserts nothing (0 test functions).
+- E2E / integration / unit dirs under `tests/` contain only `.gitkeep`.
+
+## 4. CI vs. local: discrepancy noted
+
+The AGENTS.md top note and `docs/40-engineering/CI.md` both state that the CI
+workflow files are **"empty scaffolding"** and that **"No CI is configured."**
+The on-disk reality is different:
+
+- `.github/workflows/ci.yml` is **100% populated** (backend + frontend jobs:
+  install → fmt check → cargo check → clippy `-D warnings` → cargo test →
+  bun check → lint → test → build).
+- `.github/workflows/release.yml` is **populated** (checkout → deps →
+  `bun run build` → `bun run tauri build` → upload artifacts).
+- `.github/workflows/lint.yml` **does not exist** (referenced in CI.md but not on
+  disk).
+
+This is a documentation-drift issue (CI.md says "empty", CI is live) but is
+**not in scope** for this baseline pass — the task is to record the current state.
+The CI design in `CI.md` is otherwise accurate and should be the source of truth
+for the *intended* pipeline.
+
+## 5. What was NOT changed
+
+- No `src/` files touched.
+- No `src-tauri/src/` files touched.
+- No `package.json` scripts added or modified.
+- No new dependencies installed.
+- No new tooling introduced.
+
+This baseline document is a recording; fixes (clippy allows, Prettier rewrites,
+test scaffolding) are M0.4 work items.
+
+## 6. Summary table
+
+| Verification step | Status |
+|---|---|
+| `bun install` | ✅ pass |
+| `bun run check` | ✅ pass (0/0) |
+| `cargo check --manifest-path ./src-tauri/Cargo.toml` | ✅ pass (9 warnings) |
+| `cargo clippy … --all-features` | ⚠️ 10 warnings |
+| `cargo clippy … -D warnings` (CI mode) | ❌ 10+8 errors |
+| `cargo fmt --check` | ✅ pass |
+| `bun run lint` | ✅ pass |
+| `bun run format:check` | ❌ 75 files unfmt'd |
+| `bun run test` | ✅ 8 tests |
+| `cargo test` | ✅ 0 tests (compiles) |
+| `bun run build` | ✅ SPA bundle |
+| `bun run tauri dev` | ✅ (manual, Wayland only) |
+| Rust manifest path | Single canonical: `--manifest-path ./src-tauri/Cargo.toml` (no root `Cargo.toml`) |
+</file>
+
+<file path="src-tauri/rustfmt.toml">
+# rustfmt configuration for the omnizya-dex crate.
+#
+# The codebase is formatted with stock rustfmt defaults; this file pins those
+# rules explicitly so `cargo fmt` output stays stable across toolchain
+# updates. All keys are stable-available (no nightly-only options) so
+# `cargo fmt --check` runs warning-free on the stable toolchain.
+#
+# The settings apply to the whole crate — async code (tokio, zbus), the
+# rusqlite layer, tracing setup, and the Tauri command surface — none of
+# which need per-dependency formatting tweaks.
+
+# Edition must track Cargo.toml ("2021").
+edition = "2021"
+
+max_width = 100
+tab_spaces = 4
+newline_style = "Unix"
+
+# Keep the compact style rustfmt already applies to field/arg/literal lists.
+use_field_init_shorthand = true
+use_small_heuristics = "Default"
+</file>
 
 <file path="database/migrations/005_history.sql">
 
@@ -2056,50 +2285,6 @@ the first feature that needs GPU visuals — no speculative engine code.
 
 </file>
 
-<file path="src/lib/ui/dashboard/QuickActions.svelte">
-<script lang="ts">
-	import {
-		Bot,
-		FolderPlus,
-		Plug,
-		Database
-	} from "lucide-svelte";
-
-	import { Button } from "$lib/ui/primitives";
-	import Widget from "./Widget.svelte";
-</script>
-
-<Widget
-	title="Quick Actions"
->
-
-	<div class="grid grid-cols-2 gap-3">
-
-		<Button>
-			<FolderPlus />
-			Project
-		</Button>
-
-		<Button>
-			<Bot />
-			Agent
-		</Button>
-
-		<Button>
-			<Database />
-			Database
-		</Button>
-
-		<Button>
-			<Plug />
-			Plugin
-		</Button>
-
-	</div>
-
-</Widget>
-</file>
-
 <file path="src/lib/ui/dashboard/StatCard.svelte">
 <script lang="ts">
 	import type { IconComponent } from "$lib/types/icon";
@@ -2145,45 +2330,6 @@ the first feature that needs GPU visuals — no speculative engine code.
 	</div>
 
 </Widget>
-</file>
-
-<file path="src/lib/ui/dashboard/WidgetGrid.svelte">
-<script lang="ts">
-	import type { Snippet } from "svelte";
-
-	interface Props {
-		columns?: 1 | 2 | 3 | 4;
-		children?: Snippet;
-	}
-
-	let {
-		columns = 3,
-		children
-	}: Props = $props();
-
-	const classes = $derived.by(() => {
-
-		switch (columns) {
-
-			case 1:
-				return "grid grid-cols-1 gap-6";
-
-			case 2:
-				return "grid grid-cols-2 gap-6";
-
-			case 4:
-				return "grid grid-cols-4 gap-6";
-
-			default:
-				return "grid grid-cols-3 gap-6";
-		}
-
-	});
-</script>
-
-<div class={classes}>
-	{@render children?.()}
-</div>
 </file>
 
 <file path="src/lib/ui/dashboard/WidgetHeader.svelte">
@@ -2384,114 +2530,6 @@ the first feature that needs GPU visuals — no speculative engine code.
 	</div>
 
 </section>
-</file>
-
-<file path="src/lib/ui/navigation/SearchBox.svelte">
-<script lang="ts">
-	import { Search } from "lucide-svelte";
-
-	interface Props {
-		placeholder?: string;
-		value?: string;
-	}
-
-	let {
-		placeholder = "Search...",
-		value = $bindable("")
-	}: Props = $props();
-</script>
-
-<div class="relative">
-
-	<Search
-		class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-(--text-muted)"
-	/>
-
-	<input
-		bind:value
-		type="search"
-		placeholder={placeholder}
-		class="h-10 w-full rounded-xl border border-(--border-default) bg-(--surface-2) pl-10 pr-4 outline-none transition focus:border-(--dex-primary)"
-	/>
-
-</div>
-</file>
-
-<file path="src/lib/ui/primitives/Badge.svelte">
-<script lang="ts">
-	import { cva, type VariantProps } from "class-variance-authority";
-	import { twMerge } from "tailwind-merge";
-	import type { HTMLAttributes } from "svelte/elements";
-	import type { Snippet } from "svelte";
-
-	const variants = cva(
-		[
-			"inline-flex",
-			"items-center",
-			"justify-center",
-			"rounded-full",
-			"px-2.5",
-			"py-1",
-			"text-xs",
-			"font-medium",
-			"border"
-		],
-		{
-			variants: {
-				variant: {
-					default:
-						"dex-glass text-[color:var(--text-primary)] border-[color:var(--border-default)]",
-
-					accent:
-						"bg-[color:var(--dex-primary)] text-white border-transparent",
-
-					success:
-						"bg-[color:var(--dex-success)] text-white border-transparent",
-
-					warning:
-						"bg-[color:var(--dex-warning)] text-black border-transparent",
-
-					danger:
-						"bg-[color:var(--dex-danger)] text-white border-transparent"
-				}
-			},
-
-			defaultVariants: {
-				variant: "default"
-			}
-		}
-	);
-
-	type Props =
-		HTMLAttributes<HTMLSpanElement> &
-		VariantProps<typeof variants> & {
-			children?: Snippet;
-			class?: string;
-		};
-
-	let {
-		variant,
-		children,
-		class: className,
-		...rest
-	}: Props = $props();
-
-	const classes = $derived(
-		twMerge(
-			variants({
-				variant
-			}),
-			className
-		)
-	);
-</script>
-
-<span
-	class={classes}
-	{...rest}
->
-	{@render children?.()}
-</span>
 </file>
 
 <file path="src/lib/ui/primitives/Divider.svelte">
@@ -2699,84 +2737,6 @@ the first feature that needs GPU visuals — no speculative engine code.
 		}
 	}
 </style>
-</file>
-
-<file path="src/lib/ui/styles/effects.css">
-/* ==========================================================================
-   DEX Visual Effects Layer
-   ==========================================================================
-   Apple VisionOS • Arc • Linear inspired
-   ========================================================================== */
-⋮----
-:root {
-⋮----
-/* --------------------------------------------------------------------------
-	   Aurora
-	   -------------------------------------------------------------------------- */
-⋮----
-/* --------------------------------------------------------------------------
-	   Grid
-	   -------------------------------------------------------------------------- */
-⋮----
-/* --------------------------------------------------------------------------
-	   Noise
-	   -------------------------------------------------------------------------- */
-⋮----
-/* --------------------------------------------------------------------------
-	   Spotlight
-	   -------------------------------------------------------------------------- */
-⋮----
-/* --------------------------------------------------------------------------
-	   Cursor Glow
-	   -------------------------------------------------------------------------- */
-⋮----
-/* --------------------------------------------------------------------------
-	   Blur
-	   -------------------------------------------------------------------------- */
-⋮----
-/* ==========================================================================
-   Shared Layer
-   ========================================================================== */
-⋮----
-.dex-effect {
-⋮----
-/* ==========================================================================
-   Aurora
-   ========================================================================== */
-.dex-aurora {
-/* ==========================================================================
-   Grid
-   ========================================================================== */
-⋮----
-.dex-grid {
-⋮----
-/* ==========================================================================
-   Noise
-   ========================================================================== */
-⋮----
-.dex-noise {
-⋮----
-/* ==========================================================================
-   Vignette
-   ========================================================================== */
-⋮----
-.dex-vignette {
-⋮----
-/* ==========================================================================
-   Spotlight
-   ========================================================================== */
-⋮----
-.dex-spotlight {
-⋮----
-/* ==========================================================================
-   Cursor Glow
-   ========================================================================== */
-⋮----
-.dex-cursor-glow {
-⋮----
-/* ==========================================================================
-   Animations
-   ========================================================================== */
 </file>
 
 <file path="src/lib/ui/styles/utilities.css">
@@ -3100,6 +3060,423 @@ fn process_priority_str(priority: ProcessPriority) -> String {
 
 </file>
 
+<file path="src-tauri/src/providers/modem/signal.rs">
+/// Cellular signal quality.
+///
+⋮----
+///
+/// Values are normalized regardless of modem vendor.
+⋮----
+/// Values are normalized regardless of modem vendor.
+/// Raw values (RSSI, RSRP, RSRQ, SINR) are preserved when available.
+⋮----
+/// Raw values (RSSI, RSRP, RSRQ, SINR) are preserved when available.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SignalQuality {
+/// Percentage (0-100).
+    pub quality: u8,
+⋮----
+/// RSSI (dBm).
+    pub rssi: Option<i32>,
+⋮----
+/// RSRP (dBm).
+    pub rsrp: Option<i32>,
+⋮----
+/// RSRQ (dB).
+    pub rsrq: Option<i32>,
+⋮----
+/// SINR (dB).
+    pub sinr: Option<i32>,
+⋮----
+impl SignalQuality {
+⋮----
+pub fn new(quality: u8) -> Self {
+⋮----
+quality: quality.min(100),
+⋮----
+pub fn is_available(&self) -> bool {
+⋮----
+pub fn bars(&self) -> u8 {
+⋮----
+pub fn strength(&self) -> SignalStrength {
+⋮----
+pub enum SignalStrength {
+</file>
+
+<file path="src-tauri/src/providers/network/statistics.rs">
+use std::time::Duration;
+⋮----
+/// Runtime network statistics.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct NetworkStatistics {
+/// Bytes received.
+    pub rx_bytes: u64,
+⋮----
+/// Bytes transmitted.
+    pub tx_bytes: u64,
+⋮----
+/// Packets received.
+    pub rx_packets: u64,
+⋮----
+/// Packets transmitted.
+    pub tx_packets: u64,
+⋮----
+/// Receive errors.
+    pub rx_errors: u64,
+⋮----
+/// Transmit errors.
+    pub tx_errors: u64,
+⋮----
+/// Receive throughput (bytes/sec).
+    pub rx_rate: u64,
+⋮----
+/// Transmit throughput (bytes/sec).
+    pub tx_rate: u64,
+⋮----
+/// Connection uptime.
+    pub uptime: Duration,
+⋮----
+impl NetworkStatistics {
+⋮----
+pub fn total_bytes(&self) -> u64 {
+⋮----
+pub fn total_packets(&self) -> u64 {
+⋮----
+pub fn total_errors(&self) -> u64 {
+⋮----
+pub fn is_idle(&self) -> bool {
+⋮----
+pub fn total_rate(&self) -> u64 {
+</file>
+
+<file path="src-tauri/src/providers/process/proc_reader.rs">
+//! Best-effort readers for `/proc/<pid>/` data that `sysinfo` does not expose
+//! through its public API (or only populates with a richer refresh kind than
+⋮----
+//! through its public API (or only populates with a richer refresh kind than
+//! the process provider uses).
+⋮----
+//! the process provider uses).
+//!
+⋮----
+//!
+//! Every reader is best-effort: on any error it returns a neutral default
+⋮----
+//! Every reader is best-effort: on any error it returns a neutral default
+//! (`0`, `None`, or an empty collection) rather than failing the refresh. The
+⋮----
+//! (`0`, `None`, or an empty collection) rather than failing the refresh. The
+//! pure parsing helpers are kept separate so they can be unit-tested offline.
+⋮----
+//! pure parsing helpers are kept separate so they can be unit-tested offline.
+use std::path::PathBuf;
+⋮----
+/// Build the path to a `/proc/<pid>/<entry>` file.
+fn proc_path(pid: u32, entry: &str) -> PathBuf {
+⋮----
+fn proc_path(pid: u32, entry: &str) -> PathBuf {
+PathBuf::from(format!("/proc/{pid}/{entry}"))
+⋮----
+/// Parse the `read_bytes` and `write_bytes` counters from a `/proc/<pid>/io`
+/// file.
+⋮----
+/// file.
+///
+⋮----
+///
+/// Returns `(read_bytes, write_bytes)`. A missing or malformed line yields `0`
+⋮----
+/// Returns `(read_bytes, write_bytes)`. A missing or malformed line yields `0`
+/// for that counter.
+⋮----
+/// for that counter.
+fn parse_proc_io(content: &str) -> (u64, u64) {
+⋮----
+fn parse_proc_io(content: &str) -> (u64, u64) {
+⋮----
+for line in content.lines() {
+let Some((key, value)) = line.split_once(':') else {
+⋮----
+match key.trim() {
+"read_bytes" => read_bytes = value.trim().parse().unwrap_or(0),
+"write_bytes" => write_bytes = value.trim().parse().unwrap_or(0),
+⋮----
+/// Best-effort disk I/O counters for `pid`. Returns `(0, 0)` on any error.
+pub fn read_proc_io(pid: u32) -> (u64, u64) {
+⋮----
+pub fn read_proc_io(pid: u32) -> (u64, u64) {
+std::fs::read_to_string(proc_path(pid, "io"))
+.map(|content| parse_proc_io(&content))
+.unwrap_or((0, 0))
+⋮----
+/// Parse the nice value (field 19) from a `/proc/<pid>/stat` file.
+///
+⋮----
+///
+/// The command name (field 2) may contain spaces and parentheses, so all
+⋮----
+/// The command name (field 2) may contain spaces and parentheses, so all
+/// fields after the closing `)` of the command name are re-indexed from field
+⋮----
+/// fields after the closing `)` of the command name are re-indexed from field
+/// 3; the nice value is the 17th of those fields.
+⋮----
+/// 3; the nice value is the 17th of those fields.
+fn parse_proc_stat_nice(content: &str) -> Option<i32> {
+⋮----
+fn parse_proc_stat_nice(content: &str) -> Option<i32> {
+let rest = content.rsplit_once(')')?.1;
+let field = rest.split_whitespace().nth(16)?;
+field.parse().ok()
+⋮----
+/// Best-effort nice value for `pid`.
+pub fn read_proc_nice(pid: u32) -> Option<i32> {
+⋮----
+pub fn read_proc_nice(pid: u32) -> Option<i32> {
+std::fs::read_to_string(proc_path(pid, "stat"))
+.ok()
+.and_then(|content| parse_proc_stat_nice(&content))
+⋮----
+/// Best-effort command line (NUL-separated argv entries) for `pid`.
+pub fn read_proc_cmdline(pid: u32) -> Vec<String> {
+⋮----
+pub fn read_proc_cmdline(pid: u32) -> Vec<String> {
+std::fs::read(proc_path(pid, "cmdline"))
+.map(|bytes| {
+⋮----
+.split(|byte| *byte == 0)
+.filter(|arg| !arg.is_empty())
+.map(|arg| String::from_utf8_lossy(arg).into_owned())
+.collect()
+⋮----
+.unwrap_or_default()
+⋮----
+/// Best-effort current working directory for `pid`.
+pub fn read_proc_cwd(pid: u32) -> Option<String> {
+⋮----
+pub fn read_proc_cwd(pid: u32) -> Option<String> {
+std::fs::read_link(proc_path(pid, "cwd"))
+⋮----
+.map(|path| path.to_string_lossy().into_owned())
+⋮----
+/// Best-effort real user id for `pid`, parsed from `/proc/<pid>/status`.
+pub fn read_proc_uid(pid: u32) -> Option<u32> {
+⋮----
+pub fn read_proc_uid(pid: u32) -> Option<u32> {
+let content = std::fs::read_to_string(proc_path(pid, "status")).ok()?;
+⋮----
+if let Some(rest) = line.strip_prefix("Uid:") {
+return rest.split_whitespace().next()?.parse().ok();
+⋮----
+/// Best-effort username for a real user id via `nix::unistd::User::from_uid`.
+pub fn username_for_uid(uid: u32) -> Option<String> {
+⋮----
+pub fn username_for_uid(uid: u32) -> Option<String> {
+⋮----
+.flatten()
+.map(|user| user.name)
+⋮----
+/// Best-effort count of open file descriptors for `pid`. Returns `0` on any
+/// error. This is only filled by [`crate::providers::process::ProcessProvider::process_details`]
+⋮----
+/// error. This is only filled by [`crate::providers::process::ProcessProvider::process_details`]
+/// — it is too expensive to gather for the full list refresh.
+⋮----
+/// — it is too expensive to gather for the full list refresh.
+pub fn count_open_files(pid: u32) -> u32 {
+⋮----
+pub fn count_open_files(pid: u32) -> u32 {
+std::fs::read_dir(proc_path(pid, "fd"))
+.map(|entries| entries.flatten().count() as u32)
+.unwrap_or(0)
+⋮----
+mod tests {
+⋮----
+fn parses_proc_io_counters() {
+⋮----
+assert_eq!(parse_proc_io(content), (4096, 8192));
+⋮----
+fn proc_io_missing_counters_default_to_zero() {
+assert_eq!(parse_proc_io("rchar: 1\n"), (0, 0));
+assert_eq!(parse_proc_io(""), (0, 0));
+assert_eq!(parse_proc_io("read_bytes: not-a-number\n"), (0, 0));
+⋮----
+fn parses_nice_from_stat_with_spaces_in_comm() {
+// The command name (field 2) may contain spaces and parens. Fields
+// after its closing `)` restart at field 3: `S` (state), `1` (ppid),
+// ... down to `20 5 1` = priority 20, nice 5, num_threads 1.
+⋮----
+assert_eq!(parse_proc_stat_nice(content), Some(5));
+⋮----
+fn stat_without_enough_fields_yields_none() {
+assert_eq!(parse_proc_stat_nice("1234 (x) S 1"), None);
+assert_eq!(parse_proc_stat_nice("not a stat file"), None);
+</file>
+
+<file path="src-tauri/src/providers/process/resource.rs">
+use std::time::Duration;
+⋮----
+/// Runtime resource usage for a process.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ProcessResourceUsage {
+/// CPU utilization (0.0 - 100.0 * cores).
+    pub cpu_percent: f32,
+⋮----
+/// Resident memory (bytes).
+    pub memory_bytes: u64,
+⋮----
+/// Virtual memory (bytes).
+    pub virtual_memory_bytes: u64,
+⋮----
+/// Disk bytes read.
+    pub disk_read_bytes: u64,
+⋮----
+/// Disk bytes written.
+    pub disk_write_bytes: u64,
+⋮----
+/// Network bytes received.
+    pub network_rx_bytes: u64,
+⋮----
+/// Network bytes transmitted.
+    pub network_tx_bytes: u64,
+⋮----
+/// Number of open file descriptors.
+    pub open_files: u32,
+⋮----
+/// Number of active threads.
+    pub threads: u32,
+⋮----
+/// Process uptime.
+    pub uptime: Duration,
+⋮----
+impl ProcessResourceUsage {
+⋮----
+pub fn total_disk_bytes(&self) -> u64 {
+⋮----
+pub fn total_network_bytes(&self) -> u64 {
+⋮----
+pub fn is_idle(&self) -> bool {
+⋮----
+pub fn is_memory_heavy(&self) -> bool {
+⋮----
+pub fn is_cpu_heavy(&self) -> bool {
+</file>
+
+<file path="src-tauri/src/providers/capability.rs">
+/// Capabilities exposed by providers.
+///
+⋮----
+///
+/// Modules request capabilities from the ProviderRegistry rather than
+⋮----
+/// Modules request capabilities from the ProviderRegistry rather than
+/// depending on concrete provider implementations.
+⋮----
+/// depending on concrete provider implementations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Capability {
+⋮----
+/// Ability to spawn new OS processes.
+    SpawnProcess,
+/// Ability to terminate running OS processes.
+    KillProcess,
+⋮----
+impl Capability {
+/// Stable identifier for serialization, logging and diagnostics.
+    #[must_use]
+pub const fn as_str(self) -> &'static str {
+⋮----
+mod tests {
+use super::Capability;
+⋮----
+/// Every capability maps to a stable, documented wire identifier.
+    #[test]
+fn as_str_is_stable_and_snake_case() {
+⋮----
+assert_eq!(capability.as_str(), expected);
+⋮----
+/// The derived serde round-trip preserves variant identity.
+    #[test]
+fn serde_round_trip_preserves_variant() {
+⋮----
+let serialized = serde_json::to_value(capability).expect("serialize");
+let parsed: Capability = serde_json::from_value(serialized).expect("deserialize");
+assert_eq!(parsed, capability);
+⋮----
+/// The process provider advertises spawn/kill as distinct capabilities.
+    #[test]
+fn process_capabilities_are_distinct() {
+assert_ne!(Capability::Process, Capability::SpawnProcess);
+assert_ne!(Capability::Process, Capability::KillProcess);
+assert_ne!(Capability::SpawnProcess, Capability::KillProcess);
+</file>
+
+<file path="src-tauri/src/providers/state.rs">
+/// Lifecycle state of a provider.
+///
+⋮----
+///
+/// State describes **where** a provider is in its lifecycle.
+⋮----
+/// State describes **where** a provider is in its lifecycle.
+/// It is independent from its health.
+⋮----
+/// It is independent from its health.
+///
+⋮----
+///
+/// Example:
+⋮----
+/// Example:
+/// - Running + Ready
+⋮----
+/// - Running + Ready
+/// - Running + Degraded
+⋮----
+/// - Running + Degraded
+/// - Running + Failed
+⋮----
+/// - Running + Failed
+/// - Stopped + Unknown
+⋮----
+/// - Stopped + Unknown
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ProviderState {
+/// Provider has been created but not registered.
+    Created,
+⋮----
+/// Provider is registered in the ProviderRegistry.
+    Registered,
+⋮----
+/// Provider is allocating resources.
+    Initializing,
+⋮----
+/// Provider is operational.
+    Running,
+⋮----
+/// Provider is shutting down.
+    Stopping,
+⋮----
+/// Provider has been stopped.
+    Stopped,
+⋮----
+impl ProviderState {
+/// Returns true if the provider is operational.
+    #[must_use]
+pub const fn is_running(self) -> bool {
+matches!(self, Self::Running)
+⋮----
+/// Returns true if the provider is transitioning.
+    #[must_use]
+pub const fn is_transitioning(self) -> bool {
+matches!(self, Self::Initializing | Self::Stopping)
+⋮----
+/// Returns true if the provider has been fully stopped.
+    #[must_use]
+pub const fn is_stopped(self) -> bool {
+matches!(self, Self::Stopped)
+</file>
+
 <file path="src-tauri/src/services/hyprland.rs">
 
 </file>
@@ -3211,81 +3588,8 @@ fn main() {
 }
 </file>
 
-<file path=".repomixignore">
-# Repomix ignore patterns for DEX project
-# Excludes inert scaffolding, build artifacts, and empty stubs
-
-# Git patch files (historical artifacts, use git log instead)
-patch/
-
-# Rust build artifacts
-src-tauri/target/
-src-tauri/gen/
-
-# Previous output
-repomix-output.xml
-
-# Binary files
-database/dex.db
-
-# Empty/inert directories
-assets/
-tests/
-.github/
-
-# Inert provider scaffolding (not compiled, not declared in lib.rs)
-src-tauri/src/providers/
-</file>
-
 <file path="eslint.config.js">
 
-</file>
-
-<file path="repomix.config.json">
-{
-  "$schema": "https://repomix.com/schemas/latest/schema.json",
-  "input": {
-    "maxFileSize": 52428800
-  },
-  "output": {
-    "filePath": "dex.context.xml",
-    "style": "xml",
-    "filePathStyle": "target-relative",
-    "parsableStyle": false,
-    "fileSummary": true,
-    "directoryStructure": true,
-    "files": true,
-    "removeComments": false,
-    "removeEmptyLines": false,
-    "compress": true,
-    "topFilesLength": 10,
-    "showLineNumbers": false,
-    "truncateBase64": false,
-    "copyToClipboard": false,
-    "includeFullDirectoryStructure": true,
-    "tokenCountTree": true,
-    "git": {
-      "sortByChanges": true,
-      "sortByChangesMaxCommits": 100,
-      "includeDiffs": false,
-      "includeLogs": false,
-      "includeLogsCount": 50
-    }
-  },
-  "include": [],
-  "ignore": {
-    "useGitignore": true,
-    "useDotIgnore": true,
-    "useDefaultPatterns": true,
-    "customPatterns": []
-  },
-  "security": {
-    "enableSecurityCheck": true
-  },
-  "tokenCount": {
-    "encoding": "o200k_base"
-  }
-}
 </file>
 
 <file path="svelte.config.js">
@@ -16491,6 +16795,50 @@ export type IconComponent = new (
 </Widget>
 </file>
 
+<file path="src/lib/ui/dashboard/QuickActions.svelte">
+<script lang="ts">
+	import {
+		Bot,
+		FolderPlus,
+		Plug,
+		Database
+	} from "lucide-svelte";
+
+	import { Button } from "$lib/ui/primitives";
+	import Widget from "./Widget.svelte";
+</script>
+
+<Widget
+	title="Quick Actions"
+>
+
+	<div class="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+
+		<Button variant="secondary">
+			<FolderPlus />
+			Project
+		</Button>
+
+		<Button variant="secondary">
+			<Bot />
+			Agent
+		</Button>
+
+		<Button variant="secondary">
+			<Database />
+			Database
+		</Button>
+
+		<Button variant="secondary">
+			<Plug />
+			Plugin
+		</Button>
+
+	</div>
+
+</Widget>
+</file>
+
 <file path="src/lib/ui/dashboard/Widget.svelte">
 <script lang="ts">
 	import type { Snippet } from "svelte";
@@ -16544,6 +16892,45 @@ export type IconComponent = new (
 </GlassPanel>
 </file>
 
+<file path="src/lib/ui/dashboard/WidgetGrid.svelte">
+<script lang="ts">
+	import type { Snippet } from "svelte";
+
+	interface Props {
+		columns?: 1 | 2 | 3 | 4;
+		children?: Snippet;
+	}
+
+	let {
+		columns = 3,
+		children
+	}: Props = $props();
+
+	const classes = $derived.by(() => {
+
+		switch (columns) {
+
+			case 1:
+				return "grid grid-cols-1 gap-6";
+
+			case 2:
+				return "grid grid-cols-1 gap-6 sm:grid-cols-2";
+
+			case 4:
+				return "grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4";
+
+			default:
+				return "grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3";
+		}
+
+	});
+</script>
+
+<div class={classes}>
+	{@render children?.()}
+</div>
+</file>
+
 <file path="src/lib/ui/navigation/Breadcrumb.svelte">
 <script lang="ts">
 	import { resolve } from "$app/paths";
@@ -16577,166 +16964,197 @@ export type IconComponent = new (
 </nav>
 </file>
 
-<file path="src/lib/ui/primitives/Button.svelte">
+<file path="src/lib/ui/navigation/SearchBox.svelte">
+<script lang="ts">
+	import { Search } from "lucide-svelte";
+
+	interface Props {
+		placeholder?: string;
+		value?: string;
+	}
+
+	let {
+		placeholder = "Search...",
+		value = $bindable("")
+	}: Props = $props();
+</script>
+
+<div class="relative">
+
+	<Search
+		class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-(--text-muted)"
+	/>
+
+	<input
+		bind:value
+		type="search"
+		placeholder={placeholder}
+		aria-label="Search"
+		class="h-11 w-full rounded-xl border border-(--border-default) bg-(--surface-2) pl-10 pr-4 outline-none transition focus:border-(--dex-primary)"
+	/>
+
+</div>
+</file>
+
+<file path="src/lib/ui/primitives/Badge.svelte">
 <script lang="ts">
 	import { cva, type VariantProps } from "class-variance-authority";
 	import { twMerge } from "tailwind-merge";
-	import type { HTMLButtonAttributes } from "svelte/elements";
-	import type { Component, Snippet } from "svelte";
+	import type { HTMLAttributes } from "svelte/elements";
+	import type { Snippet } from "svelte";
 
-	const buttonVariants = cva(
+	const variants = cva(
 		[
 			"inline-flex",
 			"items-center",
 			"justify-center",
-			"gap-2",
-			"select-none",
+			"rounded-full",
+			"px-2.5",
+			"py-1",
+			"text-xs",
 			"font-medium",
-			"transition-all",
-			"duration-200",
-			"outline-none",
-			"disabled:pointer-events-none",
-			"disabled:opacity-50"
+			"border"
 		],
 		{
 			variants: {
 				variant: {
-					primary: [
-						"dex-glass",
-						"dex-glass-elevated",
-						"text-white",
-						"border-[color:var(--dex-primary)]"
-					],
+					default:
+						"dex-glass text-[color:var(--text-primary)] border-[color:var(--border-default)]",
 
-					secondary: [
-						"dex-glass",
-						"text-[color:var(--text-primary)]"
-					],
+					accent:
+						"bg-[color:var(--dex-primary)] text-[color:var(--on-primary)] border-transparent",
 
-					ghost: [
-						"bg-transparent",
-						"border",
-						"border-transparent",
-						"hover:bg-[color:var(--surface-2)]"
-					],
+					success:
+						"bg-[color:var(--dex-success)] text-white border-transparent",
 
-					danger: [
-						"bg-[color:var(--dex-danger)]",
-						"text-white"
-					]
-				},
+					warning:
+						"bg-[color:var(--dex-warning)] text-black border-transparent",
 
-				size: {
-					xs: "h-8 px-3 text-xs",
-					sm: "h-9 px-4 text-sm",
-					md: "h-11 px-5 text-sm",
-					lg: "h-12 px-6 text-base",
-					xl: "h-14 px-8 text-lg",
-
-					icon: "size-11 p-0"
-				},
-
-				rounded: {
-					sm: "rounded-md",
-					md: "rounded-lg",
-					lg: "rounded-xl",
-					full: "rounded-full"
-				},
-
-				glow: {
-					true: "dex-glow",
-					false: ""
-				},
-
-				interactive: {
-					true: "dex-interactive",
-					false: ""
+					danger:
+						"bg-[color:var(--dex-danger)] text-white border-transparent"
 				}
 			},
 
 			defaultVariants: {
-				variant: "primary",
-				size: "md",
-				rounded: "lg",
-				glow: false,
-				interactive: true
+				variant: "default"
 			}
 		}
 	);
 
 	type Props =
-		HTMLButtonAttributes &
-		VariantProps<typeof buttonVariants> & {
-
-			leftIcon?: Component;
-
-			rightIcon?: Component;
-
-			loading?: boolean;
-
+		HTMLAttributes<HTMLSpanElement> &
+		VariantProps<typeof variants> & {
 			children?: Snippet;
-
 			class?: string;
 		};
 
 	let {
 		variant,
-		size,
-		rounded,
-		glow,
-		interactive,
-
-		leftIcon: LeftIcon,
-		rightIcon: RightIcon,
-
-		loading = false,
-
 		children,
-
 		class: className,
-
-		disabled,
-
 		...rest
 	}: Props = $props();
 
 	const classes = $derived(
 		twMerge(
-			buttonVariants({
-				variant,
-				size,
-				rounded,
-				glow,
-				interactive
+			variants({
+				variant
 			}),
 			className
 		)
 	);
 </script>
 
-<button
+<span
 	class={classes}
-	disabled={disabled || loading}
 	{...rest}
 >
-	{#if loading}
-		<div
-			class="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-		>
-
-		</div>
-	{:else}
-		{#if LeftIcon}
-			<LeftIcon class="size-4 shrink-0" />
-		{/if}
-	{/if}
-
 	{@render children?.()}
+</span>
+</file>
 
-	{#if !loading && RightIcon}
-		<RightIcon class="size-4 shrink-0" />
-	{/if}
-</button>
+<file path="src/lib/ui/styles/effects.css">
+/* ==========================================================================
+   DEX Visual Effects Layer
+   ==========================================================================
+   Apple VisionOS • Arc • Linear inspired
+   ========================================================================== */
+⋮----
+:root {
+⋮----
+/* --------------------------------------------------------------------------
+	   Aurora
+	   -------------------------------------------------------------------------- */
+⋮----
+/* --------------------------------------------------------------------------
+	   Grid
+	   -------------------------------------------------------------------------- */
+⋮----
+/* --------------------------------------------------------------------------
+	   Noise
+	   -------------------------------------------------------------------------- */
+⋮----
+/* --------------------------------------------------------------------------
+	   Spotlight
+	   -------------------------------------------------------------------------- */
+⋮----
+/* --------------------------------------------------------------------------
+	   Cursor Glow
+	   -------------------------------------------------------------------------- */
+⋮----
+/* --------------------------------------------------------------------------
+	   Blur
+	   -------------------------------------------------------------------------- */
+⋮----
+/* ==========================================================================
+   Shared Layer
+   ========================================================================== */
+⋮----
+.dex-effect {
+⋮----
+/* ==========================================================================
+   Aurora
+   ========================================================================== */
+.dex-aurora {
+/* ==========================================================================
+   Grid
+   ========================================================================== */
+⋮----
+.dex-grid {
+⋮----
+/* ==========================================================================
+   Noise
+   ========================================================================== */
+⋮----
+.dex-noise {
+⋮----
+/* ==========================================================================
+   Vignette
+   ========================================================================== */
+⋮----
+.dex-vignette {
+⋮----
+/* ==========================================================================
+   Spotlight
+   ========================================================================== */
+⋮----
+.dex-spotlight {
+⋮----
+/* ==========================================================================
+   Cursor Glow
+   ========================================================================== */
+⋮----
+.dex-cursor-glow {
+⋮----
+/* ==========================================================================
+   Animations
+   ========================================================================== */
+⋮----
+/* ==========================================================================
+   Reduced Motion
+   ========================================================================== */
+⋮----
+.dex-aurora,
 </file>
 
 <file path="src/lib/ui/themes/types.ts">
@@ -17359,6 +17777,892 @@ pub struct WidgetSize {
 pub struct WidgetDescriptor {
 </file>
 
+<file path="src-tauri/src/providers/dbus/connection.rs">
+use zbus::Connection;
+⋮----
+use super::error::DbusError;
+⋮----
+/// Owns the connection to the system D-Bus.
+///
+⋮----
+///
+/// This is the transport layer used by all D-Bus based providers
+⋮----
+/// This is the transport layer used by all D-Bus based providers
+/// (NetworkManager, ModemManager, UPower, BlueZ, Secret Service, etc.).
+⋮----
+/// (NetworkManager, ModemManager, UPower, BlueZ, Secret Service, etc.).
+pub struct DbusConnection {
+⋮----
+pub struct DbusConnection {
+⋮----
+impl DbusConnection {
+/// Connect to the system bus.
+    pub async fn system() -> Result<Self, DbusError> {
+⋮----
+pub async fn system() -> Result<Self, DbusError> {
+⋮----
+.map_err(|error| DbusError::ConnectionFailed {
+reason: error.to_string(),
+⋮----
+Ok(Self { connection })
+⋮----
+/// Connect to the session bus.
+    pub async fn session() -> Result<Self, DbusError> {
+⋮----
+pub async fn session() -> Result<Self, DbusError> {
+⋮----
+/// Returns the underlying zbus connection.
+    pub fn inner(&self) -> &Connection {
+⋮----
+pub fn inner(&self) -> &Connection {
+⋮----
+/// Returns true if the connection is alive.
+    #[must_use]
+pub fn is_connected(&self) -> bool {
+!self.connection.is_closed()
+⋮----
+/// Returns the unique bus name assigned by D-Bus.
+    pub async fn unique_name(&self) -> Result<String, DbusError> {
+⋮----
+pub async fn unique_name(&self) -> Result<String, DbusError> {
+⋮----
+.unique_name()
+.ok_or(DbusError::ConnectionClosed)?;
+⋮----
+Ok(name.to_string())
+</file>
+
+<file path="src-tauri/src/providers/dbus/error.rs">
+use std::fmt;
+⋮----
+/// Errors returned by the D-Bus provider.
+///
+⋮----
+///
+/// These errors represent communication and protocol failures between
+⋮----
+/// These errors represent communication and protocol failures between
+/// DEX and the system D-Bus.
+⋮----
+/// DEX and the system D-Bus.
+#[derive(Debug)]
+pub enum DbusError {
+/// Failed to establish a connection to the bus.
+    ConnectionFailed { reason: String },
+⋮----
+/// The connection has been closed.
+    ConnectionClosed,
+⋮----
+/// Failed to send a message.
+    SendFailed { reason: String },
+⋮----
+/// Failed to receive a message.
+    ReceiveFailed { reason: String },
+⋮----
+/// Failed to create a proxy.
+    ProxyCreationFailed {
+⋮----
+/// Method invocation failed.
+    MethodCallFailed { method: String, reason: String },
+⋮----
+/// Failed to subscribe to a signal.
+    SignalSubscriptionFailed { signal: String },
+⋮----
+/// Requested service is unavailable.
+    ServiceUnavailable { service: String },
+⋮----
+/// Invalid D-Bus object path.
+    InvalidObjectPath { path: String },
+⋮----
+/// Invalid interface name.
+    InvalidInterface { interface: String },
+⋮----
+/// Invalid member.
+    InvalidMember { member: String },
+⋮----
+/// Operation timed out.
+    Timeout,
+⋮----
+/// Internal D-Bus error.
+    Internal { reason: String },
+⋮----
+fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+⋮----
+write!(f, "failed to connect to D-Bus: {reason}")
+⋮----
+write!(f, "D-Bus connection is closed")
+⋮----
+write!(f, "failed to send D-Bus message: {reason}")
+⋮----
+write!(f, "failed to receive D-Bus message: {reason}")
+⋮----
+write!(f, "failed to create proxy ({service}, {path}, {interface})")
+⋮----
+write!(f, "D-Bus method '{method}' failed: {reason}")
+⋮----
+write!(f, "failed to subscribe to signal '{signal}'")
+⋮----
+write!(f, "service '{service}' is unavailable")
+⋮----
+write!(f, "invalid object path '{path}'")
+⋮----
+write!(f, "invalid interface '{interface}'")
+⋮----
+write!(f, "invalid member '{member}'")
+⋮----
+write!(f, "D-Bus operation timed out")
+⋮----
+write!(f, "internal D-Bus error: {reason}")
+</file>
+
+<file path="src-tauri/src/providers/dbus/message.rs">
+use std::collections::HashMap;
+⋮----
+use zvariant::OwnedValue;
+⋮----
+/// Generic D-Bus message.
+///
+⋮----
+///
+/// This is a transport-independent representation used internally by DEX.
+⋮----
+/// This is a transport-independent representation used internally by DEX.
+/// It is intentionally decoupled from `zbus::Message` so providers are not
+⋮----
+/// It is intentionally decoupled from `zbus::Message` so providers are not
+/// tightly coupled to the underlying D-Bus library.
+⋮----
+/// tightly coupled to the underlying D-Bus library.
+#[derive(Debug, Clone, Default)]
+pub struct DbusMessage {
+/// Destination service.
+    pub destination: String,
+⋮----
+/// Object path.
+    pub path: String,
+⋮----
+/// Interface name.
+    pub interface: String,
+⋮----
+/// Method or signal member.
+    pub member: String,
+⋮----
+/// Named arguments.
+    pub body: HashMap<String, OwnedValue>,
+⋮----
+impl DbusMessage {
+/// Creates a new D-Bus message.
+    #[must_use]
+pub fn new(
+⋮----
+destination: destination.into(),
+path: path.into(),
+interface: interface.into(),
+member: member.into(),
+⋮----
+/// Adds an argument to the message body.
+    #[must_use]
+pub fn with_argument(mut self, name: impl Into<String>, value: OwnedValue) -> Self {
+self.body.insert(name.into(), value);
+⋮----
+/// Returns true if the message has arguments.
+    #[must_use]
+pub fn has_arguments(&self) -> bool {
+!self.body.is_empty()
+⋮----
+/// Returns an argument by name.
+    #[must_use]
+pub fn argument(&self, name: &str) -> Option<&OwnedValue> {
+self.body.get(name)
+</file>
+
+<file path="src-tauri/src/providers/dbus/mod.rs">
+pub mod connection;
+pub mod error;
+pub mod message;
+pub mod provider;
+pub mod signal;
+⋮----
+pub use connection::DbusConnection;
+pub use error::DbusError;
+pub use message::DbusMessage;
+pub use provider::DbusProxy;
+pub use signal::DbusSignal;
+</file>
+
+<file path="src-tauri/src/providers/dbus/signal.rs">
+use std::collections::HashMap;
+⋮----
+use zvariant::OwnedValue;
+⋮----
+/// A D-Bus signal emitted by a remote service.
+///
+⋮----
+///
+/// Signals are asynchronous events published by services such as:
+⋮----
+/// Signals are asynchronous events published by services such as:
+/// - NetworkManager
+⋮----
+/// - NetworkManager
+/// - ModemManager
+⋮----
+/// - ModemManager
+/// - UPower
+⋮----
+/// - UPower
+/// - BlueZ
+⋮----
+/// - BlueZ
+/// - Secret Service
+⋮----
+/// - Secret Service
+#[derive(Debug, Clone, Default)]
+pub struct DbusSignal {
+/// Sender's unique bus name.
+    pub sender: Option<String>,
+⋮----
+/// Object path that emitted the signal.
+    pub path: String,
+⋮----
+/// Interface that defines the signal.
+    pub interface: String,
+⋮----
+/// Signal name.
+    pub member: String,
+⋮----
+/// Signal payload.
+    pub body: HashMap<String, OwnedValue>,
+⋮----
+impl DbusSignal {
+/// Creates a new signal.
+    #[must_use]
+pub fn new(
+⋮----
+path: path.into(),
+interface: interface.into(),
+member: member.into(),
+⋮----
+/// Sets the sender.
+    #[must_use]
+pub fn with_sender(mut self, sender: impl Into<String>) -> Self {
+self.sender = Some(sender.into());
+⋮----
+/// Adds a payload field.
+    #[must_use]
+pub fn with_argument(mut self, name: impl Into<String>, value: OwnedValue) -> Self {
+self.body.insert(name.into(), value);
+⋮----
+/// Returns an argument by name.
+    #[must_use]
+pub fn argument(&self, name: &str) -> Option<&OwnedValue> {
+self.body.get(name)
+⋮----
+/// Returns true if the signal has a payload.
+    #[must_use]
+pub fn has_arguments(&self) -> bool {
+!self.body.is_empty()
+</file>
+
+<file path="src-tauri/src/providers/modem/errors.rs">
+use std::fmt;
+⋮----
+/// Errors returned by the Modem provider.
+#[derive(Debug)]
+pub enum ModemError {
+⋮----
+fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+⋮----
+write!(f, "modem '{}' not found", id)
+⋮----
+write!(f, "SIM card not found")
+⋮----
+write!(f, "ModemManager is unavailable")
+⋮----
+write!(f, "failed to connect: {}", reason)
+⋮----
+write!(f, "failed to disconnect: {}", reason)
+⋮----
+write!(f, "invalid PIN")
+⋮----
+write!(f, "SIM PIN required")
+⋮----
+write!(f, "SIM PUK required")
+⋮----
+write!(f, "permission denied")
+⋮----
+write!(f, "operation timed out")
+⋮----
+write!(f, "internal modem error: {}", reason)
+</file>
+
+<file path="src-tauri/src/providers/modem/events.rs">
+/// Events emitted by the ModemProvider.
+///
+⋮----
+///
+/// These events are published on the DEX event bus and consumed
+⋮----
+/// These events are published on the DEX event bus and consumed
+/// by widgets and application services.
+⋮----
+/// by widgets and application services.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ModemEvent {
+⋮----
+pub struct ModemAddedEvent {
+⋮----
+pub struct ModemStateChangedEvent {
+⋮----
+pub struct SignalChangedEvent {
+⋮----
+pub struct OperatorChangedEvent {
+⋮----
+pub struct TechnologyChangedEvent {
+⋮----
+pub struct SimInsertedEvent {
+⋮----
+pub struct SimStateChangedEvent {
+</file>
+
+<file path="src-tauri/src/providers/modem/mod.rs">
+pub mod errors;
+pub mod events;
+pub mod modem;
+pub mod provider;
+pub mod signal;
+pub mod sim;
+⋮----
+pub use errors::ModemError;
+pub use events::ModemEvent;
+⋮----
+pub use provider::ModemProvider;
+pub use signal::SignalQuality;
+</file>
+
+<file path="src-tauri/src/providers/modem/modem.rs">
+use super::signal::SignalQuality;
+⋮----
+/// Physical cellular modem.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Modem {
+/// Stable identifier (typically the ModemManager object path).
+    pub id: String,
+⋮----
+/// Manufacturer.
+    pub manufacturer: String,
+⋮----
+/// Model.
+    pub model: String,
+⋮----
+/// Device name.
+    pub device: String,
+⋮----
+/// IMEI.
+    pub imei: Option<String>,
+⋮----
+/// Active operator.
+    pub operator: Option<String>,
+⋮----
+/// Current access technology.
+    pub technology: AccessTechnology,
+⋮----
+/// Registration state.
+    pub state: ModemState,
+⋮----
+/// Signal quality.
+    pub signal: SignalQuality,
+⋮----
+/// Whether a SIM is present.
+    pub sim_present: bool,
+⋮----
+impl Modem {
+⋮----
+pub fn new(id: impl Into<String>) -> Self {
+⋮----
+id: id.into(),
+⋮----
+pub fn is_connected(&self) -> bool {
+⋮----
+pub fn is_registered(&self) -> bool {
+matches!(self.state, ModemState::Registered | ModemState::Connected)
+⋮----
+pub fn has_sim(&self) -> bool {
+⋮----
+pub enum ModemState {
+⋮----
+pub enum AccessTechnology {
+</file>
+
+<file path="src-tauri/src/providers/modem/provider.rs">
+use std::collections::HashMap;
+⋮----
+/// Cellular modem provider.
+///
+⋮----
+///
+/// Owns the collection of detected modems and SIM cards.
+⋮----
+/// Owns the collection of detected modems and SIM cards.
+///
+⋮----
+///
+/// The implementation is transport-independent; communication with
+⋮----
+/// The implementation is transport-independent; communication with
+/// ModemManager over D-Bus will be added in the integration layer.
+⋮----
+/// ModemManager over D-Bus will be added in the integration layer.
+pub struct ModemProvider {
+⋮----
+pub struct ModemProvider {
+⋮----
+impl ModemProvider {
+⋮----
+pub fn new() -> Self {
+⋮----
+pub fn modems(&self) -> &HashMap<String, Modem> {
+⋮----
+pub fn sims(&self) -> &HashMap<String, SimCard> {
+⋮----
+pub fn modem(&self, id: &str) -> Option<&Modem> {
+self.modems.get(id)
+⋮----
+pub fn sim(&self, id: &str) -> Option<&SimCard> {
+self.sims.get(id)
+⋮----
+pub fn add_modem(&mut self, modem: Modem) {
+self.modems.insert(modem.id.clone(), modem);
+⋮----
+pub fn remove_modem(&mut self, id: &str) -> Option<Modem> {
+self.modems.remove(id)
+⋮----
+pub fn add_sim(&mut self, sim: SimCard) {
+self.sims.insert(sim.id.clone(), sim);
+⋮----
+pub fn remove_sim(&mut self, id: &str) -> Option<SimCard> {
+self.sims.remove(id)
+⋮----
+pub fn emit(&mut self, event: ModemEvent) {
+self.events.push(event);
+⋮----
+pub fn events(&self) -> &[ModemEvent] {
+⋮----
+pub fn clear_events(&mut self) {
+self.events.clear();
+⋮----
+impl Default for ModemProvider {
+fn default() -> Self {
+⋮----
+impl Provider for ModemProvider {
+fn id(&self) -> &'static str {
+⋮----
+fn name(&self) -> &'static str {
+⋮----
+fn version(&self) -> &'static str {
+env!("CARGO_PKG_VERSION")
+⋮----
+fn capabilities(&self) -> &'static [Capability] {
+⋮----
+fn initialize(&mut self) -> Result<(), ProviderError> {
+⋮----
+Ok(())
+⋮----
+fn shutdown(&mut self) -> Result<(), ProviderError> {
+⋮----
+self.modems.clear();
+self.sims.clear();
+⋮----
+fn state(&self) -> ProviderState {
+⋮----
+fn health(&self) -> ProviderHealth {
+</file>
+
+<file path="src-tauri/src/providers/modem/sim.rs">
+/// SIM card information.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimCard {
+/// Stable identifier.
+    pub id: String,
+⋮----
+/// ICCID.
+    pub iccid: Option<String>,
+⋮----
+/// IMSI.
+    pub imsi: Option<String>,
+⋮----
+/// Operator name.
+    pub operator: Option<String>,
+⋮----
+/// Mobile Country Code.
+    pub mcc: Option<String>,
+⋮----
+/// Mobile Network Code.
+    pub mnc: Option<String>,
+⋮----
+/// Phone number (MSISDN).
+    pub number: Option<String>,
+⋮----
+/// Current SIM state.
+    pub state: SimState,
+⋮----
+impl SimCard {
+⋮----
+pub fn new(id: impl Into<String>) -> Self {
+⋮----
+id: id.into(),
+⋮----
+pub fn is_ready(&self) -> bool {
+⋮----
+pub fn requires_pin(&self) -> bool {
+⋮----
+pub fn requires_puk(&self) -> bool {
+⋮----
+pub fn is_present(&self) -> bool {
+⋮----
+pub enum SimState {
+</file>
+
+<file path="src-tauri/src/providers/network/adapter.rs">
+/// A single IPv4/IPv6 route attached to an adapter.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NetworkRoute {
+/// Destination network (e.g. "0.0.0.0" for the default route).
+    pub destination: String,
+⋮----
+/// Next-hop gateway, if any.
+    pub gateway: Option<String>,
+⋮----
+/// Network mask (IPv4 only).
+    pub netmask: Option<String>,
+⋮----
+/// Interface the route is bound to.
+    pub interface: String,
+⋮----
+/// Physical or virtual network interface.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NetworkAdapter {
+/// Stable identifier (NetworkManager object path, interface name, etc.)
+    pub id: String,
+⋮----
+/// Linux interface name.
+    pub interface: String,
+⋮----
+/// Human-readable name.
+    pub name: String,
+⋮----
+/// Hardware MAC address.
+    pub mac_address: Option<String>,
+⋮----
+/// Adapter type.
+    pub kind: NetworkAdapterKind,
+⋮----
+/// Administrative state.
+    pub state: NetworkAdapterState,
+⋮----
+/// Link speed (Mbps).
+    pub speed_mbps: Option<u32>,
+⋮----
+/// Driver name.
+    pub driver: Option<String>,
+⋮----
+/// Assigned IPv4 addresses.
+    pub ipv4: Vec<String>,
+⋮----
+/// Assigned IPv6 addresses.
+    pub ipv6: Vec<String>,
+⋮----
+/// Default gateway.
+    pub gateway: Option<String>,
+⋮----
+/// DNS servers.
+    pub dns: Vec<String>,
+⋮----
+/// Routing table entries.
+    pub routes: Vec<NetworkRoute>,
+⋮----
+/// Whether the interface is administratively enabled.
+    pub enabled: bool,
+⋮----
+impl NetworkAdapter {
+⋮----
+pub fn new(
+⋮----
+id: id.into(),
+interface: interface.into(),
+⋮----
+pub fn is_connected(&self) -> bool {
+matches!(self.state, NetworkAdapterState::Connected)
+⋮----
+pub fn is_wireless(&self) -> bool {
+matches!(self.kind, NetworkAdapterKind::Wireless)
+⋮----
+pub fn is_cellular(&self) -> bool {
+matches!(self.kind, NetworkAdapterKind::Cellular)
+⋮----
+pub fn is_ethernet(&self) -> bool {
+matches!(self.kind, NetworkAdapterKind::Ethernet)
+⋮----
+pub enum NetworkAdapterKind {
+⋮----
+pub enum NetworkAdapterState {
+⋮----
+impl NetworkAdapterState {
+/// Returns the lowercase snake_case wire representation.
+    #[must_use]
+pub const fn as_str(self) -> &'static str {
+</file>
+
+<file path="src-tauri/src/providers/process/events.rs">
+/// Events emitted by the ProcessProvider.
+///
+⋮----
+///
+/// These events are published on the DEX event bus and consumed
+⋮----
+/// These events are published on the DEX event bus and consumed
+/// by the Task Manager, Terminal, Widgets and Automations.
+⋮----
+/// by the Task Manager, Terminal, Widgets and Automations.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ProcessEvent {
+⋮----
+pub struct ProcessSpawnedEvent {
+⋮----
+pub struct ProcessExitedEvent {
+⋮----
+pub struct ProcessStateChangedEvent {
+⋮----
+pub struct ProcessResourceUpdatedEvent {
+⋮----
+pub struct ProcessPriorityChangedEvent {
+</file>
+
+<file path="src-tauri/src/providers/error.rs">
+use std::fmt;
+⋮----
+/// Common error type returned by all DEX providers.
+#[derive(Debug)]
+pub enum ProviderError {
+/// A provider with the given identifier already exists.
+    AlreadyRegistered { id: String },
+⋮----
+/// Requested provider could not be found.
+    NotFound { id: String },
+⋮----
+/// Provider does not expose the requested capability.
+    CapabilityUnavailable,
+⋮----
+/// Provider failed to initialize.
+    InitializationFailed { reason: String },
+⋮----
+/// Provider failed to shut down.
+    ShutdownFailed { reason: String },
+⋮----
+/// Provider lacks the required permissions.
+    PermissionDenied,
+⋮----
+/// Communication with the underlying system failed.
+    CommunicationError { reason: String },
+⋮----
+/// Operation timed out.
+    Timeout,
+⋮----
+/// Internal provider error.
+    Internal { reason: String },
+⋮----
+fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+⋮----
+write!(f, "provider '{}' is already registered", id)
+⋮----
+write!(f, "provider '{}' was not found", id)
+⋮----
+write!(f, "requested capability is unavailable")
+⋮----
+write!(f, "provider initialization failed: {}", reason)
+⋮----
+write!(f, "provider shutdown failed: {}", reason)
+⋮----
+write!(f, "permission denied")
+⋮----
+write!(f, "communication error: {}", reason)
+⋮----
+write!(f, "operation timed out")
+⋮----
+write!(f, "internal provider error: {}", reason)
+</file>
+
+<file path="src-tauri/src/providers/health.rs">
+/// Operational health of a provider.
+///
+⋮----
+///
+/// Health indicates **how well** a provider is functioning.
+⋮----
+/// Health indicates **how well** a provider is functioning.
+/// It is independent from the provider lifecycle state.
+⋮----
+/// It is independent from the provider lifecycle state.
+///
+⋮----
+///
+/// Examples:
+⋮----
+/// Examples:
+/// - Running + Ready
+⋮----
+/// - Running + Ready
+/// - Running + Busy
+⋮----
+/// - Running + Busy
+/// - Running + Degraded
+⋮----
+/// - Running + Degraded
+/// - Running + Failed
+⋮----
+/// - Running + Failed
+/// - Stopped + Unknown
+⋮----
+/// - Stopped + Unknown
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ProviderHealth {
+/// Health has not yet been determined.
+    Unknown,
+⋮----
+/// Initializing dependencies or connections.
+    Initializing,
+⋮----
+/// Fully operational.
+    Ready,
+⋮----
+/// Operational but actively processing work.
+    Busy,
+⋮----
+/// Operational with reduced functionality.
+    Degraded,
+⋮----
+/// Temporarily unavailable.
+    Unavailable,
+⋮----
+/// Fatal error preventing operation.
+    Failed,
+⋮----
+impl ProviderHealth {
+/// Returns true if the provider can currently serve requests.
+    #[must_use]
+pub const fn is_available(self) -> bool {
+matches!(self, Self::Ready | Self::Busy | Self::Degraded)
+⋮----
+/// Returns true if the provider has encountered a fatal error.
+    #[must_use]
+pub const fn is_failed(self) -> bool {
+matches!(self, Self::Failed)
+</file>
+
+<file path="src-tauri/src/providers/mod.rs">
+pub mod capability;
+pub mod dbus;
+pub mod error;
+pub mod health;
+pub mod modem;
+pub mod network;
+pub mod process;
+pub mod provider;
+pub mod registry;
+pub mod state;
+⋮----
+pub use capability::Capability;
+pub use dbus::DbusProxy;
+pub use error::ProviderError;
+pub use health::ProviderHealth;
+pub use modem::ModemProvider;
+pub use network::NetworkProvider;
+pub use process::ProcessProvider;
+pub use provider::Provider;
+pub use registry::ProviderRegistry;
+pub use state::ProviderState;
+</file>
+
+<file path="src-tauri/src/providers/registry.rs">
+use std::collections::HashMap;
+⋮----
+/// Central registry for all providers.
+///
+⋮----
+///
+/// The registry owns provider instances and allows lookup by identifier
+⋮----
+/// The registry owns provider instances and allows lookup by identifier
+/// or by exposed capability.
+⋮----
+/// or by exposed capability.
+pub struct ProviderRegistry {
+⋮----
+pub struct ProviderRegistry {
+⋮----
+impl ProviderRegistry {
+/// Creates an empty registry.
+    #[must_use]
+pub fn new() -> Self {
+⋮----
+/// Registers a provider.
+    pub fn register(&mut self, provider: Box<dyn Provider>) -> Result<(), ProviderError> {
+⋮----
+pub fn register(&mut self, provider: Box<dyn Provider>) -> Result<(), ProviderError> {
+let id = provider.id();
+⋮----
+if self.providers.contains_key(id) {
+return Err(ProviderError::AlreadyRegistered { id: id.to_owned() });
+⋮----
+self.providers.insert(id, provider);
+⋮----
+Ok(())
+⋮----
+/// Unregisters a provider.
+    pub fn unregister(&mut self, id: &str) -> Result<Box<dyn Provider>, ProviderError> {
+⋮----
+pub fn unregister(&mut self, id: &str) -> Result<Box<dyn Provider>, ProviderError> {
+⋮----
+.remove(id)
+.ok_or_else(|| ProviderError::NotFound { id: id.to_owned() })
+⋮----
+/// Returns a provider by identifier.
+    #[must_use]
+pub fn provider(&self, id: &str) -> Option<&dyn Provider> {
+self.providers.get(id).map(Box::as_ref)
+⋮----
+/// Returns all registered providers.
+    #[must_use]
+pub fn providers(&self) -> Vec<&dyn Provider> {
+self.providers.values().map(Box::as_ref).collect()
+⋮----
+/// Finds the first provider exposing the requested capability.
+    #[must_use]
+pub fn capability(&self, capability: Capability) -> Option<&dyn Provider> {
+⋮----
+.values()
+.find(|provider| provider.capabilities().contains(&capability))
+.map(Box::as_ref)
+⋮----
+/// Initializes all providers.
+    pub fn initialize_all(&mut self) -> Result<(), ProviderError> {
+⋮----
+pub fn initialize_all(&mut self) -> Result<(), ProviderError> {
+for provider in self.providers.values_mut() {
+provider.initialize()?;
+⋮----
+/// Shuts down all providers.
+    pub fn shutdown_all(&mut self) -> Result<(), ProviderError> {
+⋮----
+pub fn shutdown_all(&mut self) -> Result<(), ProviderError> {
+⋮----
+provider.shutdown()?;
+⋮----
+impl Default for ProviderRegistry {
+fn default() -> Self {
+</file>
+
 <file path="src-tauri/src/system/battery.rs">
 //! Battery sampling.
 //!
@@ -17748,65 +19052,77 @@ pub fn log_error(message: &str) {
 }
 </file>
 
-<file path="AGENTS.md">
-# AGENTS.md
+<file path=".repomixignore">
+# Repomix ignore patterns for DEX project
+# Excludes inert scaffolding, build artifacts, and empty stubs
 
-DEX — a programmable desktop layer for Hyprland. Phase 0 (foundation) is current; M0.1–M0.3 done, M0.4 (tooling/CI) open. Architecture decisions live in `docs/50-adr/` (read ADR-0001–0005 before touching cross-cutting code) and `docs/20-architecture/20_System_Architecture.md`. Detailed engineering rules live in `docs/40-engineering/` (CodingStandards, Testing, CI, GitWorkflow, Release). AGENTS.md is the operational ground truth for commands and repo mechanics.
+# Git patch files (historical artifacts, use git log instead)
+patch/
 
-## Stack
+# Rust build artifacts
+src-tauri/target/
+src-tauri/gen/
 
-- SvelteKit 2 (Svelte 5 runes) + Vite 6 + TypeScript strict, Tauri 2 (Rust: tokio/serder/rusqlite/zbus), **Bun** package manager.
-- SPA only: `adapter-static` + `index.html` fallback, `ssr = false` (`src/routes/+layout.ts`). No Node server.
-- Frontend `src/` (Svelte); backend `src-tauri/` (Rust crate `omnizya_dex_lib` / bin `omnizya_dex`).
+# Previous output
+repomix-output.xml
 
-## Commands
+# Binary files
+database/dex.db
 
-- `bun install` — never `npm`/`pnpm`.
-- `bun run dev` — Vite-only dev server, **port 1420** (`strictPort: true` in `vite.config.js`). Frontend work only; window chrome is not rendered here.
-- `bun run check` (`check:watch` for watch mode) — `svelte-kit sync && svelte-check`. Frontend type gate; must pass clean.
-- `bun run tauri dev` — full transparent desktop window. Requires Wayland/Hyprland + webkit2gtk + a display; **not headless, not in CI**.
-- `cargo check` (then `cargo test`) inside `src-tauri/`.
-- **No CI configured.** `tests/{unit,integration,e2e,frontend,backend}/` are empty, `.github/workflows/*.yml` are empty placeholders, and no JS test runner / lint / formatter is wired (M0.4). Verification runs locally.
+# Empty/inert directories
+assets/
+tests/
+.github/
+AGENTS.md
+bun.lock
+node_modules
+</file>
 
-## Live vs. placeholder
-
-Phase 0 ships the shell + the IPC plumbing. The rest is scaffolding — much of it inert, not merely empty.
-
-- **The only live IPC command is `greet`**, wired end-to-end: Rust `commands/core.rs` (`#[tauri::command] greet`) → single `generate_handler![commands::core::greet]` in `lib.rs` → TS contract `COMMANDS.greet` (`core/api/commands.ts`) → typed client `core/services/greet.ts`. Adding a command requires a contract in **both** `core/api/commands.ts` and `src-tauri/src/lib.rs`.
-- **Live `core/` plumbing**: `core/api/{commands,tauri,events}.ts`, `core/services/greet.ts`, `core/utils/{logger,storage}.ts`, `core/stores/theme.svelte.ts` (bootstrapped in `+layout.svelte`), `core/config/{theme,layout,navigation}.ts`. (`core/stores/shell.svelte.ts` is real but currently not wired in.) Everything else under `core/{services,types,events,hooks,composables}` is an empty placeholder — do not import it.
-- **Rust is mostly inert, not just empty.** `lib.rs` declares only `mod commands;` and `mod utils;`. The large `providers/` tree (dbus, modem, network, process, health, …), plus `state/`, `events/`, `ipc/`, `database/`, `models/`, `plugins/`, `services/`, `system/` — none are `mod`-declared, so **none are compiled**, even though several provider files contain real skeleton code. Don't build on them; declare a module only when its slice ships. (82 of 123 `*.rs` under `src-tauri/src/` are empty.)
-- `database/migrations/*.sql`, `database/seeds/default.sql` and `database/dex.db` are empty/committed. **Migrations are append-only** (ADR-0001): never edit a committed migration; each schema change is a new migration + Rust model + zod schema in one slice.
-
-## How new code is wired (ADR-0002 IPC checklist)
-
-1. Rust `src-tauri/src/commands/<domain>.rs` — `#[tauri::command]`, `Result<T, AppError>` (from `utils/errors.rs`), **exactly one serde struct arg**; no `#[serde(rename_all)]`, serde snake_case is the wire authority.
-2. Rust: declare the module in `commands/mod.rs` and append the fn to the **single** `generate_handler![...]` in `lib.rs` — exactly one `invoke_handler`; a second silently shadows the first.
-3. TS: add `defineCommand(...)` + zod schemas to `core/api/commands.ts` (duplicate names throw at import). Infallible commands use `z.null()`.
-4. TS: expose a typed async fn in `core/services/<domain>.ts` returning the domain result, surfacing `IpcError` on failure.
-5. Capability grant if a plugin is involved (`src-tauri/capabilities/default.json`; `log:default` already granted).
-- Rust→UI events: emit from `src-tauri/src/events/` (future phase), declare in the `EVENTS` registry (`dex.<domain>.<event>`) and subscribe via `onEvent(name, schema, handler)` from `core/api/events.ts`. Invalid payloads are logged and dropped, never thrown into the handler.
-
-## Conventions
-
-- **Boundaries** — frontend never imports `@tauri-apps/api` directly (only `core/api`); features only call typed clients in `core/services`. No `fetch`/`fs`/SQLite in the frontend — all system access flows `core/services` → Rust (ADR-0001). Features never import other features; shared logic goes to `core/` or `ui/`. Depend direction is acyclic: `ui → features → core → IPC → src-tauri`.
-- **Design tokens** — defined in `src/lib/ui/styles/tokens.css` (the live source). Components consume semantic tokens via `var(...)`, never hardcoded color/radius/duration/z-index literals.
-  - Token namespaces: `--surface-*`, `--bg-*`, `--text-*`, `--glass-*`, `--blur-*`, `--radius-*`, `--space-*`, `--shadow-*`, `--duration-*`, `--ease-*`, `--z-*`, plus `--dex-*` for brand/accent only (e.g. `var(--text-muted)`, `var(--surface-3)`, `var(--dex-primary)`). `docs/40-engineering/DesignSystem.md` describes an aspirational flat `--dex-*` vocabulary that does **not** match the imported `tokens.css`; follow the CSS file.
-  - Themes are TS palettes in `src/lib/ui/themes/` (light/dark/cyber), mirrored to `data-theme`; `theme.svelte.ts` + `init()` bootstrapped in `src/routes/+layout.svelte`.
-- **Tailwind v4** is wired config-less via `@tailwindcss/vite` — there is **no** `tailwind.config.js`/`postcss.config.js`. Utility classes and arbitrary properties (`bg-(--surface-3)`) both resolve to CSS vars.
-- **Transparent window (ADR-0004)**: `tauri.conf.json` sets `fullscreen/transparent/decorations: false`. `html`/`body`/`#svelte`/`body` must stay `background: transparent` (app.css + `app.html` body) — visual backdrop comes from glass panels (`backdrop-filter` + translucent tokens). Any full-window solid fill is a contract violation.
-- **Strict CSP (ADR-0005)** in `tauri.conf.json`: `default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost`. Dev HMR (Vite ws) may need temporary relaxation — never ship the loosened policy.
-- **Logging** — only `core/utils/logger.ts` (`logTrace`/`logDebug`/`logInfo`/`logWarn`/`logError`), a facade over `@tauri-apps/plugin-log` (writes stdout + app log dir), console fallback under plain `bun run dev`. No `console.*` in new code.
-- **Svelte 5 runes only** (`$state`/`$derived`/`$effect`); stores are `.svelte.ts` files. No legacy `svelte/store`.
-- **File naming**: `PascalCase.svelte` components; `kebab-case.svelte.ts` rune stores; `kebab-case.ts` modules; `snake_case.rs` Rust; zero-padded append-only migrations (`001_init.sql`).
-- **Commits**: conventional (`feat:`/`fix:`/`refactor:`/`perf:`/`docs:`/`test:`/`style:`), imperative summary < 72 chars, body explains *why*. Branch from `develop` (`feat/`/`fix/`/… short-lived), **squash-merge** to `develop`; `develop` → `main` at milestone/release. `main`/`develop` are never force-pushed.
-
-## Verification order (the gate)
-
-1. `bun run check` — frontend types (`svelte-kit sync && svelte-check`).
-2. `cargo check` — Rust, inside `src-tauri/`.
-3. `bun run tauri dev` — manual desktop. Transparent/compositor behavior can't be tested headless (ADR-0004), so this stays a manual gate even after CI lands.
-
-A change failing `bun run check` or `cargo check` is not ready for review. Automated suites (`cargo test`, bun test) slot in after M0.4; until then the manual desktop check covers behavior.
+<file path="repomix.config.json">
+{
+  "$schema": "https://repomix.com/schemas/latest/schema.json",
+  "input": {
+    "maxFileSize": 52428800
+  },
+  "output": {
+    "filePath": "dex.context.xml",
+    "style": "xml",
+    "filePathStyle": "target-relative",
+    "parsableStyle": false,
+    "fileSummary": true,
+    "directoryStructure": true,
+    "files": true,
+    "removeComments": false,
+    "removeEmptyLines": false,
+    "compress": true,
+    "topFilesLength": 10,
+    "showLineNumbers": false,
+    "truncateBase64": false,
+    "copyToClipboard": false,
+    "includeFullDirectoryStructure": true,
+    "tokenCountTree": true,
+    "git": {
+      "sortByChanges": true,
+      "sortByChangesMaxCommits": 100,
+      "includeDiffs": false,
+      "includeLogs": false,
+      "includeLogsCount": 50
+    }
+  },
+  "include": [],
+  "ignore": {
+    "useGitignore": true,
+    "useDotIgnore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": []
+  },
+  "security": {
+    "enableSecurityCheck": true
+  },
+  "tokenCount": {
+    "encoding": "o200k_base"
+  }
+}
 </file>
 
 <file path="vite.config.js">
@@ -17976,53 +19292,6 @@ export function workspaceLabel(id: WorkspaceId): string
 export function resolveWorkspace(pathname: string): WorkspaceId
 </file>
 
-<file path="src/lib/ui/layout/AppShell.svelte">
-<script lang="ts">
-	import Background from "$lib/ui/effects/Background.svelte";
-	import { shellStore } from "$lib/core/stores/shell.svelte";
-
-	import TopBar from "./TopBar.svelte";
-	import Sidebar from "./Sidebar.svelte";
-	import Dock from "./Dock.svelte";
-	import StatusBar from "./StatusBar.svelte";
-
-	import type { Snippet } from "svelte";
-
-	interface Props {
-		children?: Snippet;
-	}
-
-	let { children }: Props = $props();
-
-	const sidebarVisible = $derived(shellStore.sidebarVisible);
-	const dockVisible = $derived(shellStore.dockVisible);
-</script>
-
-<div class="relative h-screen w-screen overflow-hidden bg-transparent text-(--text-primary)" data-tauri-drag-region>
-
-	<Background />
-
-	<TopBar />
-
-	<div class="flex h-full pt-(--hud-height)">
-		{#if sidebarVisible}
-			<Sidebar />
-		{/if}
-
-		<main class="relative flex-1 overflow-auto p-8">
-			{@render children?.()}
-		</main>
-	</div>
-
-	{#if dockVisible}
-		<Dock />
-	{/if}
-
-	<StatusBar />
-
-</div>
-</file>
-
 <file path="src/lib/ui/layout/HUD.svelte">
 <script lang="ts">
 	import AppShell from "./AppShell.svelte";
@@ -18091,232 +19360,166 @@ export function resolveWorkspace(pathname: string): WorkspaceId
 </aside>
 </file>
 
-<file path="src/lib/ui/primitives/GlassPanel.svelte">
-<svelte:options immutable />
-
+<file path="src/lib/ui/primitives/Button.svelte">
 <script lang="ts">
-	import { clsx } from "clsx";
-	import type { HTMLAttributes } from "svelte/elements";
-	import type { Snippet } from "svelte";
+	import { cva, type VariantProps } from "class-variance-authority";
+	import { twMerge } from "tailwind-merge";
+	import type { HTMLButtonAttributes } from "svelte/elements";
+	import type { Component, Snippet } from "svelte";
 
-	type GlassElement =
-		"div" | "section" | "aside" | "header" | "footer" | "nav" | "main";
+	const buttonVariants = cva(
+		[
+			"inline-flex",
+			"items-center",
+			"justify-center",
+			"gap-2",
+			"select-none",
+			"font-medium",
+			"transition-all",
+			"duration-200",
+			"outline-none",
+			"disabled:pointer-events-none",
+			"disabled:opacity-50"
+		],
+		{
+			variants: {
+				variant: {
+					primary: [
+						"dex-glass",
+						"dex-glass-elevated",
+						"text-[color:var(--text-primary)]",
+						"border-[color:var(--dex-primary)]"
+					],
 
-	type GlassVariant =
-		"panel" | "hud" | "sidebar" | "dock" | "raised" | "floating";
+					secondary: [
+						"dex-glass",
+						"text-[color:var(--text-primary)]"
+					],
 
-	type GlassPadding = "none" | "sm" | "md" | "lg";
+					ghost: [
+						"bg-transparent",
+						"border",
+						"border-transparent",
+						"hover:bg-[color:var(--surface-2)]"
+					],
 
-	type GlassRadius = "md" | "lg" | "xl" | "full";
+					danger: [
+						"bg-[color:var(--dex-danger)]",
+						"text-white"
+					]
+				},
 
-	interface Props extends HTMLAttributes<HTMLElement> {
-		element?: GlassElement;
-		variant?: GlassVariant;
-		padding?: GlassPadding;
-		radius?: GlassRadius;
-		glow?: boolean;
-		interactive?: boolean;
-		class?: string;
-		children?: Snippet;
-	}
+				size: {
+					xs: "h-8 px-3 text-xs",
+					sm: "h-9 px-4 text-sm",
+					md: "h-11 px-5 text-sm",
+					lg: "h-12 px-6 text-base",
+					xl: "h-14 px-8 text-lg",
+
+					icon: "size-11 p-0"
+				},
+
+				rounded: {
+					sm: "rounded-md",
+					md: "rounded-lg",
+					lg: "rounded-xl",
+					full: "rounded-full"
+				},
+
+				glow: {
+					true: "dex-glow",
+					false: ""
+				},
+
+				interactive: {
+					true: "dex-interactive",
+					false: ""
+				}
+			},
+
+			defaultVariants: {
+				variant: "primary",
+				size: "md",
+				rounded: "lg",
+				glow: false,
+				interactive: true
+			}
+		}
+	);
+
+	type Props =
+		HTMLButtonAttributes &
+		VariantProps<typeof buttonVariants> & {
+
+			leftIcon?: Component;
+
+			rightIcon?: Component;
+
+			loading?: boolean;
+
+			children?: Snippet;
+
+			class?: string;
+		};
 
 	let {
-		element = "div",
-		variant = "panel",
-		padding = "md",
-		radius = "xl",
-		glow = false,
-		interactive = false,
-		class: className,
+		variant,
+		size,
+		rounded,
+		glow,
+		interactive,
+
+		leftIcon: LeftIcon,
+		rightIcon: RightIcon,
+
+		loading = false,
+
 		children,
+
+		class: className,
+
+		disabled,
+
 		...rest
 	}: Props = $props();
 
 	const classes = $derived(
-		clsx(
-			"dex-glass",
-			`dex-glass--${variant}`,
-			`dex-padding--${padding}`,
-			`dex-radius--${radius}`,
-			{
-				"dex-glass--glow": glow,
-				"dex-glass--interactive": interactive,
-			},
-			className,
-		),
+		twMerge(
+			buttonVariants({
+				variant,
+				size,
+				rounded,
+				glow,
+				interactive
+			}),
+			className
+		)
 	);
 </script>
 
-<svelte:element this={element} class={classes} {...rest}>
-	<div class="dex-glass__highlight"></div>
+<button
+	class={classes}
+	disabled={disabled || loading}
+	{...rest}
+>
+	{#if loading}
+		<div
+			class="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+		>
 
-	<div class="dex-glass__reflection"></div>
-	<div class="dex-glass__content">
-		{@render children?.()}
-	</div>
-</svelte:element>
+		</div>
+	{:else}
+		{#if LeftIcon}
+			<LeftIcon class="size-4 shrink-0" />
+		{/if}
+	{/if}
 
-<style>
-	.dex-glass {
-		position: relative;
+	{@render children?.()}
 
-		overflow: hidden;
-
-		border: 1px solid var(--glass-border);
-		background: linear-gradient(
-			180deg,
-			rgb(28 30 38 / 0.42),
-			rgb(18 20 28 / 0.3)
-		);
-
-		backdrop-filter: blur(var(--blur-lg)) saturate(185%) brightness(1.05);
-		box-shadow:
-			0 18px 60px rgb(0 0 0 / 0.38),
-			inset 0 1px 0 rgb(255 255 255 / 0.12),
-			inset 0 -1px 0 rgb(255 255 255 / 0.03);
-		transition:
-			transform 0.25s ease,
-			box-shadow 0.25s ease,
-			border-color 0.25s ease;
-	}
-
-	.dex-glass::before {
-		content: "";
-
-		position: absolute;
-		inset: 0;
-
-		background: linear-gradient(
-			180deg,
-			rgb(255 255 255 / 0.1),
-			transparent 45%
-		);
-
-		pointer-events: none;
-	}
-
-	.dex-glass__highlight {
-		position: absolute;
-
-		width: 280px;
-		height: 280px;
-
-		left: -120px;
-		top: -160px;
-
-		border-radius: 999px;
-
-		background: radial-gradient(
-			circle,
-			rgb(255 255 255 / 0.18),
-			transparent 70%
-		);
-
-		opacity: 0.22;
-		filter: blur(060px);
-	}
-
-	.dex-glass__reflection {
-		position: absolute;
-		inset: 0;
-
-		background: linear-gradient(
-			120deg,
-			transparent 20%,
-			rgb(255 255 255 / 0.05) 45%,
-			transparent 70%
-		);
-		opacity: 0.18;
-		pointer-events: none;
-	}
-
-	.dex-glass__content {
-		position: relative;
-		z-index: 1;
-	}
-
-	.dex-glass--interactive:hover {
-		transform: translateY(-4px);
-
-		border-color: rgb(255 255 255 / 0.18);
-
-		box-shadow:
-			0 32px 80px rgb(0 0 0 / 0.35),
-			0 0 30px rgb(120 170 255 / 0.08),
-			inset 0 1px 0 rgb(255 255 255 / 0.2);
-	}
-
-	.dex-glass--glow {
-		box-shadow:
-			0 0 40px rgb(100 160 255 / 0.12),
-			0 24px 70px rgb(0 0 0 / 0.32),
-			inset 0 1px 0 rgb(255 255 255 / 0.18);
-	}
-
-	.dex-glass--hud {
-		background: linear-gradient(
-			180deg,
-			rgb(255 255 255 / 0.14),
-			rgb(255 255 255 / 0.05)
-		);
-	}
-
-	.dex-glass--sidebar {
-		background: linear-gradient(
-			180deg,
-			rgb(255 255 255 / 0.08),
-			rgb(255 255 255 / 0.03)
-		);
-	}
-
-	.dex-glass--dock {
-		background: linear-gradient(
-			180deg,
-			rgb(255 255 255 / 0.12),
-			rgb(255 255 255 / 0.05)
-		);
-		box-shadow:
-			0 28px 80px rgb(0 0 0 /0.45),
-			inset 0 1px 0 rgb(255 255 255 /0.1);
-		backdrop-filter: blur(var(--blur-md)) saturate(200%);
-	}
-
-	.dex-glass--floating {
-		backdrop-filter: blur(var(--blur-xl)) saturate(220%);
-	}
-
-	.dex-padding--none {
-		padding: 0;
-	}
-
-	.dex-padding--sm {
-		padding: var(--space-3);
-	}
-
-	.dex-padding--md {
-		padding: var(--space-4);
-	}
-
-	.dex-padding--lg {
-		padding: var(--space-6);
-	}
-
-	.dex-radius--md {
-		border-radius: var(--radius-lg);
-	}
-
-	.dex-radius--lg {
-		border-radius: var(--radius-xl);
-	}
-
-	.dex-radius--xl {
-		border-radius: var(--radius-2xl);
-	}
-
-	.dex-radius--full {
-		border-radius: var(--radius-full);
-	}
-</style>
+	{#if !loading && RightIcon}
+		<RightIcon class="size-4 shrink-0" />
+	{/if}
+</button>
 </file>
 
 <file path="src/lib/ui/primitives/index.ts">
@@ -18347,91 +19550,6 @@ import type { Theme, ThemePalette } from "./types";
 /* Graphics */
 ⋮----
 /* Semantic */
-</file>
-
-<file path="src/app.css">
-/* ==========================================================================
-   DEX GLOBAL STYLES
-   ========================================================================== */
-⋮----
-:root {
-html,
-⋮----
-body {
-/* ========================================================================== */
-/* App */
-⋮----
-#app {
-⋮----
-/* Typography */
-⋮----
-h1,
-⋮----
-p {
-⋮----
-/* Selection */
-⋮----
-::selection {
-⋮----
-/* Links */
-⋮----
-a {
-⋮----
-/* Buttons */
-⋮----
-button {
-⋮----
-/* Images */
-⋮----
-img {
-⋮----
-/* Inputs */
-⋮----
-input,
-⋮----
-input:focus,
-⋮----
-/* Scrollbar */
-⋮----
-::-webkit-scrollbar {
-⋮----
-::-webkit-scrollbar-track {
-⋮----
-::-webkit-scrollbar-thumb {
-⋮----
-::-webkit-scrollbar-thumb:hover {
-⋮----
-/* Firefox */
-⋮----
-* {
-⋮----
-/* Utilities */
-⋮----
-.glass {
-⋮----
-.glass-heavy {
-⋮----
-.glow {
-⋮----
-.floating {
-⋮----
-.floating:hover {
-⋮----
-.panel {
-⋮----
-.blur-bg {
-⋮----
-/* Motion */
-⋮----
-/* Accessibility */
-⋮----
-:focus-visible {
-⋮----
-/* Tauri */
-⋮----
-[data-tauri-drag-region] {
-⋮----
-button,
 </file>
 
 <file path="src/app.html">
@@ -18467,6 +19585,1150 @@ button,
     "core:window:allow-set-title-bar-style"
   ]
 }
+</file>
+
+<file path="src-tauri/src/providers/dbus/provider.rs">
+use zbus::Proxy;
+⋮----
+/// Generic D-Bus proxy.
+///
+⋮----
+///
+/// Wraps a `zbus::Proxy` and provides a stable abstraction for all
+⋮----
+/// Wraps a `zbus::Proxy` and provides a stable abstraction for all
+/// DEX providers that communicate over D-Bus.
+⋮----
+/// DEX providers that communicate over D-Bus.
+///
+⋮----
+///
+/// Specialized providers (NetworkManager, ModemManager, UPower,
+⋮----
+/// Specialized providers (NetworkManager, ModemManager, UPower,
+/// BlueZ, Secret Service, etc.) compose this type rather than
+⋮----
+/// BlueZ, Secret Service, etc.) compose this type rather than
+/// interacting with `zbus::Proxy` directly.
+⋮----
+/// interacting with `zbus::Proxy` directly.
+pub struct DbusProxy<'a> {
+⋮----
+pub struct DbusProxy<'a> {
+⋮----
+/// Creates a new D-Bus proxy.
+    pub async fn new(
+⋮----
+pub async fn new(
+⋮----
+let proxy = Proxy::new(connection.inner(), destination, path, interface)
+⋮----
+.map_err(|_| DbusError::ProxyCreationFailed {
+service: destination.to_owned(),
+path: path.to_owned(),
+interface: interface.to_owned(),
+⋮----
+Ok(Self { proxy })
+⋮----
+/// Returns the underlying zbus proxy.
+    #[must_use]
+pub fn inner(&self) -> &Proxy<'a> {
+⋮----
+/// Returns the destination service.
+    #[must_use]
+pub fn destination(&self) -> &str {
+self.proxy.destination()
+⋮----
+/// Returns the object path.
+    #[must_use]
+pub fn path(&self) -> &str {
+self.proxy.path()
+⋮----
+/// Returns the interface name.
+    #[must_use]
+pub fn interface(&self) -> &str {
+self.proxy.interface()
+⋮----
+/// Calls a D-Bus method.
+    pub async fn call<R, B>(&self, method: &str, body: &B) -> Result<R, DbusError>
+⋮----
+pub async fn call<R, B>(&self, method: &str, body: &B) -> Result<R, DbusError>
+⋮----
+.call(method, body)
+⋮----
+.map_err(|error| DbusError::MethodCallFailed {
+method: method.to_owned(),
+reason: error.to_string(),
+⋮----
+/// Reads a property on the proxied object.
+    ///
+⋮----
+///
+    /// Calls `org.freedesktop.DBus.Properties.Get` with the proxy's
+⋮----
+/// Calls `org.freedesktop.DBus.Properties.Get` with the proxy's
+    /// interface and deserializes the reply into `T`.
+⋮----
+/// interface and deserializes the reply into `T`.
+    pub async fn get_property<T>(&self, name: &str) -> Result<T, DbusError>
+⋮----
+pub async fn get_property<T>(&self, name: &str) -> Result<T, DbusError>
+⋮----
+.get_property(name)
+⋮----
+method: format!("Get({name})"),
+⋮----
+/// Writes a property on the proxied object.
+    ///
+⋮----
+///
+    /// Calls `org.freedesktop.DBus.Properties.Set` with the proxy's
+⋮----
+/// Calls `org.freedesktop.DBus.Properties.Set` with the proxy's
+    /// interface.
+⋮----
+/// interface.
+    pub async fn set_property<T>(&self, name: &str, value: T) -> Result<(), DbusError>
+⋮----
+pub async fn set_property<T>(&self, name: &str, value: T) -> Result<(), DbusError>
+⋮----
+.set_property(name, value)
+⋮----
+method: format!("Set({name})"),
+</file>
+
+<file path="src-tauri/src/providers/network/connection.rs">
+/// Active network connection.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NetworkConnection {
+/// Stable identifier.
+    pub id: String,
+⋮----
+/// Connection name.
+    pub name: String,
+⋮----
+/// Associated adapter identifier.
+    pub adapter_id: String,
+⋮----
+/// Current state.
+    pub state: ConnectionState,
+⋮----
+/// IPv4 address.
+    pub ipv4: Option<String>,
+⋮----
+/// IPv6 address.
+    pub ipv6: Option<String>,
+⋮----
+/// Gateway.
+    pub gateway: Option<String>,
+⋮----
+/// DNS servers.
+    pub dns: Vec<String>,
+⋮----
+/// SSID (Wi-Fi only).
+    pub ssid: Option<String>,
+⋮----
+/// Signal strength (0–100).
+    pub signal_strength: Option<u8>,
+⋮----
+impl NetworkConnection {
+⋮----
+pub fn new(id: impl Into<String>, adapter_id: impl Into<String>) -> Self {
+⋮----
+id: id.into(),
+⋮----
+adapter_id: adapter_id.into(),
+⋮----
+pub fn is_connected(&self) -> bool {
+⋮----
+pub fn is_connecting(&self) -> bool {
+⋮----
+pub fn has_ipv4(&self) -> bool {
+self.ipv4.is_some()
+⋮----
+pub fn has_ipv6(&self) -> bool {
+self.ipv6.is_some()
+⋮----
+pub enum ConnectionState {
+</file>
+
+<file path="src-tauri/src/providers/network/errors.rs">
+use std::fmt;
+⋮----
+/// Errors returned by the Network provider.
+#[derive(Debug)]
+pub enum NetworkError {
+⋮----
+fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+⋮----
+write!(f, "network adapter '{}' not found", id)
+⋮----
+write!(f, "network connection '{}' not found", id)
+⋮----
+write!(f, "NetworkManager is unavailable")
+⋮----
+write!(f, "connection failed: {}", reason)
+⋮----
+write!(f, "disconnection failed: {}", reason)
+⋮----
+write!(f, "network scan failed: {}", reason)
+⋮----
+write!(f, "invalid configuration: {}", reason)
+⋮----
+write!(f, "permission denied")
+⋮----
+write!(f, "operation timed out")
+⋮----
+write!(f, "internal network error: {}", reason)
+⋮----
+fn from(error: crate::providers::dbus::DbusError) -> Self {
+⋮----
+reason: error.to_string(),
+</file>
+
+<file path="src-tauri/src/providers/network/events.rs">
+use super::adapter::NetworkAdapterKind;
+⋮----
+/// Events emitted by the NetworkProvider.
+///
+⋮----
+///
+/// These events are intended to be published on the DEX event bus
+⋮----
+/// These events are intended to be published on the DEX event bus
+/// and consumed by widgets and application services.
+⋮----
+/// and consumed by widgets and application services.
+///
+⋮----
+///
+/// The payloads match the wire contract consumed by the frontend
+⋮----
+/// The payloads match the wire contract consumed by the frontend
+/// (see `dex.network.*` event schemas).
+⋮----
+/// (see `dex.network.*` event schemas).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum NetworkEvent {
+⋮----
+pub struct NetworkAdapterEvent {
+⋮----
+pub struct NetworkAdapterStateChangedEvent {
+</file>
+
+<file path="src-tauri/src/providers/network/mod.rs">
+pub mod adapter;
+pub mod connection;
+pub mod errors;
+pub mod events;
+pub mod provider;
+pub mod statistics;
+⋮----
+pub use errors::NetworkError;
+pub use events::NetworkEvent;
+pub use provider::NetworkProvider;
+pub use statistics::NetworkStatistics;
+</file>
+
+<file path="src-tauri/src/providers/network/provider.rs">
+use std::collections::HashMap;
+use std::path::Path;
+⋮----
+use zvariant::OwnedObjectPath;
+⋮----
+use super::errors::NetworkError;
+⋮----
+use super::statistics::NetworkStatistics;
+⋮----
+/// NetworkManager D-Bus well-known names.
+const NM_DESTINATION: &str = "org.freedesktop.NetworkManager";
+⋮----
+/// Adapters and connections as reported by NetworkManager.
+struct NmSnapshot {
+⋮----
+struct NmSnapshot {
+⋮----
+/// Client for the NetworkManager D-Bus service.
+///
+⋮----
+///
+/// Proxies are created fresh per call from the stored connection because
+⋮----
+/// Proxies are created fresh per call from the stored connection because
+/// `zbus::Proxy` is lifetime-bound to the connection; this keeps the type
+⋮----
+/// `zbus::Proxy` is lifetime-bound to the connection; this keeps the type
+/// self-contained and cheap (proxy creation is a lightweight operation).
+⋮----
+/// self-contained and cheap (proxy creation is a lightweight operation).
+struct NetworkManagerClient {
+⋮----
+struct NetworkManagerClient {
+⋮----
+impl NetworkManagerClient {
+/// Creates a new client, connecting to the system bus.
+    fn new() -> Result<Self, NetworkError> {
+⋮----
+fn new() -> Result<Self, NetworkError> {
+⋮----
+.enable_all()
+.build()
+.map_err(|error| NetworkError::Internal {
+reason: error.to_string(),
+⋮----
+.block_on(DbusConnection::system())
+⋮----
+Ok(Self { runtime, conn })
+⋮----
+/// Pulls a fresh snapshot of devices and active connections.
+    fn refresh(&self) -> Result<NmSnapshot, NetworkError> {
+⋮----
+fn refresh(&self) -> Result<NmSnapshot, NetworkError> {
+self.runtime.block_on(async {
+⋮----
+let devices: Vec<OwnedObjectPath> = manager.call("GetDevices", &()).await?;
+⋮----
+let device_path = device.as_str().to_string();
+⋮----
+let interface: String = device_proxy.get_property("Interface").await?;
+let device_type: u32 = device_proxy.get_property("DeviceType").await?;
+let state: u32 = device_proxy.get_property("State").await?;
+let managed: bool = device_proxy.get_property("Managed").await?;
+⋮----
+device_path.clone(),
+interface.clone(),
+device_type_to_kind(device_type),
+⋮----
+adapter.name = interface.clone();
+adapter.state = device_state_to_state(state);
+⋮----
+if !mac.is_empty() {
+adapter.mac_address = Some(mac);
+⋮----
+if !driver.is_empty() {
+adapter.driver = Some(driver);
+⋮----
+adapter.speed_mbps = Some(speed);
+⋮----
+if !ip4.as_str().is_empty() && ip4.as_str() != "/" {
+if let Some((ipv4, gateway, dns)) = self.read_ip4_config(ip4.as_str()).await
+⋮----
+if !ip6.as_str().is_empty() && ip6.as_str() != "/" {
+if let Some(ipv6) = self.read_ip6_config(ip6.as_str()).await {
+⋮----
+if !active.as_str().is_empty() && active.as_str() != "/" {
+⋮----
+.read_active_connection(active.as_str(), &interface)
+⋮----
+connections.insert(connection.id.clone(), connection);
+⋮----
+adapters.insert(interface, adapter);
+⋮----
+Ok(NmSnapshot {
+⋮----
+/// Reads IPv4 addresses, gateway and DNS servers from an IP4Config object.
+    async fn read_ip4_config(
+⋮----
+async fn read_ip4_config(
+⋮----
+.ok()?;
+⋮----
+if let Some(&ip) = address.first() {
+ipv4.push(u32_to_ipv4(ip));
+⋮----
+if !g.is_empty() {
+gateway = Some(g);
+⋮----
+dns.push(u32_to_ipv4(nameserver));
+⋮----
+Some((ipv4, gateway, dns))
+⋮----
+/// Reads IPv6 addresses from an IP6Config object.
+    async fn read_ip6_config(&self, path: &str) -> Option<Vec<String>> {
+⋮----
+async fn read_ip6_config(&self, path: &str) -> Option<Vec<String>> {
+⋮----
+ipv6.push(bytes_to_ipv6(&bytes));
+⋮----
+Some(ipv6)
+⋮----
+/// Reads an active connection and maps it to a [`NetworkConnection`].
+    async fn read_active_connection(
+⋮----
+async fn read_active_connection(
+⋮----
+let id: String = proxy.get_property("Id").await.ok()?;
+let connection_type: String = proxy.get_property("Type").await.unwrap_or_default();
+let state: u32 = proxy.get_property("State").await.unwrap_or(0);
+⋮----
+NetworkConnection::new(path.to_string(), adapter_interface.to_string());
+⋮----
+connection.state = active_state_to_connection_state(state);
+⋮----
+if let Some((ipv4, gateway, dns)) = self.read_ip4_config(ip4.as_str()).await {
+connection.ipv4 = ipv4.first().cloned();
+⋮----
+if !ssid.is_empty() {
+connection.ssid = Some(String::from_utf8_lossy(&ssid).into_owned());
+⋮----
+// Signal strength is best-effort; reading it requires an
+// extra AccessPoint round-trip, so it is left unset for now.
+⋮----
+Some(connection)
+⋮----
+/// Network provider.
+///
+⋮----
+///
+/// Responsible for managing network adapters and active connections.
+⋮----
+/// Responsible for managing network adapters and active connections.
+/// Adapter data is sourced from sysfs + /proc (always available), then
+⋮----
+/// Adapter data is sourced from sysfs + /proc (always available), then
+/// enriched with NetworkManager state over D-Bus when the service is
+⋮----
+/// enriched with NetworkManager state over D-Bus when the service is
+/// reachable. Statistics come from sysinfo.
+⋮----
+/// reachable. Statistics come from sysinfo.
+pub struct NetworkProvider {
+⋮----
+pub struct NetworkProvider {
+⋮----
+impl NetworkProvider {
+⋮----
+pub fn new() -> Self {
+⋮----
+pub fn adapters(&self) -> &HashMap<String, NetworkAdapter> {
+⋮----
+pub fn connections(&self) -> &HashMap<String, NetworkConnection> {
+⋮----
+pub fn statistics(&self) -> &HashMap<String, NetworkStatistics> {
+⋮----
+pub fn adapter_statistics(&self, interface: &str) -> Option<&NetworkStatistics> {
+self.statistics.get(interface)
+⋮----
+pub fn adapter_by_interface(&self, interface: &str) -> Option<&NetworkAdapter> {
+self.adapters.get(interface)
+⋮----
+pub fn add_adapter(&mut self, adapter: NetworkAdapter) {
+self.adapters.insert(adapter.id.clone(), adapter);
+⋮----
+pub fn remove_adapter(&mut self, id: &str) -> Option<NetworkAdapter> {
+self.adapters.remove(id)
+⋮----
+pub fn add_connection(&mut self, connection: NetworkConnection) {
+self.connections.insert(connection.id.clone(), connection);
+⋮----
+pub fn remove_connection(&mut self, id: &str) -> Option<NetworkConnection> {
+self.connections.remove(id)
+⋮----
+pub fn emit(&mut self, event: NetworkEvent) {
+self.events.push(event);
+⋮----
+pub fn events(&self) -> &[NetworkEvent] {
+⋮----
+pub fn clear_events(&mut self) {
+self.events.clear();
+⋮----
+/// Enables or disables an adapter through NetworkManager.
+    ///
+⋮----
+///
+    /// Fails honestly with [`NetworkError::ManagerUnavailable`] when
+⋮----
+/// Fails honestly with [`NetworkError::ManagerUnavailable`] when
+    /// NetworkManager is not reachable. On success the adapter's enabled
+⋮----
+/// NetworkManager is not reachable. On success the adapter's enabled
+    /// flag and state are flipped and an `AdapterStateChanged` event is
+⋮----
+/// flag and state are flipped and an `AdapterStateChanged` event is
+    /// emitted.
+⋮----
+/// emitted.
+    pub fn set_enabled(&mut self, interface: &str, enabled: bool) -> Result<(), NetworkError> {
+⋮----
+pub fn set_enabled(&mut self, interface: &str, enabled: bool) -> Result<(), NetworkError> {
+let client = self.nm.as_ref().ok_or(NetworkError::ManagerUnavailable)?;
+client.runtime.block_on(async {
+⋮----
+let device_interface: String = device_proxy.get_property("Interface").await?;
+⋮----
+return Ok(());
+⋮----
+Err(NetworkError::AdapterNotFound {
+id: interface.to_string(),
+⋮----
+if let Some(adapter) = self.adapters.get_mut(interface) {
+⋮----
+self.events.push(NetworkEvent::AdapterStateChanged(
+⋮----
+interface: interface.to_string(),
+previous: previous.as_str().to_string(),
+current: current.as_str().to_string(),
+⋮----
+Ok(())
+⋮----
+/// Refreshes adapter, connection and statistics data and emits diff
+    /// events. Never panics; on error the health is set to Degraded/Failed
+⋮----
+/// events. Never panics; on error the health is set to Degraded/Failed
+    /// and `Ok(())` is returned so the ticker keeps running.
+⋮----
+/// and `Ok(())` is returned so the ticker keeps running.
+    pub fn refresh(&mut self) -> Result<(), ProviderError> {
+⋮----
+pub fn refresh(&mut self) -> Result<(), ProviderError> {
+⋮----
+let sysfs_adapters = match self.read_sysfs() {
+⋮----
+// NetworkManager is optional: when unavailable (or on a transient
+// D-Bus failure) we keep serving the sysfs snapshot.
+let nm = self.nm.as_ref().and_then(|client| client.refresh().ok());
+⋮----
+if let Some(nm_adapter) = snapshot.adapters.get(&adapter.interface) {
+// NetworkManager is authoritative for state/addresses.
+⋮----
+adapter.ipv4 = nm_adapter.ipv4.clone();
+adapter.ipv6 = nm_adapter.ipv6.clone();
+adapter.gateway = nm_adapter.gateway.clone();
+adapter.dns = nm_adapter.dns.clone();
+if nm_adapter.speed_mbps.is_some() {
+⋮----
+if nm_adapter.driver.is_some() {
+adapter.driver = nm_adapter.driver.clone();
+⋮----
+if nm_adapter.mac_address.is_some() {
+adapter.mac_address = nm_adapter.mac_address.clone();
+⋮----
+adapters.insert(adapter.interface.clone(), adapter);
+⋮----
+// Devices known to NetworkManager but missing from sysfs (e.g.
+// virtual devices) are still surfaced.
+⋮----
+.entry(interface.clone())
+.or_insert_with(|| nm_adapter.clone());
+⋮----
+self.refresh_statistics();
+self.diff_adapters(&adapters);
+⋮----
+self.connections = nm.map(|snapshot| snapshot.connections).unwrap_or_default();
+⋮----
+self.health = if self.nm.is_some() {
+⋮----
+/// Drains pending events mapped to their wire `(name, payload)` pairs.
+    ///
+⋮----
+///
+    /// Connection and statistics events are intentionally not emitted
+⋮----
+/// Connection and statistics events are intentionally not emitted
+    /// here: `dex.network.statistics` is produced by the backend ticker
+⋮----
+/// here: `dex.network.statistics` is produced by the backend ticker
+    /// from [`NetworkStatistics`] and connection changes are covered by
+⋮----
+/// from [`NetworkStatistics`] and connection changes are covered by
+    /// `dex.network.adapter_state_changed`.
+⋮----
+/// `dex.network.adapter_state_changed`.
+    pub fn drain_events(&mut self) -> Vec<(String, serde_json::Value)> {
+⋮----
+pub fn drain_events(&mut self) -> Vec<(String, serde_json::Value)> {
+⋮----
+.into_iter()
+.map(|event| match event {
+⋮----
+"dex.network.adapter_added".to_string(),
+serde_json::to_value(payload).unwrap_or(serde_json::Value::Null),
+⋮----
+"dex.network.adapter_removed".to_string(),
+⋮----
+"dex.network.adapter_state_changed".to_string(),
+⋮----
+.collect()
+⋮----
+/// Reads adapter data from sysfs and routing/DNS from /proc.
+    ///
+⋮----
+///
+    /// This source is always available and cheap. IPv4/IPv6 addresses are
+⋮----
+/// This source is always available and cheap. IPv4/IPv6 addresses are
+    /// intentionally left empty here and are only populated by the
+⋮----
+/// intentionally left empty here and are only populated by the
+    /// NetworkManager path (documented degradation when NM is absent).
+⋮----
+/// NetworkManager path (documented degradation when NM is absent).
+    fn read_sysfs(&self) -> Result<Vec<NetworkAdapter>, ProviderError> {
+⋮----
+fn read_sysfs(&self) -> Result<Vec<NetworkAdapter>, ProviderError> {
+⋮----
+std::fs::read_dir(net_dir).map_err(|error| ProviderError::CommunicationError {
+⋮----
+for entry in entries.flatten() {
+let interface = entry.file_name().to_string_lossy().into_owned();
+let base = entry.path();
+⋮----
+interface_kind(&interface),
+⋮----
+adapter.mac_address = read_file(&base.join("address"));
+adapter.speed_mbps = read_file(&base.join("speed"))
+.and_then(|value| value.parse::<u32>().ok())
+.filter(|&speed| speed != u32::MAX);
+let operstate = read_file(&base.join("operstate"));
+adapter.state = operstate_to_state(operstate.as_deref());
+adapter.enabled = operstate.as_deref() != Some("down");
+adapter.driver = read_driver(&base);
+⋮----
+adapters.push(adapter);
+⋮----
+// IPv4 routes from /proc/net/route (hex, host byte order).
+⋮----
+for line in content.lines().skip(1) {
+if let Some((destination, gateway, netmask, interface)) = parse_route_line(line) {
+routes.push(NetworkRoute {
+⋮----
+gateway: Some(gateway),
+netmask: Some(netmask),
+⋮----
+// DNS servers from /etc/resolv.conf (best-effort).
+⋮----
+for line in content.lines() {
+let line = line.trim();
+if let Some(rest) = line.strip_prefix("nameserver") {
+let ip = rest.trim();
+if !ip.is_empty() {
+dns.push(ip.to_string());
+⋮----
+// Attach routes per interface and the default gateway + DNS to the
+// interface that owns the default route.
+⋮----
+if let Some(adapter) = adapters.iter_mut().find(|a| a.interface == route.interface) {
+adapter.routes.push(route.clone());
+⋮----
+.iter()
+.find(|route| route.destination == "0.0.0.0")
+.cloned()
+⋮----
+.iter_mut()
+.find(|a| a.interface == default.interface)
+⋮----
+Ok(adapters)
+⋮----
+/// Refreshes per-interface byte/packet counters and rates.
+    fn refresh_statistics(&mut self) {
+⋮----
+fn refresh_statistics(&mut self) {
+⋮----
+.map(|previous| now.duration_since(previous).as_millis() as u64)
+.unwrap_or(0);
+self.last_refresh = Some(now);
+⋮----
+.get_or_insert_with(sysinfo::Networks::new);
+networks.refresh(true);
+⋮----
+for (interface, data) in networks.iter() {
+let rx_bytes = data.total_received();
+let tx_bytes = data.total_transmitted();
+⋮----
+let (rx_rate, tx_rate) = match self.previous_stats.get(interface) {
+⋮----
+compute_rate(*previous_rx, rx_bytes, elapsed_ms),
+compute_rate(*previous_tx, tx_bytes, elapsed_ms),
+⋮----
+.insert(interface.clone(), (rx_bytes, tx_bytes));
+⋮----
+statistics.insert(
+⋮----
+rx_packets: data.total_packets_received(),
+tx_packets: data.total_packets_transmitted(),
+rx_errors: data.total_errors_on_received(),
+tx_errors: data.total_errors_on_transmitted(),
+⋮----
+fn diff_adapters(&mut self, new: &HashMap<String, NetworkAdapter>) {
+self.events.extend(diff_adapters_pure(&self.adapters, new));
+⋮----
+impl Default for NetworkProvider {
+fn default() -> Self {
+⋮----
+impl Provider for NetworkProvider {
+fn id(&self) -> &'static str {
+⋮----
+fn name(&self) -> &'static str {
+⋮----
+fn version(&self) -> &'static str {
+env!("CARGO_PKG_VERSION")
+⋮----
+fn capabilities(&self) -> &'static [Capability] {
+⋮----
+fn initialize(&mut self) -> Result<(), ProviderError> {
+⋮----
+// NetworkManager is optional: on failure we degrade gracefully and
+// keep serving the sysfs-based snapshot.
+self.nm = NetworkManagerClient::new().ok();
+⋮----
+self.refresh()
+⋮----
+fn shutdown(&mut self) -> Result<(), ProviderError> {
+⋮----
+self.adapters.clear();
+self.connections.clear();
+⋮----
+self.statistics.clear();
+self.previous_stats.clear();
+⋮----
+fn state(&self) -> ProviderState {
+⋮----
+fn health(&self) -> ProviderHealth {
+⋮----
+/// Computes a rate in bytes/second from a counter delta over an elapsed
+/// window measured in milliseconds.
+⋮----
+/// window measured in milliseconds.
+fn compute_rate(previous: u64, now: u64, elapsed_ms: u64) -> u64 {
+⋮----
+fn compute_rate(previous: u64, now: u64, elapsed_ms: u64) -> u64 {
+⋮----
+/// Parses one `/proc/net/route` line into `(destination, gateway, netmask,
+/// interface)` dotted-quad strings.
+⋮----
+/// interface)` dotted-quad strings.
+fn parse_route_line(line: &str) -> Option<(String, String, String, String)> {
+⋮----
+fn parse_route_line(line: &str) -> Option<(String, String, String, String)> {
+let mut fields = line.split_whitespace();
+let interface = fields.next()?;
+let destination = fields.next()?;
+let gateway = fields.next()?;
+let _ = fields.next(); // Flags
+let _ = fields.next(); // RefCnt
+let _ = fields.next(); // Use
+let _ = fields.next(); // Metric
+let netmask = fields.next()?;
+Some((
+hex_to_ipv4(destination)?,
+hex_to_ipv4(gateway)?,
+hex_to_ipv4(netmask)?,
+interface.to_string(),
+⋮----
+/// Converts a little-endian hex IPv4 (as found in `/proc/net/route`) to a
+/// dotted-quad string.
+⋮----
+/// dotted-quad string.
+fn hex_to_ipv4(hex: &str) -> Option<String> {
+⋮----
+fn hex_to_ipv4(hex: &str) -> Option<String> {
+let value = u32::from_str_radix(hex, 16).ok()?;
+Some(format!(
+⋮----
+/// Maps a network interface name to its adapter kind.
+fn interface_kind(interface: &str) -> NetworkAdapterKind {
+⋮----
+fn interface_kind(interface: &str) -> NetworkAdapterKind {
+⋮----
+if interface.starts_with("wlan") || interface.starts_with("wlp") || interface.starts_with("wl")
+⋮----
+if interface.starts_with("eth") || interface.starts_with("enp") || interface.starts_with("ens")
+⋮----
+if interface.starts_with("wwan")
+|| interface.starts_with("rmnet")
+|| interface.starts_with("usb")
+⋮----
+/// Maps an `operstate` value to an adapter state.
+fn operstate_to_state(operstate: Option<&str>) -> NetworkAdapterState {
+⋮----
+fn operstate_to_state(operstate: Option<&str>) -> NetworkAdapterState {
+⋮----
+/// Maps an NetworkManager device type to an adapter kind.
+fn device_type_to_kind(device_type: u32) -> NetworkAdapterKind {
+⋮----
+fn device_type_to_kind(device_type: u32) -> NetworkAdapterKind {
+⋮----
+/// Maps a NetworkManager device state to an adapter state.
+fn device_state_to_state(state: u32) -> NetworkAdapterState {
+⋮----
+fn device_state_to_state(state: u32) -> NetworkAdapterState {
+⋮----
+/// Maps a NetworkManager active-connection state to a connection state.
+fn active_state_to_connection_state(state: u32) -> ConnectionState {
+⋮----
+fn active_state_to_connection_state(state: u32) -> ConnectionState {
+⋮----
+/// Computes the diff between two adapter snapshots as events.
+fn diff_adapters_pure(
+⋮----
+fn diff_adapters_pure(
+⋮----
+if !old.contains_key(interface) {
+events.push(NetworkEvent::AdapterAdded(NetworkAdapterEvent {
+interface: interface.clone(),
+name: adapter.name.clone(),
+⋮----
+for interface in old.keys() {
+if !new.contains_key(interface) {
+events.push(NetworkEvent::AdapterRemoved {
+⋮----
+if let Some(previous) = old.get(interface) {
+⋮----
+events.push(NetworkEvent::AdapterStateChanged(
+⋮----
+previous: previous.state.as_str().to_string(),
+current: adapter.state.as_str().to_string(),
+⋮----
+/// Reads a single-value sysfs file.
+fn read_file(path: &Path) -> Option<String> {
+⋮----
+fn read_file(path: &Path) -> Option<String> {
+⋮----
+.ok()
+.map(|value| value.trim().to_string())
+⋮----
+/// Resolves the driver name backing an interface (best-effort).
+fn read_driver(base: &Path) -> Option<String> {
+⋮----
+fn read_driver(base: &Path) -> Option<String> {
+let target = std::fs::read_link(base.join("device/driver")).ok()?;
+⋮----
+.file_name()
+.map(|name| name.to_string_lossy().into_owned())
+⋮----
+/// Converts a network-byte-order IPv4 word to a dotted-quad string.
+fn u32_to_ipv4(value: u32) -> String {
+⋮----
+fn u32_to_ipv4(value: u32) -> String {
+format!(
+⋮----
+/// Converts a 16-byte IPv6 address to a hex-colon string.
+fn bytes_to_ipv6(bytes: &[u8]) -> String {
+⋮----
+fn bytes_to_ipv6(bytes: &[u8]) -> String {
+⋮----
+for chunk in bytes.chunks(2) {
+let hi = chunk.first().copied().unwrap_or(0) as u16;
+let lo = chunk.get(1).copied().unwrap_or(0) as u16;
+groups.push(format!("{:x}", (hi << 8) | lo));
+⋮----
+groups.join(":")
+⋮----
+mod tests {
+⋮----
+fn adapter_kind_serializes_snake_case() {
+let serialized = serde_json::to_value(NetworkAdapterKind::Wireless).expect("serialize");
+assert_eq!(serialized, serde_json::json!("wireless"));
+assert_eq!(
+⋮----
+fn adapter_state_serializes_snake_case() {
+⋮----
+assert_eq!(state.as_str(), expected);
+⋮----
+fn connection_state_serializes_snake_case() {
+let serialized = serde_json::to_value(ConnectionState::Connected).expect("serialize");
+assert_eq!(serialized, serde_json::json!("connected"));
+⋮----
+fn adapter_added_event_matches_wire_contract() {
+⋮----
+interface: "wlan0".to_string(),
+name: "wlan0".to_string(),
+⋮----
+let value = serde_json::to_value(event).expect("serialize");
+⋮----
+fn state_changed_event_matches_wire_contract() {
+⋮----
+interface: "eth0".to_string(),
+previous: "disconnected".to_string(),
+current: "connected".to_string(),
+⋮----
+fn parse_route_line_converts_hex_to_decimal_ip() {
+// "010011AC" (LE) == 172.17.0.1, "00000000" == 0.0.0.0
+⋮----
+let parsed = parse_route_line(line).expect("parse");
+⋮----
+fn parse_route_line_ignores_header_and_garbage() {
+assert!(parse_route_line("Iface Destination Gateway Flags").is_none());
+assert!(parse_route_line("eth0\tnot-hex\t00000000").is_none());
+⋮----
+fn operstate_mapping() {
+⋮----
+assert_eq!(operstate_to_state(None), NetworkAdapterState::Unknown);
+⋮----
+fn interface_kind_mapping() {
+assert_eq!(interface_kind("lo"), NetworkAdapterKind::Loopback);
+assert_eq!(interface_kind("eth0"), NetworkAdapterKind::Ethernet);
+assert_eq!(interface_kind("enp3s0"), NetworkAdapterKind::Ethernet);
+assert_eq!(interface_kind("wlan0"), NetworkAdapterKind::Wireless);
+assert_eq!(interface_kind("wlp2s0"), NetworkAdapterKind::Wireless);
+assert_eq!(interface_kind("wwan0"), NetworkAdapterKind::Cellular);
+assert_eq!(interface_kind("rmnet0"), NetworkAdapterKind::Cellular);
+assert_eq!(interface_kind("docker0"), NetworkAdapterKind::Virtual);
+⋮----
+fn compute_rate_is_bps() {
+assert_eq!(compute_rate(0, 1_000, 1_000), 1_000);
+assert_eq!(compute_rate(100, 1_100, 1_000), 1_000);
+assert_eq!(compute_rate(0, 500, 250), 2_000);
+assert_eq!(compute_rate(1_000, 1_000, 1_000), 0);
+// Counter reset / wrap must not underflow or panic.
+assert_eq!(compute_rate(5_000, 1_000, 1_000), 0);
+// Zero elapsed window yields zero rate.
+assert_eq!(compute_rate(0, 1_000, 0), 0);
+⋮----
+fn diff_detects_added_removed_changed() {
+fn adapter(interface: &str, state: NetworkAdapterState) -> NetworkAdapter {
+⋮----
+"eth0".to_string(),
+adapter("eth0", NetworkAdapterState::Disconnected),
+⋮----
+"wlan0".to_string(),
+adapter("wlan0", NetworkAdapterState::Connected),
+⋮----
+.collect();
+⋮----
+let mut new: HashMap<String, NetworkAdapter> = old.clone();
+new.insert(
+"eth1".to_string(),
+adapter("eth1", NetworkAdapterState::Connected),
+⋮----
+new.get_mut("eth0").expect("adapter").state = NetworkAdapterState::Connected;
+new.remove("wlan0");
+⋮----
+let events = diff_adapters_pure(&old, &new);
+assert_eq!(events.len(), 3);
+⋮----
+assert!(events.iter().any(|e| matches!(
+⋮----
+fn diff_is_empty_when_unchanged() {
+⋮----
+assert!(diff_adapters_pure(&map, &map).is_empty());
+⋮----
+fn adapter_new_initializes_wire_fields() {
+⋮----
+assert!(adapter.ipv4.is_empty());
+assert!(adapter.ipv6.is_empty());
+assert!(adapter.gateway.is_none());
+assert!(adapter.dns.is_empty());
+assert!(adapter.routes.is_empty());
+assert!(!adapter.enabled);
+⋮----
+fn hex_to_ipv4_handles_le_encoding() {
+⋮----
+assert_eq!(hex_to_ipv4("00000000").expect("ip"), "0.0.0.0".to_string());
+assert!(hex_to_ipv4("zz").is_none());
+</file>
+
+<file path="src-tauri/src/providers/process/error.rs">
+use std::fmt;
+⋮----
+/// Errors returned by the Process provider.
+#[derive(Debug, PartialEq, Eq)]
+pub enum ProcessError {
+⋮----
+fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+⋮----
+write!(f, "process {} not found", pid)
+⋮----
+write!(f, "failed to spawn process: {}", reason)
+⋮----
+write!(f, "failed to terminate process {}: {}", pid, reason)
+⋮----
+write!(f, "permission denied")
+⋮----
+write!(f, "invalid command")
+⋮----
+write!(f, "operation timed out")
+⋮----
+write!(f, "internal process error: {}", reason)
+</file>
+
+<file path="src-tauri/src/providers/process/mod.rs">
+pub mod error;
+pub mod events;
+mod proc_reader;
+pub mod process;
+pub mod provider;
+pub mod resource;
+pub mod task;
+⋮----
+pub use error::ProcessError;
+pub use events::ProcessEvent;
+⋮----
+pub use resource::ProcessResourceUsage;
+</file>
+
+<file path="src-tauri/src/providers/process/process.rs">
+use super::resource::ProcessResourceUsage;
+⋮----
+/// Runtime process information.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Process {
+/// Operating system process identifier.
+    pub pid: u32,
+⋮----
+/// Parent process identifier.
+    pub parent_pid: Option<u32>,
+⋮----
+/// Process name.
+    pub name: String,
+⋮----
+/// Executable path.
+    pub executable: Option<String>,
+⋮----
+/// Command line.
+    pub command: Vec<String>,
+⋮----
+/// Working directory.
+    pub cwd: Option<String>,
+⋮----
+/// Owner username.
+    pub user: Option<String>,
+⋮----
+/// Current state.
+    pub state: ProcessState,
+⋮----
+/// Scheduling priority.
+    pub priority: ProcessPriority,
+⋮----
+/// Resource usage.
+    pub resources: ProcessResourceUsage,
+⋮----
+impl Process {
+⋮----
+pub fn new(pid: u32, name: impl Into<String>) -> Self {
+⋮----
+name: name.into(),
+⋮----
+pub fn is_running(&self) -> bool {
+⋮----
+pub fn is_sleeping(&self) -> bool {
+⋮----
+pub fn is_zombie(&self) -> bool {
+⋮----
+pub fn command_line(&self) -> String {
+self.command.join(" ")
+⋮----
+pub enum ProcessState {
+⋮----
+pub enum ProcessPriority {
+</file>
+
+<file path="src-tauri/src/providers/process/task.rs">
+/// A task represents work initiated by DEX.
+///
+⋮----
+///
+/// Unlike a Process, a Task is a logical unit that may spawn one or
+⋮----
+/// Unlike a Process, a Task is a logical unit that may spawn one or
+/// more operating system processes.
+⋮----
+/// more operating system processes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Task {
+/// Stable task identifier.
+    pub id: String,
+⋮----
+/// Display name.
+    pub name: String,
+⋮----
+/// Root process.
+    pub pid: Option<u32>,
+⋮----
+/// Current task state.
+    pub state: TaskState,
+⋮----
+/// Exit code once completed.
+    pub exit_code: Option<i32>,
+⋮----
+impl Task {
+⋮----
+pub fn new(id: impl Into<String>, name: impl Into<String>) -> Self {
+⋮----
+id: id.into(),
+name: name.into(),
+⋮----
+pub fn is_running(&self) -> bool {
+⋮----
+pub fn is_finished(&self) -> bool {
+matches!(
+⋮----
+pub enum TaskState {
+</file>
+
+<file path="src-tauri/src/providers/provider.rs">
+/// Every system integration inside DEX implements this trait.
+///
+⋮----
+///
+/// Providers expose operating-system capabilities (Network, Git, Hyprland, DBus, Terminal, etc.)
+⋮----
+/// Providers expose operating-system capabilities (Network, Git, Hyprland, DBus, Terminal, etc.)
+/// through a common lifecycle.
+⋮----
+/// through a common lifecycle.
+///
+⋮----
+///
+/// Providers never contain business logic.
+⋮----
+/// Providers never contain business logic.
+/// They only expose capabilities to the Kernel.
+⋮----
+/// They only expose capabilities to the Kernel.
+///
+⋮----
+///
+/// `refresh` and `drain_events` are optional hooks driven by the background
+⋮----
+/// `refresh` and `drain_events` are optional hooks driven by the background
+/// sampling loop: `refresh` lets a provider update its internal state each
+⋮----
+/// sampling loop: `refresh` lets a provider update its internal state each
+/// tick, and `drain_events` returns any wire events the provider produced
+⋮----
+/// tick, and `drain_events` returns any wire events the provider produced
+/// since the last drain (each tuple is `(wire event name, JSON payload)`).
+⋮----
+/// since the last drain (each tuple is `(wire event name, JSON payload)`).
+pub trait Provider: Send + Sync {
+⋮----
+pub trait Provider: Send + Sync {
+⋮----
+fn is_ready(&self) -> bool {
+self.state() == ProviderState::Running && self.health() == ProviderHealth::Ready
+⋮----
+/// Refreshes the provider's internal state. Called once per sampling tick.
+    ///
+⋮----
+///
+    /// The default implementation is a no-op; providers that need to poll an
+⋮----
+/// The default implementation is a no-op; providers that need to poll an
+    /// external source override this.
+⋮----
+/// external source override this.
+    fn refresh(&mut self) -> Result<(), ProviderError> {
+⋮----
+fn refresh(&mut self) -> Result<(), ProviderError> {
+Ok(())
+⋮----
+/// Returns wire events produced since the last call and clears them.
+    ///
+⋮----
+///
+    /// Each tuple is `(wire event name, JSON payload)`, e.g.
+⋮----
+/// Each tuple is `(wire event name, JSON payload)`, e.g.
+    /// `("dex.process.spawned", {"pid": 123, "name": "kitty"})`. The default
+⋮----
+/// `("dex.process.spawned", {"pid": 123, "name": "kitty"})`. The default
+    /// implementation returns no events.
+⋮----
+/// implementation returns no events.
+    fn drain_events(&mut self) -> Vec<(String, serde_json::Value)> {
+⋮----
+fn drain_events(&mut self) -> Vec<(String, serde_json::Value)> {
 </file>
 
 <file path="src-tauri/src/utils/mod.rs">
@@ -18517,24 +20779,6 @@ Ok(())
 .expect("error while running tauri application");
 </file>
 
-<file path=".gitignore">
-.DS_Store
-node_modules
-/build
-/.svelte-kit
-/package
-.env
-.env.*
-!.env.example
-vite.config.js.timestamp-*
-vite.config.ts.timestamp-*
-
-# Deepwork session state (git-local, OpenCode-readable)
-.slim/deepwork/
-.ignore
-.obsidian/
-</file>
-
 <file path="package.json">
 {
   "name": "omnizya-dex",
@@ -18545,6 +20789,7 @@ vite.config.ts.timestamp-*
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
+    "cargo:check": "cargo check --manifest-path ./src-tauri/Cargo.toml",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "lint": "eslint src/",
@@ -18653,6 +20898,57 @@ theme store, Rust command scaffolding — no business features yet. See
 [`docs/10-product/11_Product_Roadmap.md`](docs/10-product/11_Product_Roadmap.md).
 </file>
 
+<file path="src/lib/ui/layout/AppShell.svelte">
+<script lang="ts">
+	import Background from "$lib/ui/effects/Background.svelte";
+	import { shellStore } from "$lib/core/stores/shell.svelte";
+
+	import TopBar from "./TopBar.svelte";
+	import Sidebar from "./Sidebar.svelte";
+	import Dock from "./Dock.svelte";
+	import StatusBar from "./StatusBar.svelte";
+
+	import type { Snippet } from "svelte";
+
+	interface Props {
+		children?: Snippet;
+	}
+
+	let { children }: Props = $props();
+
+	const sidebarVisible = $derived(shellStore.sidebarVisible);
+	const dockVisible = $derived(shellStore.dockVisible);
+</script>
+
+<div class="relative h-screen w-screen overflow-hidden bg-transparent text-(--text-primary)" data-tauri-drag-region>
+
+	<Background />
+
+	<TopBar />
+
+	<div class="flex h-full pt-(--hud-height)">
+		{#if sidebarVisible}
+			<Sidebar />
+		{/if}
+
+		<main
+			class="relative flex-1 overflow-auto p-8 {dockVisible
+				? 'pb-[calc(var(--status-height)+var(--dock-height)+var(--space-6))]'
+				: 'pb-[calc(var(--status-height)+var(--space-6))]'}"
+		>
+			{@render children?.()}
+		</main>
+	</div>
+
+	{#if dockVisible}
+		<Dock />
+	{/if}
+
+	<StatusBar />
+
+</div>
+</file>
+
 <file path="src/lib/ui/navigation/NavItem.svelte">
 <script lang="ts">
 	import { cva, type VariantProps } from "class-variance-authority";
@@ -18744,111 +21040,218 @@ theme store, Rust command scaffolding — no business features yet. See
 </a>
 </file>
 
-<file path="src/lib/ui/styles/tokens.css">
-/* ==========================================================================
-   DEX Design Tokens
-   File: src/lib/ui/styles/tokens.css
-   VisionOS + Glass + HUD Design System
-   ========================================================================== */
-⋮----
-:root {
-⋮----
-/* ------------------------------------------------------------------------
-   * Brand
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * DEX aliases — legacy `--dex-*` vocabulary mapped onto the semantic tokens
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * Backgrounds
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * Surface
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * Glass
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * HUD
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * Sidebar
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * Dock
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * Typography
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * Borders
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * Blur
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * Radius
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * Spacing
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * Shadows
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * Motion
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * Z Index
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * Aurora
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * Noise
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * Selection
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * Focus
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ------------------------------------------------------------------------
-   * Scrollbars
-   * ---------------------------------------------------------------------- */
-⋮----
-/* ==========================================================================
-   Theme palettes
-   Palette values are sourced from src/lib/core/config/theme.ts (the live
-   registry). Each block maps a theme's palette onto the semantic token
-   namespaces so switching `data-theme` visibly restyles the app.
-   ========================================================================== */
-⋮----
-[data-theme="dark"] {
-⋮----
-[data-theme="light"] {
-⋮----
-[data-theme="cyber"] {
+<file path="src/lib/ui/primitives/GlassPanel.svelte">
+<script lang="ts">
+	import { clsx } from "clsx";
+	import type { HTMLAttributes } from "svelte/elements";
+	import type { Snippet } from "svelte";
+
+	type GlassElement =
+		"div" | "section" | "aside" | "header" | "footer" | "nav" | "main";
+
+	type GlassVariant =
+		"panel" | "hud" | "sidebar" | "dock" | "raised" | "floating";
+
+	type GlassPadding = "none" | "sm" | "md" | "lg";
+
+	type GlassRadius = "md" | "lg" | "xl" | "full";
+
+	interface Props extends HTMLAttributes<HTMLElement> {
+		element?: GlassElement;
+		variant?: GlassVariant;
+		padding?: GlassPadding;
+		radius?: GlassRadius;
+		glow?: boolean;
+		interactive?: boolean;
+		class?: string;
+		children?: Snippet;
+	}
+
+	let {
+		element = "div",
+		variant = "panel",
+		padding = "md",
+		radius = "xl",
+		glow = false,
+		interactive = false,
+		class: className,
+		children,
+		...rest
+	}: Props = $props();
+
+	const classes = $derived(
+		clsx(
+			"dex-glass",
+			`dex-glass--${variant}`,
+			`dex-padding--${padding}`,
+			`dex-radius--${radius}`,
+			{
+				"dex-glass--glow": glow,
+				"dex-glass--interactive": interactive,
+			},
+			className,
+		),
+	);
+</script>
+
+<svelte:element this={element} class={classes} {...rest}>
+	<div class="dex-glass__highlight"></div>
+
+	<div class="dex-glass__reflection"></div>
+	<div class="dex-glass__content">
+		{@render children?.()}
+	</div>
+</svelte:element>
+
+<style>
+	.dex-glass {
+		position: relative;
+
+		overflow: hidden;
+
+		border: 1px solid var(--glass-border);
+		background: linear-gradient(
+			180deg,
+			var(--surface-2),
+			var(--surface-1)
+		);
+
+		backdrop-filter: blur(var(--blur-lg)) saturate(185%) brightness(1.05);
+		box-shadow:
+			var(--shadow-lg),
+			inset 0 1px 0 var(--glass-border-light),
+			inset 0 -1px 0 var(--border-subtle);
+		transition:
+			transform var(--duration-normal) var(--ease-standard),
+			box-shadow var(--duration-normal) var(--ease-standard),
+			border-color var(--duration-normal) var(--ease-standard);
+	}
+
+	.dex-glass::before {
+		content: "";
+
+		position: absolute;
+		inset: 0;
+
+		background: linear-gradient(
+			180deg,
+			var(--glass-light),
+			transparent 45%
+		);
+
+		pointer-events: none;
+	}
+
+	.dex-glass__highlight {
+		position: absolute;
+
+		width: 280px;
+		height: 280px;
+
+		left: -120px;
+		top: -160px;
+
+		border-radius: 999px;
+
+		background: radial-gradient(
+			circle,
+			var(--glass-ultra),
+			transparent 70%
+		);
+
+		opacity: 0.22;
+		filter: blur(60px);
+	}
+
+	.dex-glass__reflection {
+		position: absolute;
+		inset: 0;
+
+		background: linear-gradient(
+			120deg,
+			transparent 20%,
+			var(--glass-light) 45%,
+			transparent 70%
+		);
+		opacity: 0.18;
+		pointer-events: none;
+	}
+
+	.dex-glass__content {
+		position: relative;
+		z-index: 1;
+	}
+
+	.dex-glass--interactive:hover {
+		transform: translateY(-2px);
+
+		border-color: var(--glass-border-strong);
+
+		box-shadow:
+			var(--shadow-xl),
+			var(--shadow-accent),
+			inset 0 1px 0 var(--glass-border-light);
+	}
+
+	.dex-glass--glow {
+		box-shadow:
+			var(--shadow-accent),
+			var(--shadow-lg),
+			inset 0 1px 0 var(--glass-border-light);
+	}
+
+	.dex-glass--hud {
+		background: var(--hud-bg);
+	}
+
+	.dex-glass--sidebar {
+		background: var(--sidebar-bg);
+	}
+
+	.dex-glass--dock {
+		background: var(--dock-bg);
+		box-shadow:
+			var(--shadow-lg),
+			inset 0 1px 0 var(--glass-border-light);
+		backdrop-filter: blur(var(--blur-md)) saturate(200%);
+	}
+
+	.dex-glass--floating {
+		backdrop-filter: blur(var(--blur-xl)) saturate(220%);
+	}
+
+	.dex-padding--none {
+		padding: 0;
+	}
+
+	.dex-padding--sm {
+		padding: var(--space-3);
+	}
+
+	.dex-padding--md {
+		padding: var(--space-4);
+	}
+
+	.dex-padding--lg {
+		padding: var(--space-6);
+	}
+
+	.dex-radius--md {
+		border-radius: var(--radius-lg);
+	}
+
+	.dex-radius--lg {
+		border-radius: var(--radius-xl);
+	}
+
+	.dex-radius--xl {
+		border-radius: var(--radius-2xl);
+	}
+
+	.dex-radius--full {
+		border-radius: var(--radius-full);
+	}
+</style>
 </file>
 
 <file path="src/lib/ui/themes/dark.ts">
@@ -18926,130 +21329,91 @@ import type { Theme, ThemePalette } from "./types";
 </HUD>
 </file>
 
-<file path="src/routes/+page.svelte">
-<script lang="ts">
-	import {
-		Activity,
-		Bot,
-		Database,
-		FolderKanban,
-		Package as PackageIcon
-	} from "lucide-svelte";
-
-	import { Badge, Button, GlassPanel } from "$lib/ui/primitives";
-
-	const stats = [
-		{
-			title: "Projects",
-			value: "12",
-			icon: FolderKanban
-		},
-		{
-			title: "Agents",
-			value: "4",
-			icon: Bot
-		},
-		{
-			title: "Databases",
-			value: "7",
-			icon: Database
-		},
-		{
-			title: "Plugins",
-			value: "16",
-			icon: PackageIcon
-		}
-	];
-</script>
-
-<div class="flex flex-col gap-6">
-
-	<header class="flex items-center justify-between">
-		<div>
-			<h1 class="text-4xl font-bold">
-				Welcome Back
-			</h1>
-
-			<p class="mt-2 text-(--text-muted)">
-				Your Digital Experience Dashboard
-			</p>
-		</div>
-
-		<Button glow>
-			New Project
-		</Button>
-	</header>
-
-	<section class="grid grid-cols-4 gap-6">
-
-		{#each stats as stat (stat.title)}
-
-			<GlassPanel
-				interactive
-				class="flex items-center gap-4"
-			>
-				<div class="rounded-xl bg-(--surface-3) p-4">
-					<stat.icon class="size-6 text-(--dex-primary)" />
-				</div>
-
-				<div>
-					<p class="text-sm text-(--text-muted)">
-						{stat.title}
-					</p>
-
-					<h2 class="text-3xl font-bold">
-						{stat.value}
-					</h2>
-				</div>
-			</GlassPanel>
-
-		{/each}
-
-	</section>
-
-	<section class="grid grid-cols-3 gap-6">
-
-		<GlassPanel
-			class="col-span-2 min-h-105"
-		>
-			<div class="mb-6 flex items-center justify-between">
-				<h2 class="text-xl font-semibold">
-					Activity
-				</h2>
-
-				<Badge>
-					Live
-				</Badge>
-			</div>
-
-			<div class="flex h-full items-center justify-center text-(--text-muted)">
-				<Activity class="size-16 opacity-50" />
-			</div>
-
-		</GlassPanel>
-
-		<GlassPanel
-			class="min-h-105"
-		>
-			<div class="mb-6 flex items-center justify-between">
-				<h2 class="text-xl font-semibold">
-					AI Assistant
-				</h2>
-
-				<Badge variant="accent">
-					Online
-				</Badge>
-			</div>
-
-			<div class="flex h-full items-center justify-center text-(--text-muted)">
-				<Bot class="size-16 opacity-60" />
-			</div>
-
-		</GlassPanel>
-
-	</section>
-
-</div>
+<file path="src/app.css">
+/* ==========================================================================
+   DEX GLOBAL STYLES
+   ========================================================================== */
+⋮----
+:root {
+html,
+⋮----
+body {
+/* ========================================================================== */
+/* App */
+⋮----
+#app {
+⋮----
+/* Typography */
+⋮----
+h1,
+⋮----
+p {
+⋮----
+/* Selection */
+⋮----
+::selection {
+⋮----
+/* Links */
+⋮----
+a {
+⋮----
+/* Buttons */
+⋮----
+button {
+⋮----
+/* Images */
+⋮----
+img {
+⋮----
+/* Inputs */
+⋮----
+input,
+⋮----
+input:focus,
+⋮----
+/* Scrollbar */
+⋮----
+::-webkit-scrollbar {
+⋮----
+::-webkit-scrollbar-track {
+⋮----
+::-webkit-scrollbar-thumb {
+⋮----
+::-webkit-scrollbar-thumb:hover {
+⋮----
+/* Firefox */
+⋮----
+* {
+⋮----
+/* Utilities */
+⋮----
+.glass {
+⋮----
+.glass-heavy {
+⋮----
+.glow {
+⋮----
+.floating {
+⋮----
+.floating:hover {
+⋮----
+.panel {
+⋮----
+.blur-bg {
+⋮----
+/* Motion */
+⋮----
+*,
+⋮----
+/* Accessibility */
+⋮----
+:focus-visible {
+⋮----
+/* Tauri */
+⋮----
+[data-tauri-drag-region] {
+⋮----
+button,
 </file>
 
 <file path="src-tauri/src/utils/errors.rs">
@@ -19169,6 +21533,7 @@ fn from(error: std::io::Error) -> Self {
 ⋮----
 mod tests {
 use super::AppError;
+⋮----
 use serde_json::json;
 ⋮----
 /// The wire envelope is exactly `{ "type": <code>, "message": <text> }`
@@ -19206,6 +21571,30 @@ let value = serde_json::to_value(AppError::NotFound(Some("no such widget".into()
 fn constructor_helpers_carry_message() {
 ⋮----
 assert_eq!(value["message"], json!(message));
+⋮----
+/// Variants without a carried message fall back to their documented
+    /// default display string.
+⋮----
+/// default display string.
+    #[test]
+fn display_falls_back_to_default_messages() {
+⋮----
+assert_eq!(variant.to_string(), expected);
+⋮----
+/// The `From` impls map foreign errors onto `Internal` while carrying
+    /// the underlying message verbatim.
+⋮----
+/// the underlying message verbatim.
+    #[test]
+fn from_impls_map_to_internal() {
+⋮----
+id: "modem".to_string(),
+⋮----
+assert_eq!(from_provider.code(), "internal");
+assert_eq!(from_provider.to_string(), "provider 'modem' was not found");
+⋮----
+assert_eq!(from_io.code(), "internal");
+assert_eq!(from_io.to_string(), "disk full");
 </file>
 
 <file path="src-tauri/Cargo.toml">
@@ -19250,11 +21639,844 @@ portable-pty = "0.9.0"
 tracing = "0.1.44"
 </file>
 
+<file path=".gitignore">
+.DS_Store
+node_modules
+/build
+/.svelte-kit
+/package
+.env
+.env.*
+!.env.example
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Deepwork session state (git-local, OpenCode-readable)
+.slim/deepwork/
+.ignore
+.obsidian/
+patch/
+</file>
+
+<file path="src/lib/ui/styles/tokens.css">
+/* ==========================================================================
+   DEX Design Tokens
+   File: src/lib/ui/styles/tokens.css
+   VisionOS + Glass + HUD Design System
+   ========================================================================== */
+⋮----
+:root {
+⋮----
+/* ------------------------------------------------------------------------
+   * Brand
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * DEX aliases — legacy `--dex-*` vocabulary mapped onto the semantic tokens
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * Backgrounds
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * Surface
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * Glass
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * HUD
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * Sidebar
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * Dock
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * Typography
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * Borders
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * Blur
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * Radius
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * Spacing
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * Shadows
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * Motion
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * Z Index
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * Aurora
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * Noise
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * Selection
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * Focus
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ------------------------------------------------------------------------
+   * Scrollbars
+   * ---------------------------------------------------------------------- */
+⋮----
+/* ==========================================================================
+   Theme palettes
+   Palette values are sourced from src/lib/core/config/theme.ts (the live
+   registry). Each block maps a theme's palette onto the semantic token
+   namespaces so switching `data-theme` visibly restyles the app.
+   ========================================================================== */
+⋮----
+[data-theme="dark"] {
+⋮----
+[data-theme="light"] {
+⋮----
+[data-theme="cyber"] {
+</file>
+
+<file path="src/routes/+page.svelte">
+<script lang="ts">
+	import {
+		Activity,
+		Bot,
+		Database,
+		FolderKanban,
+		Package as PackageIcon
+	} from "lucide-svelte";
+
+	import { Badge, Button, GlassPanel } from "$lib/ui/primitives";
+
+	const stats = [
+		{
+			title: "Projects",
+			value: "12",
+			icon: FolderKanban
+		},
+		{
+			title: "Agents",
+			value: "4",
+			icon: Bot
+		},
+		{
+			title: "Databases",
+			value: "7",
+			icon: Database
+		},
+		{
+			title: "Plugins",
+			value: "16",
+			icon: PackageIcon
+		}
+	];
+</script>
+
+<div class="flex flex-col gap-6">
+
+	<header class="flex items-center justify-between">
+		<div>
+			<h1 class="text-4xl font-bold">
+				Welcome Back
+			</h1>
+
+			<p class="mt-2 text-(--text-muted)">
+				Your Digital Experience Dashboard
+			</p>
+		</div>
+
+		<Button glow>
+			New Project
+		</Button>
+	</header>
+
+	<section class="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+
+		{#each stats as stat (stat.title)}
+
+			<GlassPanel
+				interactive
+				class="flex items-center gap-4"
+			>
+				<div class="rounded-xl bg-(--surface-3) p-4">
+					<stat.icon class="size-6 text-(--dex-primary)" />
+				</div>
+
+				<div>
+					<p class="text-sm text-(--text-muted)">
+						{stat.title}
+					</p>
+
+					<h2 class="text-3xl font-bold">
+						{stat.value}
+					</h2>
+				</div>
+			</GlassPanel>
+
+		{/each}
+
+	</section>
+
+	<section class="grid grid-cols-1 gap-6 xl:grid-cols-3">
+
+		<GlassPanel
+			class="min-h-105 xl:col-span-2"
+		>
+			<div class="mb-6 flex items-center justify-between">
+				<h2 class="text-xl font-semibold">
+					Activity
+				</h2>
+
+				<Badge>
+					Live
+				</Badge>
+			</div>
+
+			<div class="flex h-full items-center justify-center text-(--text-muted)">
+				<Activity class="size-16 opacity-50" />
+			</div>
+
+		</GlassPanel>
+
+		<GlassPanel
+			class="min-h-105"
+		>
+			<div class="mb-6 flex items-center justify-between">
+				<h2 class="text-xl font-semibold">
+					AI Assistant
+				</h2>
+
+				<Badge variant="accent">
+					Online
+				</Badge>
+			</div>
+
+			<div class="flex h-full items-center justify-center text-(--text-muted)">
+				<Bot class="size-16 opacity-60" />
+			</div>
+
+		</GlassPanel>
+
+	</section>
+
+</div>
+</file>
+
+<file path="src-tauri/src/providers/process/provider.rs">
+use std::collections::HashMap;
+use std::time::Duration;
+⋮----
+/// Signal used by [`ProcessProvider::terminate_process`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TerminateSignal {
+/// Polite termination (SIGTERM).
+    Terminate,
+/// Forced termination (SIGKILL).
+    Kill,
+⋮----
+/// Process provider.
+///
+⋮----
+///
+/// Responsible for:
+⋮----
+/// Responsible for:
+/// - Process discovery
+⋮----
+/// - Process discovery
+/// - Process lifecycle
+⋮----
+/// - Process lifecycle
+/// - Task lifecycle
+⋮----
+/// - Task lifecycle
+/// - Resource monitoring
+⋮----
+/// - Resource monitoring
+/// - Process spawning
+⋮----
+/// - Process spawning
+/// - Process termination
+⋮----
+/// - Process termination
+///
+⋮----
+///
+/// Platform-specific implementations use:
+⋮----
+/// Platform-specific implementations use:
+/// - sysinfo
+⋮----
+/// - sysinfo
+/// - /proc
+⋮----
+/// - /proc
+/// - tokio::process
+⋮----
+/// - tokio::process
+/// - nix
+⋮----
+/// - nix
+pub struct ProcessProvider {
+⋮----
+pub struct ProcessProvider {
+⋮----
+/// The single `sysinfo` instance kept alive between refreshes so CPU
+    /// usage (a diff-based computation) and process snapshots stay coherent.
+⋮----
+/// usage (a diff-based computation) and process snapshots stay coherent.
+    sys: sysinfo::System,
+⋮----
+impl ProcessProvider {
+⋮----
+pub fn new() -> Self {
+⋮----
+pub fn processes(&self) -> &HashMap<u32, Process> {
+⋮----
+pub fn tasks(&self) -> &HashMap<String, Task> {
+⋮----
+pub fn process(&self, pid: u32) -> Option<&Process> {
+self.processes.get(&pid)
+⋮----
+pub fn task(&self, id: &str) -> Option<&Task> {
+self.tasks.get(id)
+⋮----
+pub fn add_process(&mut self, process: Process) {
+self.processes.insert(process.pid, process);
+⋮----
+pub fn remove_process(&mut self, pid: u32) -> Option<Process> {
+self.processes.remove(&pid)
+⋮----
+pub fn add_task(&mut self, task: Task) {
+self.tasks.insert(task.id.clone(), task);
+⋮----
+pub fn remove_task(&mut self, id: &str) -> Option<Task> {
+self.tasks.remove(id)
+⋮----
+pub fn emit(&mut self, event: ProcessEvent) {
+self.events.push(event);
+⋮----
+pub fn events(&self) -> &[ProcessEvent] {
+⋮----
+pub fn clear_events(&mut self) {
+self.events.clear();
+⋮----
+pub fn process_count(&self) -> usize {
+self.processes.len()
+⋮----
+pub fn task_count(&self) -> usize {
+self.tasks.len()
+⋮----
+pub fn clear(&mut self) {
+self.processes.clear();
+self.tasks.clear();
+⋮----
+/// Refresh the process snapshot from the OS.
+    ///
+⋮----
+///
+    /// This is the periodic sampling entry point used by the backend ticker.
+⋮----
+/// This is the periodic sampling entry point used by the backend ticker.
+    /// It never hard-fails: problems are surfaced through `health()` as
+⋮----
+/// It never hard-fails: problems are surfaced through `health()` as
+    /// [`ProviderHealth::Degraded`] while the last known good process list is
+⋮----
+/// [`ProviderHealth::Degraded`] while the last known good process list is
+    /// kept, and the provider returns `Ok(())` either way.
+⋮----
+/// kept, and the provider returns `Ok(())` either way.
+    pub fn refresh(&mut self) -> Result<(), ProviderError> {
+⋮----
+pub fn refresh(&mut self) -> Result<(), ProviderError> {
+match self.try_refresh() {
+⋮----
+Ok(())
+⋮----
+/// Drain pending events as wire tuples `(event_name, payload)`.
+    ///
+⋮----
+///
+    /// Only lifecycle events are emitted: `dex.process.spawned` and
+⋮----
+/// Only lifecycle events are emitted: `dex.process.spawned` and
+    /// `dex.process.exited`. State / resource / priority changes are
+⋮----
+/// `dex.process.exited`. State / resource / priority changes are
+    /// intentionally dropped here — the periodic `dex.process.updated` event
+⋮----
+/// intentionally dropped here — the periodic `dex.process.updated` event
+    /// emitted by the backend ticker carries the full process snapshot.
+⋮----
+/// emitted by the backend ticker carries the full process snapshot.
+    pub fn drain_events(&mut self) -> Vec<(String, serde_json::Value)> {
+⋮----
+pub fn drain_events(&mut self) -> Vec<(String, serde_json::Value)> {
+⋮----
+.into_iter()
+.filter_map(|event| match event {
+⋮----
+.ok()
+.map(|value| ("dex.process.spawned".to_string(), value)),
+⋮----
+.map(|value| ("dex.process.exited".to_string(), value)),
+⋮----
+.collect()
+⋮----
+/// Spawn a detached process and register it as a DEX task.
+    ///
+⋮----
+///
+    /// The child is spawned directly without a new session or process group
+⋮----
+/// The child is spawned directly without a new session or process group
+    /// because `std::process::Command` does not expose `setsid`. The `Child`
+⋮----
+/// because `std::process::Command` does not expose `setsid`. The `Child`
+    /// handle is dropped immediately, so the child is reparented to init and
+⋮----
+/// handle is dropped immediately, so the child is reparented to init and
+    /// reaped by it — no zombie is created from the provider's side.
+⋮----
+/// reaped by it — no zombie is created from the provider's side.
+    ///
+⋮----
+///
+    /// Returns `(pid, task_id)` on success.
+⋮----
+/// Returns `(pid, task_id)` on success.
+    pub fn spawn_process(
+⋮----
+pub fn spawn_process(
+⋮----
+let command = command.trim();
+if command.is_empty() {
+return Err(ProcessError::InvalidCommand);
+⋮----
+cmd.args(args);
+⋮----
+cmd.current_dir(cwd);
+⋮----
+cmd.envs(env);
+⋮----
+let child = cmd.spawn().map_err(|err| ProcessError::SpawnFailed {
+reason: err.to_string(),
+⋮----
+let pid = child.id();
+drop(child);
+⋮----
+let task_id = uuid::Uuid::new_v4().to_string();
+⋮----
+id: task_id.clone(),
+name: command.to_string(),
+pid: Some(pid),
+⋮----
+self.add_task(task);
+self.emit(ProcessEvent::Spawned(ProcessSpawnedEvent {
+⋮----
+Ok((pid, task_id))
+⋮----
+/// Send a termination signal to the process with the given `pid`.
+    pub fn terminate_process(
+⋮----
+pub fn terminate_process(
+⋮----
+use nix::sys::signal::Signal;
+⋮----
+// Best-effort: reflect the termination in our snapshot so
+// consumers see a coherent state before the next refresh.
+if let Some(process) = self.processes.get_mut(&pid) {
+⋮----
+self.emit(ProcessEvent::StateChanged(ProcessStateChangedEvent {
+⋮----
+Err(errno) => Err(map_kill_errno(pid, errno)),
+⋮----
+/// Detailed view of a single process, filling in fields that are too
+    /// expensive to gather for the full list refresh (e.g. open file count).
+⋮----
+/// expensive to gather for the full list refresh (e.g. open file count).
+    pub fn process_details(&mut self, pid: u32) -> Option<Process> {
+⋮----
+pub fn process_details(&mut self, pid: u32) -> Option<Process> {
+let mut process = self.processes.get(&pid)?.clone();
+⋮----
+Some(process)
+⋮----
+/// Sweep the task table: any running task whose pid no longer exists in
+    /// the process snapshot is marked `Completed` and an `Exited` event is
+⋮----
+/// the process snapshot is marked `Completed` and an `Exited` event is
+    /// emitted for it (exactly once, because it is no longer `Running`).
+⋮----
+/// emitted for it (exactly once, because it is no longer `Running`).
+    pub fn refresh_tasks(&mut self) {
+⋮----
+pub fn refresh_tasks(&mut self) {
+⋮----
+.iter()
+.filter_map(|(id, task)| {
+⋮----
+if task.state == TaskState::Running && !self.processes.contains_key(&pid) {
+Some((id.clone(), pid))
+⋮----
+.collect();
+⋮----
+if let Some(task) = self.tasks.get_mut(&task_id) {
+⋮----
+// The exit code is not recoverable after the process has
+// disappeared; it stays `None`.
+⋮----
+self.emit(ProcessEvent::Exited(ProcessExitedEvent {
+⋮----
+/// Core refresh: query `sysinfo` and `/proc`, rebuild the process map,
+    /// diff it against the previous one and emit lifecycle events.
+⋮----
+/// diff it against the previous one and emit lifecycle events.
+    ///
+⋮----
+///
+    /// Never panics; returns `Err` only for structural failures, which the
+⋮----
+/// Never panics; returns `Err` only for structural failures, which the
+    /// caller turns into a `Degraded` health flag.
+⋮----
+/// caller turns into a `Degraded` health flag.
+    fn try_refresh(&mut self) -> Result<(), ProviderError> {
+⋮----
+fn try_refresh(&mut self) -> Result<(), ProviderError> {
+// `remove_dead_processes = true` also prunes processes that vanished
+// since the last refresh, which is what lets us diff for exits.
+⋮----
+.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+self.sys.refresh_cpu_usage();
+self.sys.refresh_memory();
+⋮----
+for (sys_pid, sys_proc) in self.sys.processes() {
+let pid = sys_pid.as_u32();
+⋮----
+uptime.saturating_sub(sys_proc.start_time().saturating_sub(boot_time));
+⋮----
+parent_pid: sys_proc.parent().map(|parent| parent.as_u32()),
+name: sys_proc.name().to_string_lossy().into_owned(),
+⋮----
+.exe()
+.map(|path| path.to_string_lossy().into_owned()),
+⋮----
+user: proc_reader::read_proc_uid(pid).and_then(proc_reader::username_for_uid),
+state: map_process_status(sys_proc.status()),
+priority: priority_from_nice(proc_reader::read_proc_nice(pid).unwrap_or(0)),
+⋮----
+cpu_percent: sys_proc.cpu_usage(),
+memory_bytes: sys_proc.memory(),
+virtual_memory_bytes: sys_proc.virtual_memory(),
+⋮----
+// `thread_kind()` only reports whether the process itself
+// is a thread; the thread count lives in `tasks()`.
+threads: sys_proc.tasks().map_or(0, |tasks| tasks.len() as u32),
+⋮----
+next.insert(pid, process);
+⋮----
+let (spawned, exited) = diff(&self.processes, &next);
+⋮----
+// The exit code is not recoverable once a process has
+// disappeared; this is a documented limitation.
+⋮----
+self.refresh_tasks();
+⋮----
+impl Default for ProcessProvider {
+fn default() -> Self {
+⋮----
+impl Provider for ProcessProvider {
+fn id(&self) -> &'static str {
+⋮----
+fn name(&self) -> &'static str {
+⋮----
+fn version(&self) -> &'static str {
+env!("CARGO_PKG_VERSION")
+⋮----
+fn capabilities(&self) -> &'static [Capability] {
+⋮----
+fn initialize(&mut self) -> Result<(), ProviderError> {
+⋮----
+fn shutdown(&mut self) -> Result<(), ProviderError> {
+⋮----
+fn state(&self) -> ProviderState {
+⋮----
+fn health(&self) -> ProviderHealth {
+⋮----
+/// Result of diffing two process snapshots: `(spawned, exited)` where each
+/// spawned entry carries `(pid, parent_pid, name)` and each exited entry is
+⋮----
+/// spawned entry carries `(pid, parent_pid, name)` and each exited entry is
+/// just the pid.
+⋮----
+/// just the pid.
+type ProcessDiff = (Vec<(u32, Option<u32>, String)>, Vec<u32>);
+⋮----
+type ProcessDiff = (Vec<(u32, Option<u32>, String)>, Vec<u32>);
+⋮----
+/// Diff two process snapshots and report which pids appeared and which
+/// disappeared.
+⋮----
+/// disappeared.
+fn diff(prev: &HashMap<u32, Process>, next: &HashMap<u32, Process>) -> ProcessDiff {
+⋮----
+fn diff(prev: &HashMap<u32, Process>, next: &HashMap<u32, Process>) -> ProcessDiff {
+⋮----
+.filter(|(pid, _)| !prev.contains_key(pid))
+.map(|(pid, process)| (*pid, process.parent_pid, process.name.clone()))
+⋮----
+.keys()
+.filter(|pid| !next.contains_key(pid))
+.copied()
+⋮----
+/// Map a `sysinfo` process status onto the DEX `ProcessState` vocabulary.
+fn map_process_status(status: sysinfo::ProcessStatus) -> ProcessState {
+⋮----
+fn map_process_status(status: sysinfo::ProcessStatus) -> ProcessState {
+use sysinfo::ProcessStatus;
+⋮----
+/// Map a Linux nice value (range -20..=19) onto the DEX priority vocabulary.
+fn priority_from_nice(nice: i32) -> ProcessPriority {
+⋮----
+fn priority_from_nice(nice: i32) -> ProcessPriority {
+⋮----
+/// Map a `nix` kill error onto the DEX error vocabulary.
+fn map_kill_errno(pid: u32, errno: nix::errno::Errno) -> ProcessError {
+⋮----
+fn map_kill_errno(pid: u32, errno: nix::errno::Errno) -> ProcessError {
+use nix::errno::Errno;
+⋮----
+reason: other.to_string(),
+⋮----
+mod tests {
+⋮----
+fn process(pid: u32) -> Process {
+let mut process = Process::new(pid, format!("proc-{pid}"));
+process.parent_pid = Some(1);
+⋮----
+fn process_state_serde_snake_case_roundtrip() {
+⋮----
+let json = serde_json::to_string(&state).unwrap();
+assert_eq!(serde_json::from_str::<ProcessState>(&json).unwrap(), state);
+⋮----
+assert_eq!(
+⋮----
+fn process_priority_serde_snake_case_roundtrip() {
+⋮----
+let json = serde_json::to_string(&priority).unwrap();
+⋮----
+fn task_state_serde_snake_case_roundtrip() {
+⋮----
+assert_eq!(serde_json::from_str::<TaskState>(&json).unwrap(), state);
+⋮----
+fn diff_detects_spawned_and_exited() {
+⋮----
+prev.insert(1, process(1));
+prev.insert(2, process(2));
+⋮----
+next.insert(2, process(2));
+next.insert(3, process(3));
+⋮----
+let (spawned, exited) = diff(&prev, &next);
+assert_eq!(exited, vec![1]);
+assert_eq!(spawned.len(), 1);
+⋮----
+assert_eq!(*pid, 3);
+assert_eq!(*parent_pid, Some(1));
+assert_eq!(name, "proc-3");
+⋮----
+fn diff_is_empty_when_nothing_changed() {
+⋮----
+let next = prev.clone();
+⋮----
+assert!(spawned.is_empty());
+assert!(exited.is_empty());
+⋮----
+fn diff_reports_spawned_name_and_parent() {
+⋮----
+let mut spawned_process = process(42);
+spawned_process.name = "bash".to_string();
+spawned_process.parent_pid = Some(7);
+next.insert(42, spawned_process);
+⋮----
+let (spawned, _) = diff(&prev, &next);
+assert_eq!(spawned, vec![(42, Some(7), "bash".to_string())]);
+⋮----
+fn diff_reports_multiple_spawns_and_exits_in_one_pass() {
+// pid 2 survives both snapshots: it must appear in neither list.
+⋮----
+prev.insert(3, process(3));
+⋮----
+next.insert(4, process(4));
+next.insert(5, process(5));
+⋮----
+let mut spawned_pids: Vec<u32> = spawned.iter().map(|(pid, _, _)| *pid).collect();
+spawned_pids.sort_unstable();
+assert_eq!(spawned_pids, vec![4, 5]);
+⋮----
+assert_eq!(parent_pid, Some(1));
+assert_eq!(name, format!("proc-{pid}"));
+⋮----
+fn diff_from_empty_snapshot_reports_all_as_spawned() {
+⋮----
+next.insert(1, process(1));
+⋮----
+assert_eq!(spawned.len(), 2);
+⋮----
+fn diff_to_empty_snapshot_reports_all_as_exited() {
+⋮----
+let (spawned, mut exited) = diff(&prev, &next);
+⋮----
+// HashMap iteration order is unspecified; sort for determinism.
+exited.sort_unstable();
+assert_eq!(exited, vec![1, 2]);
+⋮----
+fn priority_from_nice_mapping() {
+assert_eq!(priority_from_nice(-20), ProcessPriority::Realtime);
+assert_eq!(priority_from_nice(-11), ProcessPriority::High);
+assert_eq!(priority_from_nice(-1), ProcessPriority::AboveNormal);
+assert_eq!(priority_from_nice(0), ProcessPriority::Normal);
+assert_eq!(priority_from_nice(5), ProcessPriority::BelowNormal);
+assert_eq!(priority_from_nice(19), ProcessPriority::Idle);
+⋮----
+fn status_mapping_covers_sysinfo_variants() {
+⋮----
+assert_eq!(map_process_status(ProcessStatus::Dead), ProcessState::Dead);
+⋮----
+fn kill_errno_mapping() {
+⋮----
+assert!(matches!(
+⋮----
+fn refresh_tasks_marks_gone_pids_completed_once() {
+⋮----
+provider.add_task(Task {
+id: "t1".to_string(),
+name: "gone".to_string(),
+pid: Some(100),
+⋮----
+id: "t2".to_string(),
+name: "alive".to_string(),
+pid: Some(200),
+⋮----
+provider.processes.insert(200, process(200));
+⋮----
+provider.refresh_tasks();
+⋮----
+assert_eq!(provider.task("t1").unwrap().state, TaskState::Completed);
+assert_eq!(provider.task("t2").unwrap().state, TaskState::Running);
+⋮----
+.events()
+⋮----
+.filter(|event| matches!(event, ProcessEvent::Exited(_)))
+.count();
+assert_eq!(exited, 1);
+⋮----
+// A second sweep must not re-emit the exited event.
+⋮----
+fn refresh_tasks_ignores_tasks_without_pid() {
+⋮----
+id: "t3".to_string(),
+name: "no-pid".to_string(),
+⋮----
+assert_eq!(provider.task("t3").unwrap().state, TaskState::Running);
+assert!(provider.events().is_empty());
+⋮----
+fn drain_events_maps_only_spawn_and_exit() {
+⋮----
+provider.emit(ProcessEvent::Spawned(ProcessSpawnedEvent {
+⋮----
+name: "app".to_string(),
+⋮----
+provider.emit(ProcessEvent::Exited(ProcessExitedEvent {
+⋮----
+provider.emit(ProcessEvent::StateChanged(ProcessStateChangedEvent {
+⋮----
+let drained = provider.drain_events();
+⋮----
+assert_eq!(drained.len(), 2);
+assert_eq!(drained[0].0, "dex.process.spawned");
+assert_eq!(drained[1].0, "dex.process.exited");
+assert_eq!(drained[0].1["pid"], 1);
+assert_eq!(drained[1].1["pid"], 1);
+⋮----
+fn refresh_tasks_leaves_non_running_tasks_untouched() {
+⋮----
+id: "done".to_string(),
+name: "already-completed".to_string(),
+pid: Some(300),
+⋮----
+exit_code: Some(0),
+⋮----
+id: "failed".to_string(),
+name: "already-failed".to_string(),
+pid: Some(400),
+⋮----
+assert_eq!(provider.task("done").unwrap().state, TaskState::Completed);
+assert_eq!(provider.task("failed").unwrap().state, TaskState::Failed);
+// The sweep is limited to `Running` tasks: nothing is re-marked and
+// no exit events are emitted.
+⋮----
+fn drain_events_returns_empty_when_nothing_pending() {
+⋮----
+assert!(provider.drain_events().is_empty());
+⋮----
+fn drain_events_drops_resource_and_priority_updates() {
+⋮----
+provider.emit(ProcessEvent::ResourceUpdated(ProcessResourceUpdatedEvent {
+⋮----
+provider.emit(ProcessEvent::PriorityChanged(ProcessPriorityChangedEvent {
+⋮----
+assert!(drained.is_empty());
+</file>
+
 <file path="src/lib/ui/layout/Dock.svelte">
 <script lang="ts">
-	import { DOCK_WORKSPACES } from "$lib/core/config/navigation";
+	import { goto } from "$app/navigation";
+	import { page } from "$app/state";
+	import { resolve } from "$app/paths";
+	import type { Pathname } from "$app/types";
 
-	import { Button, GlassPanel } from "$lib/ui/primitives";
+	import { DOCK_WORKSPACES } from "$lib/core/config/navigation";
+	import { resolveWorkspace } from "$lib/core/utils/helpers";
+
+	import { Button, GlassPanel, Tooltip } from "$lib/ui/primitives";
+
+	const activeId = $derived(resolveWorkspace(page.url.pathname));
+
+	function activate(href: string): void {
+		void goto(resolve(href as Pathname));
+	}
 </script>
 
 <div
@@ -19267,13 +22489,21 @@ tracing = "0.1.44"
 		class="pointer-events-auto flex items-center gap-2"
 	>
 		{#each DOCK_WORKSPACES as workspace (workspace.id)}
-			<Button
-				size="icon"
-				variant="ghost"
-				rounded="full"
-			>
-				<workspace.icon />
-			</Button>
+			<Tooltip label={workspace.label} side="top">
+				<Button
+					size="icon"
+					variant="ghost"
+					rounded="full"
+					aria-label={workspace.label}
+					aria-current={activeId === workspace.id ? "page" : undefined}
+					class={activeId === workspace.id
+						? "bg-[color:var(--surface-3)] text-[color:var(--dex-primary)]"
+						: ""}
+					onclick={() => activate(workspace.href)}
+				>
+					<workspace.icon />
+				</Button>
+			</Tooltip>
 		{/each}
 	</GlassPanel>
 </div>
@@ -19288,7 +22518,7 @@ tracing = "0.1.44"
 
 	$effect(() => {
 		const timer = setInterval(() => {
-			now.setTime(now.getTime() + 1000);
+			now.setTime(Date.now());
 		}, 1000);
 
 		return () => clearInterval(timer);
@@ -19320,7 +22550,7 @@ tracing = "0.1.44"
 	import { shellStore } from "$lib/core/stores/shell.svelte";
 	import { workspaceLabel } from "$lib/core/utils/helpers";
 
-	import { Button, GlassPanel } from "$lib/ui/primitives";
+	import { Button, GlassPanel, Tooltip } from "$lib/ui/primitives";
 	import { SearchBox } from "$lib/ui/navigation";
 
 	const label = $derived(workspaceLabel(shellStore.activeWorkspace));
@@ -19340,7 +22570,7 @@ tracing = "0.1.44"
 	>
 		<div class="flex items-center gap-3" data-tauri-drag-region>
 			<div
-				class="flex size-10 items-center justify-center rounded-xl bg-(--dex-primary) font-bold text-black"
+				class="flex size-10 items-center justify-center rounded-xl bg-(--dex-primary) font-bold text-[color:var(--on-primary)]"
 			>
 				D
 			</div>
@@ -19362,17 +22592,29 @@ tracing = "0.1.44"
 			</div>
 		{/if}
 
-		<Button variant="ghost" size="icon" onclick={() => (searchOpen = !searchOpen)}>
-			<Search />
-		</Button>
+		<Tooltip label="Search">
+			<Button
+				variant="ghost"
+				size="icon"
+				aria-label="Search"
+				aria-expanded={searchOpen}
+				onclick={() => (searchOpen = !searchOpen)}
+			>
+				<Search />
+			</Button>
+		</Tooltip>
 
-		<Button variant="ghost" size="icon">
-			<Bell />
-		</Button>
+		<Tooltip label="Notifications">
+			<Button variant="ghost" size="icon" aria-label="Notifications">
+				<Bell />
+			</Button>
+		</Tooltip>
 
-		<Button variant="ghost" size="icon">
-			<Settings2 />
-		</Button>
+		<Tooltip label="Settings">
+			<Button variant="ghost" size="icon" aria-label="Settings">
+				<Settings2 />
+			</Button>
+		</Tooltip>
 	</GlassPanel>
 </header>
 </file>

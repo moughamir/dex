@@ -18,73 +18,70 @@
  */
 
 export interface ThemePalette {
-    /* --------------------------------------------------------------------- */
-    /* Identity                                                              */
-    /* --------------------------------------------------------------------- */
+  /* --------------------------------------------------------------------- */
+  /* Identity                                                              */
+  /* --------------------------------------------------------------------- */
 
-    readonly name: ThemeMode;
+  readonly name: ThemeMode;
 
-    /* --------------------------------------------------------------------- */
-    /* Brand                                                                 */
-    /* --------------------------------------------------------------------- */
+  /* --------------------------------------------------------------------- */
+  /* Brand                                                                 */
+  /* --------------------------------------------------------------------- */
 
-    readonly accent: string;
-    readonly accentStrong: string;
+  readonly accent: string;
+  readonly accentStrong: string;
 
-    /* --------------------------------------------------------------------- */
-    /* Surfaces                                                              */
-    /* --------------------------------------------------------------------- */
+  /* --------------------------------------------------------------------- */
+  /* Surfaces                                                              */
+  /* --------------------------------------------------------------------- */
 
-    readonly background: string;
+  readonly background: string;
 
-    readonly surface1: string;
-    readonly surface2: string;
-    readonly surface3: string;
+  readonly surface1: string;
+  readonly surface2: string;
+  readonly surface3: string;
 
-    /* --------------------------------------------------------------------- */
-    /* Typography                                                            */
-    /* --------------------------------------------------------------------- */
+  /* --------------------------------------------------------------------- */
+  /* Typography                                                            */
+  /* --------------------------------------------------------------------- */
 
-    readonly text1: string;
-    readonly text2: string;
+  readonly text1: string;
+  readonly text2: string;
 
-    /* --------------------------------------------------------------------- */
-    /* Borders                                                               */
-    /* --------------------------------------------------------------------- */
+  /* --------------------------------------------------------------------- */
+  /* Borders                                                               */
+  /* --------------------------------------------------------------------- */
 
-    readonly border: string;
+  readonly border: string;
 
-    /* --------------------------------------------------------------------- */
-    /* Graphics                                                              */
-    /* --------------------------------------------------------------------- */
+  /* --------------------------------------------------------------------- */
+  /* Graphics                                                              */
+  /* --------------------------------------------------------------------- */
 
-    readonly gridLine: string;
-    readonly gridGlow: string;
+  readonly gridLine: string;
+  readonly gridGlow: string;
 
-    readonly ambient: string;
-    readonly fog: string;
+  readonly ambient: string;
+  readonly fog: string;
 
-    readonly particle: string;
-    readonly particleGlow: string;
+  readonly particle: string;
+  readonly particleGlow: string;
 
-    /* --------------------------------------------------------------------- */
-    /* Semantic                                                              */
-    /* --------------------------------------------------------------------- */
+  /* --------------------------------------------------------------------- */
+  /* Semantic                                                              */
+  /* --------------------------------------------------------------------- */
 
-    readonly selection: string;
+  readonly selection: string;
 
-    readonly success: string;
-    readonly warning: string;
-    readonly danger: string;
+  readonly success: string;
+  readonly warning: string;
+  readonly danger: string;
 }
 
-export type ThemeMode =
-    | "light"
-    | "dark"
-    | "cyber";
+export type ThemeMode = "light" | "dark" | "cyber";
 
 export interface Theme {
-    readonly id: ThemeMode;
-    readonly name: ThemeMode;
-    readonly palette: ThemePalette;
+  readonly id: ThemeMode;
+  readonly name: ThemeMode;
+  readonly palette: ThemePalette;
 }

@@ -5,205 +5,205 @@
    ========================================================================== */
 
 :root {
-    color-scheme: dark;
-    /* ------------------------------------------------------------------------
+  color-scheme: dark;
+  /* ------------------------------------------------------------------------
    * Brand
    * ---------------------------------------------------------------------- */
-    --dex-primary: oklch(0.72 0.19 258);
-    --dex-secondary: oklch(0.69 0.16 198);
-    --dex-accent: oklch(0.81 0.13 92);
-    --dex-success: oklch(0.76 0.18 150);
-    --dex-warning: oklch(0.83 0.18 82);
-    --dex-danger: oklch(0.67 0.23 28);
-    --on-primary: #0b1622;
-    /* ------------------------------------------------------------------------
+  --dex-primary: oklch(0.72 0.19 258);
+  --dex-secondary: oklch(0.69 0.16 198);
+  --dex-accent: oklch(0.81 0.13 92);
+  --dex-success: oklch(0.76 0.18 150);
+  --dex-warning: oklch(0.83 0.18 82);
+  --dex-danger: oklch(0.67 0.23 28);
+  --on-primary: #0b1622;
+  /* ------------------------------------------------------------------------
    * DEX aliases — legacy `--dex-*` vocabulary mapped onto the semantic tokens
    * ---------------------------------------------------------------------- */
-    --dex-border-subtle: var(--border-subtle);
-    --dex-surface-2: var(--surface-2);
-    --dex-text-1: var(--text-primary);
-    --dex-radius-sm: var(--radius-sm);
-    --dex-space-2: var(--space-2);
-    --dex-space-3: var(--space-3);
-    --dex-font-size-xs: 0.75rem;
-    --dex-tracking-wide: 0.025em;
-    --dex-duration-base: var(--duration-normal);
-    --dex-duration-fast: var(--duration-fast);
-    --dex-ease-out: var(--ease-standard);
-    --dex-z-tooltip: var(--z-tooltip);
-    /* ------------------------------------------------------------------------
+  --dex-border-subtle: var(--border-subtle);
+  --dex-surface-2: var(--surface-2);
+  --dex-text-1: var(--text-primary);
+  --dex-radius-sm: var(--radius-sm);
+  --dex-space-2: var(--space-2);
+  --dex-space-3: var(--space-3);
+  --dex-font-size-xs: 0.75rem;
+  --dex-tracking-wide: 0.025em;
+  --dex-duration-base: var(--duration-normal);
+  --dex-duration-fast: var(--duration-fast);
+  --dex-ease-out: var(--ease-standard);
+  --dex-z-tooltip: var(--z-tooltip);
+  /* ------------------------------------------------------------------------
    * Backgrounds
    * ---------------------------------------------------------------------- */
-    --bg-0: oklch(0.12 0.01 260);
-    --bg-1: oklch(0.15 0.01 260);
-    --bg-2: oklch(0.18 0.015 260);
-    --bg-3: oklch(0.22 0.015 260);
-    --bg-4: oklch(0.27 0.015 260);
-    /* ------------------------------------------------------------------------
+  --bg-0: oklch(0.12 0.01 260);
+  --bg-1: oklch(0.15 0.01 260);
+  --bg-2: oklch(0.18 0.015 260);
+  --bg-3: oklch(0.22 0.015 260);
+  --bg-4: oklch(0.27 0.015 260);
+  /* ------------------------------------------------------------------------
    * Surface
    * ---------------------------------------------------------------------- */
-    --surface-0: rgb(255 255 255 / 0.02);
-    --surface-1: rgb(255 255 255 / 0.04);
-    --surface-2: rgb(255 255 255 / 0.06);
-    --surface-3: rgb(255 255 255 / 0.08);
-    --surface-4: rgb(255 255 255 / 0.12);
-    /* ------------------------------------------------------------------------
+  --surface-0: rgb(255 255 255 / 0.02);
+  --surface-1: rgb(255 255 255 / 0.04);
+  --surface-2: rgb(255 255 255 / 0.06);
+  --surface-3: rgb(255 255 255 / 0.08);
+  --surface-4: rgb(255 255 255 / 0.12);
+  /* ------------------------------------------------------------------------
    * Glass
    * ---------------------------------------------------------------------- */
-    --glass-light: rgb(255 255 255 / 0.05);
-    --glass-medium: rgb(255 255 255 / 0.08);
-    --glass-heavy: rgb(255 255 255 / 0.12);
-    --glass-ultra: rgb(255 255 255 / 0.18);
-    --glass-border-light: rgb(255 255 255 / 0.08);
-    --glass-border: rgb(255 255 255 / 0.12);
-    --glass-border-strong: rgb(255 255 255 / 0.2);
-    /* ------------------------------------------------------------------------
+  --glass-light: rgb(255 255 255 / 0.05);
+  --glass-medium: rgb(255 255 255 / 0.08);
+  --glass-heavy: rgb(255 255 255 / 0.12);
+  --glass-ultra: rgb(255 255 255 / 0.18);
+  --glass-border-light: rgb(255 255 255 / 0.08);
+  --glass-border: rgb(255 255 255 / 0.12);
+  --glass-border-strong: rgb(255 255 255 / 0.2);
+  /* ------------------------------------------------------------------------
    * HUD
    * ---------------------------------------------------------------------- */
-    --hud-bg: rgb(15 17 22 / 0.55);
-    --hud-border: rgb(255 255 255 / 0.1);
-    --hud-highlight: rgb(255 255 255 / 0.04);
-    /* ------------------------------------------------------------------------
+  --hud-bg: rgb(15 17 22 / 0.55);
+  --hud-border: rgb(255 255 255 / 0.1);
+  --hud-highlight: rgb(255 255 255 / 0.04);
+  /* ------------------------------------------------------------------------
    * Sidebar
    * ---------------------------------------------------------------------- */
-    --sidebar-bg: rgb(14 15 18 / 0.7);
-    --sidebar-hover: rgb(255 255 255 / 0.05);
-    --sidebar-active: rgb(255 255 255 / 0.1);
-    /* ------------------------------------------------------------------------
+  --sidebar-bg: rgb(14 15 18 / 0.7);
+  --sidebar-hover: rgb(255 255 255 / 0.05);
+  --sidebar-active: rgb(255 255 255 / 0.1);
+  /* ------------------------------------------------------------------------
    * Dock
    * ---------------------------------------------------------------------- */
-    --dock-bg: rgb(255 255 255 / 0.05);
-    --dock-border: rgb(255 255 255 / 0.08);
-    /* ------------------------------------------------------------------------
+  --dock-bg: rgb(255 255 255 / 0.05);
+  --dock-border: rgb(255 255 255 / 0.08);
+  /* ------------------------------------------------------------------------
    * Typography
    * ---------------------------------------------------------------------- */
-    --text-primary: rgb(255 255 255);
-    --text-secondary: rgb(215 215 220);
-    --text-muted: rgb(160 160 170);
-    --text-disabled: rgb(110 110 120);
-    /* ------------------------------------------------------------------------
+  --text-primary: rgb(255 255 255);
+  --text-secondary: rgb(215 215 220);
+  --text-muted: rgb(160 160 170);
+  --text-disabled: rgb(110 110 120);
+  /* ------------------------------------------------------------------------
    * Borders
    * ---------------------------------------------------------------------- */
-    --border-subtle: rgb(255 255 255 / 0.05);
-    --border-default: rgb(255 255 255 / 0.08);
-    --border-strong: rgb(255 255 255 / 0.15);
-    /* ------------------------------------------------------------------------
+  --border-subtle: rgb(255 255 255 / 0.05);
+  --border-default: rgb(255 255 255 / 0.08);
+  --border-strong: rgb(255 255 255 / 0.15);
+  /* ------------------------------------------------------------------------
    * Blur
    * ---------------------------------------------------------------------- */
-    --blur-xs: 4px;
-    --blur-sm: 8px;
-    --blur-md: 16px;
-    --blur-lg: 24px;
-    --blur-xl: 40px;
-    --blur-2xl: 60px;
-    /* ------------------------------------------------------------------------
+  --blur-xs: 2px;
+  --blur-sm: 4px;
+  --blur-md: 8px;
+  --blur-lg: 14px;
+  --blur-xl: 20px;
+  --blur-2xl: 32px;
+  /* ------------------------------------------------------------------------
    * Radius
    * ---------------------------------------------------------------------- */
-    --radius-xs: 6px;
-    --radius-sm: 10px;
-    --radius-md: 14px;
-    --radius-lg: 18px;
-    --radius-xl: 24px;
-    --radius-2xl: 32px;
-    --radius-full: 9999px;
-    /* ------------------------------------------------------------------------
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+  --radius-full: 9999px;
+  /* ------------------------------------------------------------------------
    * Spacing
    * ---------------------------------------------------------------------- */
-    --space-1: 0.25rem;
-    --space-2: 0.5rem;
-    --space-3: 0.75rem;
-    --space-4: 1rem;
-    --space-5: 1.25rem;
-    --space-6: 1.5rem;
-    --space-8: 2rem;
-    --space-10: 2.5rem;
-    --space-12: 3rem;
-    --space-16: 4rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
   /* ------------------------------------------------------------------------
    * Shadows
    * ---------------------------------------------------------------------- */
-    --shadow-xs: 0 2px 4px rgb(0 0 0 / 0.2);
-    --shadow-sm: 0 4px 12px rgb(0 0 0 / 0.22);
-    --shadow-md: 0 12px 40px rgb(0 0 0 / 0.28);
-    --shadow-lg: 0 20px 70px rgb(0 0 0 / 0.35);
-    --shadow-xl: 0 40px 120px rgb(0 0 0 / 0.45);
-    --shadow-glow: 0 0 60px rgb(91 132 255 / 0.25);
-    --shadow-accent: 0 0 40px
-        color-mix(in srgb, var(--dex-primary) 40%, transparent);
+  --shadow-xs: 0 2px 4px rgb(0 0 0 / 0.2);
+  --shadow-sm: 0 4px 12px rgb(0 0 0 / 0.22);
+  --shadow-md: 0 12px 40px rgb(0 0 0 / 0.28);
+  --shadow-lg: 0 20px 70px rgb(0 0 0 / 0.35);
+  --shadow-xl: 0 40px 120px rgb(0 0 0 / 0.45);
+  --shadow-glow: 0 0 60px rgb(91 132 255 / 0.25);
+  --shadow-accent: 0 0 40px
+    color-mix(in srgb, var(--dex-primary) 40%, transparent);
   /* ------------------------------------------------------------------------
    * Motion
    * ---------------------------------------------------------------------- */
-    --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
-    --ease-spring: cubic-bezier(0.18, 1.15, 0.3, 1);
-    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
-    --duration-fast: 120ms;
-    --duration-normal: 220ms;
-    --duration-slow: 360ms;
-    --duration-slower: 600ms;
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.18, 1.15, 0.3, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 120ms;
+  --duration-normal: 220ms;
+  --duration-slow: 360ms;
+  --duration-slower: 600ms;
 
-    --hud-height: 72px;
-    --sidebar-width: 280px;
-    --sidebar-collapsed-width: 76px;
-    --dock-height: 76px;
-    --status-height: 34px;
-    --shell-padding: 32px;
-    --content-max-width: 1200px;
-    --content-gap: 24px;
-    --dock-icon: 54px;
-    --dock-scale: 1.45;
+  --hud-height: 56px;
+  --sidebar-width: 280px;
+  --sidebar-collapsed-width: 76px;
+  --dock-height: 76px;
+  --status-height: 34px;
+  --shell-padding: 32px;
+  --content-max-width: 1200px;
+  --content-gap: 24px;
+  --dock-icon: 54px;
+  --dock-scale: 1.45;
 
-    /* ------------------------------------------------------------------------
+  /* ------------------------------------------------------------------------
    * Z Index
    * ---------------------------------------------------------------------- */
 
-    --z-background: -10;
-    --z-content: 1;
-    --z-floating: 10;
-    --z-sidebar: 20;
-    --z-dock: 40;
-    --z-status: 45;
-    --z-hud: 50;
-    --z-overlay: 100;
-    --z-dialog: 150;
-    --z-toast: 200;
-    --z-tooltip: 300;
+  --z-background: -10;
+  --z-content: 1;
+  --z-floating: 10;
+  --z-sidebar: 20;
+  --z-dock: 40;
+  --z-status: 45;
+  --z-hud: 50;
+  --z-overlay: 100;
+  --z-dialog: 150;
+  --z-toast: 200;
+  --z-tooltip: 300;
 
-    /* ------------------------------------------------------------------------
+  /* ------------------------------------------------------------------------
    * Aurora
    * ---------------------------------------------------------------------- */
 
-    --aurora-blue: rgb(85 110 255 / 0.4);
-    --aurora-purple: rgb(180 80 255 / 0.35);
-    --aurora-cyan: rgb(40 210 255 / 0.3);
-    --aurora-green: rgb(70 255 190 / 0.2);
+  --aurora-blue: rgb(85 110 255 / 0.4);
+  --aurora-purple: rgb(180 80 255 / 0.35);
+  --aurora-cyan: rgb(40 210 255 / 0.3);
+  --aurora-green: rgb(70 255 190 / 0.2);
 
-    /* ------------------------------------------------------------------------
+  /* ------------------------------------------------------------------------
    * Noise
    * ---------------------------------------------------------------------- */
 
-    --noise-opacity: 0.03;
+  --noise-opacity: 0.03;
 
-    /* ------------------------------------------------------------------------
+  /* ------------------------------------------------------------------------
    * Selection
    * ---------------------------------------------------------------------- */
 
-    --selection-bg: color-mix(in srgb, var(--dex-primary) 55%, transparent);
+  --selection-bg: color-mix(in srgb, var(--dex-primary) 55%, transparent);
 
-    --selection-text: white;
+  --selection-text: white;
 
-    /* ------------------------------------------------------------------------
+  /* ------------------------------------------------------------------------
    * Focus
    * ---------------------------------------------------------------------- */
-    --focus-ring:
-        0 0 0 2px rgb(255 255 255 / 0.15),
-        0 0 0 5px color-mix(in srgb, var(--dex-primary) 55%, transparent);
+  --focus-ring:
+    0 0 0 2px rgb(255 255 255 / 0.15),
+    0 0 0 5px color-mix(in srgb, var(--dex-primary) 55%, transparent);
 
-    /* ------------------------------------------------------------------------
+  /* ------------------------------------------------------------------------
    * Scrollbars
    * ---------------------------------------------------------------------- */
-    --scrollbar-bg: transparent;
-    --scrollbar-thumb: rgb(255 255 255 / 0.12);
-    --scrollbar-thumb-hover: rgb(255 255 255 / 0.22);
+  --scrollbar-bg: transparent;
+  --scrollbar-thumb: rgb(255 255 255 / 0.12);
+  --scrollbar-thumb-hover: rgb(255 255 255 / 0.22);
 }
 
 /* ==========================================================================
@@ -214,86 +214,86 @@
    ========================================================================== */
 
 [data-theme="dark"] {
-    --dex-primary: #5ddcff;
-    --dex-secondary: #00d4ff;
-    --on-primary: #05070b;
-    --bg-0: #05070b;
-    --surface-1: rgba(15, 20, 30, 0.35);
-    --surface-2: rgba(15, 20, 30, 0.6);
-    --surface-3: rgba(255, 255, 255, 0.08);
-    --text-primary: #ffffff;
-    --text-secondary: #9ecad8;
-    --border-default: rgba(0, 212, 255, 0.2);
-    --dex-success: #32d583;
-    --dex-warning: #f5b942;
-    --dex-danger: #ef4444;
-    --selection-bg: rgba(0, 212, 255, 0.22);
+  --dex-primary: #5ddcff;
+  --dex-secondary: #00d4ff;
+  --on-primary: #05070b;
+  --bg-0: #05070b;
+  --surface-1: rgba(15, 20, 30, 0.35);
+  --surface-2: rgba(15, 20, 30, 0.6);
+  --surface-3: rgba(255, 255, 255, 0.08);
+  --text-primary: #ffffff;
+  --text-secondary: #9ecad8;
+  --border-default: rgba(0, 212, 255, 0.2);
+  --dex-success: #32d583;
+  --dex-warning: #f5b942;
+  --dex-danger: #ef4444;
+  --selection-bg: rgba(0, 212, 255, 0.22);
 }
 
 [data-theme="light"] {
-    color-scheme: light;
-    --dex-primary: #0090b3;
-    --dex-secondary: #00709a;
-    --on-primary: #ffffff;
-    --bg-0: #e8eef2;
-    --surface-0: rgb(255 255 255 / 0.5);
-    --surface-1: rgba(255, 255, 255, 0.45);
-    --surface-2: rgba(255, 255, 255, 0.68);
-    --surface-3: rgba(15, 20, 30, 0.06);
-    --surface-4: rgba(15, 20, 30, 0.1);
-    --glass-light: rgb(255 255 255 / 0.7);
-    --glass-medium: rgb(255 255 255 / 0.55);
-    --glass-heavy: rgb(255 255 255 / 0.45);
-    --glass-ultra: rgb(255 255 255 / 0.85);
-    --glass-border-light: rgb(255 255 255 / 0.9);
-    --glass-border: rgb(15 20 30 / 0.08);
-    --glass-border-strong: rgb(15 20 30 / 0.14);
-    --hud-bg: rgb(232 238 242 / 0.6);
-    --hud-border: rgb(15 20 30 / 0.1);
-    --hud-highlight: rgb(255 255 255 / 0.6);
-    --sidebar-bg: rgb(232 238 242 / 0.72);
-    --sidebar-hover: rgb(15 20 30 / 0.05);
-    --sidebar-active: rgb(15 20 30 / 0.1);
-    --dock-bg: rgb(255 255 255 / 0.5);
-    --dock-border: rgb(15 20 30 / 0.08);
-    --text-primary: #0b141d;
-    --text-secondary: #2e4d61;
-    --text-muted: #5b6b7c;
-    --text-disabled: #8a99a8;
-    --border-subtle: rgb(15 20 30 / 0.06);
-    --border-default: rgba(0, 112, 154, 0.35);
-    --border-strong: rgb(15 20 30 / 0.14);
-    --shadow-xs: 0 2px 4px rgb(15 20 30 / 0.08);
-    --shadow-sm: 0 4px 12px rgb(15 20 30 / 0.1);
-    --shadow-md: 0 12px 40px rgb(15 20 30 / 0.12);
-    --shadow-lg: 0 20px 70px rgb(15 20 30 / 0.16);
-    --shadow-xl: 0 40px 120px rgb(15 20 30 / 0.2);
-    --shadow-glow: 0 0 60px rgb(0 144 179 / 0.2);
-    --scrollbar-thumb: rgb(15 20 30 / 0.18);
-    --scrollbar-thumb-hover: rgb(15 20 30 / 0.3);
-    --focus-ring:
-        0 0 0 2px rgb(255 255 255 / 0.9),
-        0 0 0 5px color-mix(in srgb, var(--dex-primary) 55%, transparent);
-    --dex-success: #16a34a;
-    --dex-warning: #d97706;
-    --dex-danger: #dc2626;
-    --selection-bg: rgba(0, 144, 179, 0.18);
-    --selection-text: #0b141d;
+  color-scheme: light;
+  --dex-primary: #0090b3;
+  --dex-secondary: #00709a;
+  --on-primary: #ffffff;
+  --bg-0: #e8eef2;
+  --surface-0: rgb(255 255 255 / 0.5);
+  --surface-1: rgba(255, 255, 255, 0.45);
+  --surface-2: rgba(255, 255, 255, 0.68);
+  --surface-3: rgba(15, 20, 30, 0.06);
+  --surface-4: rgba(15, 20, 30, 0.1);
+  --glass-light: rgb(255 255 255 / 0.7);
+  --glass-medium: rgb(255 255 255 / 0.55);
+  --glass-heavy: rgb(255 255 255 / 0.45);
+  --glass-ultra: rgb(255 255 255 / 0.85);
+  --glass-border-light: rgb(255 255 255 / 0.9);
+  --glass-border: rgb(15 20 30 / 0.08);
+  --glass-border-strong: rgb(15 20 30 / 0.14);
+  --hud-bg: rgb(232 238 242 / 0.6);
+  --hud-border: rgb(15 20 30 / 0.1);
+  --hud-highlight: rgb(255 255 255 / 0.6);
+  --sidebar-bg: rgb(232 238 242 / 0.72);
+  --sidebar-hover: rgb(15 20 30 / 0.05);
+  --sidebar-active: rgb(15 20 30 / 0.1);
+  --dock-bg: rgb(255 255 255 / 0.5);
+  --dock-border: rgb(15 20 30 / 0.08);
+  --text-primary: #0b141d;
+  --text-secondary: #2e4d61;
+  --text-muted: #5b6b7c;
+  --text-disabled: #8a99a8;
+  --border-subtle: rgb(15 20 30 / 0.06);
+  --border-default: rgba(0, 112, 154, 0.35);
+  --border-strong: rgb(15 20 30 / 0.14);
+  --shadow-xs: 0 2px 4px rgb(15 20 30 / 0.08);
+  --shadow-sm: 0 4px 12px rgb(15 20 30 / 0.1);
+  --shadow-md: 0 12px 40px rgb(15 20 30 / 0.12);
+  --shadow-lg: 0 20px 70px rgb(15 20 30 / 0.16);
+  --shadow-xl: 0 40px 120px rgb(15 20 30 / 0.2);
+  --shadow-glow: 0 0 60px rgb(0 144 179 / 0.2);
+  --scrollbar-thumb: rgb(15 20 30 / 0.18);
+  --scrollbar-thumb-hover: rgb(15 20 30 / 0.3);
+  --focus-ring:
+    0 0 0 2px rgb(255 255 255 / 0.9),
+    0 0 0 5px color-mix(in srgb, var(--dex-primary) 55%, transparent);
+  --dex-success: #16a34a;
+  --dex-warning: #d97706;
+  --dex-danger: #dc2626;
+  --selection-bg: rgba(0, 144, 179, 0.18);
+  --selection-text: #0b141d;
 }
 
 [data-theme="cyber"] {
-    --dex-primary: #66e6ff;
-    --dex-secondary: #00e5ff;
-    --on-primary: #060a14;
-    --bg-0: #060a14;
-    --surface-1: rgba(8, 12, 24, 0.45);
-    --surface-2: rgba(8, 12, 24, 0.7);
-    --surface-3: rgba(255, 255, 255, 0.1);
-    --text-primary: #ffffff;
-    --text-secondary: #a8e6f7;
-    --border-default: rgba(0, 229, 255, 0.3);
-    --dex-success: #22c55e;
-    --dex-warning: #facc15;
-    --dex-danger: #ff4d6d;
-    --selection-bg: rgba(102, 230, 255, 0.22);
+  --dex-primary: #66e6ff;
+  --dex-secondary: #00e5ff;
+  --on-primary: #060a14;
+  --bg-0: #060a14;
+  --surface-1: rgba(8, 12, 24, 0.45);
+  --surface-2: rgba(8, 12, 24, 0.7);
+  --surface-3: rgba(255, 255, 255, 0.1);
+  --text-primary: #ffffff;
+  --text-secondary: #a8e6f7;
+  --border-default: rgba(0, 229, 255, 0.3);
+  --dex-success: #22c55e;
+  --dex-warning: #facc15;
+  --dex-danger: #ff4d6d;
+  --selection-bg: rgba(102, 230, 255, 0.22);
 }
