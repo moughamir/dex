@@ -109,10 +109,15 @@ The window is **transparent**, and the shell must stay that way:
 - **main** — fullscreen, transparent, undecorated, hidden until ready.
 
 On startup, the Rust `setup()` runs `database::init(<app_data_dir>/dex.db)`
-and spawns `setup_backend`, which sleeps 2 s then calls
-`set_complete("backend")`. The splash page runs its simulated frontend init
-(≈2.5 s) then calls `set_complete("frontend")`. When **both** are complete,
-the splash closes and the main window shows and focuses.
+and spawns `setup_backend`, which completes immediately and calls
+`set_complete("backend")` (backend initialization is synchronous inside
+`setup`). The splash page signals frontend readiness after a double
+`requestAnimationFrame` — two painted frames, no artificial delay — then
+calls `set_complete("frontend")`. A Rust fallback task fires after
+`STARTUP_HANDSHAKE_TIMEOUT_SECS` (10 s) and force-completes the
+splashscreen → main transition only if the handshake has not completed, so a
+failure can never strand the user on a hidden main window. When **both**
+flags are set, the splash closes and the main window shows and focuses.
 
 ## Dev-mode CSP notes
 

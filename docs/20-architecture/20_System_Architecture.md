@@ -82,7 +82,7 @@ src/
       config/      constants and app config
       types/       shared domain models
     ui/            reusable visuals only
-      layout/      the HUD shell (TopBar, Dock, StatusBar, HUD)
+      layout/      the HUD shell (HUD, AppShell, TopBar, Sidebar, Dock, StatusBar, Viewport)
       primitives/  GlassPanel, Button, Tooltip, Divider, …
       styles/      tokens.css + design system docs
       themes/      ThemePalette TS mirrors (light/dark/cyber)
@@ -231,19 +231,19 @@ Details and rationale: ADR-0001.
 
 ## Phase 0 Deliverable Status
 
-Implemented in Phase 0: layer model + ADRs (0001–0005), design tokens +
+Implemented in Phase 0: layer model + ADRs (0001–0006), design tokens +
 primitives, transparency contract, typed IPC layer (`core/api`,
 `core/services` pattern), theme store, Rust command scaffolding (incl.
 `tauri-plugin-log` + `log:default` grant), strict CSP, engineering docs.
 Roadmap milestones M0.1–M0.4 are done — Phase 0 is shipped, and the standard
 gate `bun run verify` (nine steps, fail-fast) is wired into CI on push/PR to
-`develop`/`main`. Phase 1 (M1.1 Window) is the current phase and in progress.
-Business features are explicitly out of scope until Phase 1.
+`develop`/`main`. M1.1 (Window) is delivered; the current milestone is M1.2
+(HUD). Business features are explicitly out of scope until Phase 1.
 
 ## Related Documents
 
-- Layer ownership, IPC contract, design tokens, transparency, plugin boundary:
-  `50-adr/` (ADR-0001–0005)
+- Layer ownership, IPC contract, design tokens, transparency, plugin boundary,
+  window startup lifecycle: `50-adr/` (ADR-0001–0006)
 - Product roadmap and milestones: `10-product/11_Product_Roadmap.md`
 - Design system usage: `40-engineering/DesignSystem.md`
 - Frontend subsystem: `20-architecture/21_Frontend.md`

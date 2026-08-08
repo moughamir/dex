@@ -1,15 +1,14 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { page } from "$app/state";
   import { resolve } from "$app/paths";
   import type { Pathname } from "$app/types";
 
   import { DOCK_WORKSPACES } from "$lib/core/config/navigation";
-  import { resolveWorkspace } from "$lib/core/utils/helpers";
+  import { shellStore } from "$lib/core/stores/shell.svelte";
 
   import { Button, GlassPanel, Tooltip } from "$lib/ui/primitives";
 
-  const activeId = $derived(resolveWorkspace(page.url.pathname));
+  const activeId = $derived(shellStore.activeWorkspace);
 
   function activate(href: string): void {
     void goto(resolve(href as Pathname));

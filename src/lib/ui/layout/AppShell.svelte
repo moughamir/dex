@@ -6,6 +6,7 @@
   import Sidebar from "./Sidebar.svelte";
   import Dock from "./Dock.svelte";
   import StatusBar from "./StatusBar.svelte";
+  import Viewport from "./Viewport.svelte";
 
   import type { Snippet } from "svelte";
 
@@ -32,13 +33,9 @@
       <Sidebar />
     {/if}
 
-    <main
-      class="relative flex-1 overflow-auto p-8 {dockVisible
-        ? 'pb-[calc(var(--status-height)+var(--dock-height)+var(--space-6))]'
-        : 'pb-[calc(var(--status-height)+var(--space-6))]'}"
-    >
+    <Viewport>
       {@render children?.()}
-    </main>
+    </Viewport>
   </div>
 
   {#if dockVisible}

@@ -89,7 +89,7 @@ timeline
 
 - [x] **M1.1 Window** — transparent, fullscreen, multi-monitor, DPI-aware
       (real startup handshake, event-driven window store)
-- [ ] **M1.2 HUD** — TopBar, Dock, StatusBar, Viewport wiring
+- [x] **M1.2 HUD** — TopBar, Dock, StatusBar, Viewport wiring
 - [ ] **M1.3 UI Components** — GlassPanel, Button, Card, Tooltip, Modal,
       ContextMenu, Dropdown (complete the primitive set)
 - [ ] **M1.4 Theme** — dark, cyber, dynamic; live switching end to end

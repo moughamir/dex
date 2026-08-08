@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { Bell, Settings2, Search } from "lucide-svelte";
+  import {
+    Bell,
+    PanelLeftClose,
+    PanelLeftOpen,
+    Settings2,
+    Search,
+  } from "lucide-svelte";
 
   import { shellStore } from "$lib/core/stores/shell.svelte";
   import { workspaceLabel } from "$lib/core/utils/helpers";
@@ -37,6 +43,22 @@
     <div class="flex-1"></div>
 
     <div class="flex items-center gap-1.5">
+      <Tooltip label="Toggle sidebar">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Toggle sidebar"
+          aria-pressed={shellStore.sidebarCollapsed}
+          onclick={() => shellStore.toggleSidebar()}
+        >
+          {#if shellStore.sidebarCollapsed}
+            <PanelLeftOpen class="size-4" />
+          {:else}
+            <PanelLeftClose class="size-4" />
+          {/if}
+        </Button>
+      </Tooltip>
+
       {#if searchOpen}
         <div class="w-64 max-w-md">
           <SearchBox bind:value={query} />

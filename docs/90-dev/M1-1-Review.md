@@ -1,5 +1,7 @@
 # DEX M1.1 — Independent Review Report
 
+> STATUS ADDENDUM (M1.2): the blockers recorded below were resolved in develop `5d133f6` (M1.1 merged). This document is retained as the historical review record.
+
 **Status:** `M1.1 NEEDS CHANGES`
 **Scope:** `Window — transparent, fullscreen, multi-monitor, DPI-aware`
 **Reviewed tree:** `develop` HEAD `019e55f` (worktree `agent/m1.1-review`, clean)

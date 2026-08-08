@@ -77,7 +77,7 @@ gantt
 
 ## Matrix
 
-Status: **Built** = delivered in Phase 0 (milestone checked in the roadmap).
+Status: **Built** = delivered (milestone checked in the roadmap).
 **Planned** = scheduled in the roadmap and not yet delivered.
 
 | Feature | Domain | Phase | Milestone | Status |
@@ -87,7 +87,7 @@ Status: **Built** = delivered in Phase 0 (milestone checked in the roadmap).
 | Core Infrastructure (typed IPC, command registry, contract clients, event bus, theme store, logger, error envelope) | Core Infrastructure | 0 | M0.3 | Built |
 | Development Tooling (nine-step `bun run verify` gate, ESLint, Prettier, Rustfmt, Clippy, vitest runner, CI on push/PR to develop/main) | Engineering | 0 | M0.4 | Built |
 | Window (transparent, fullscreen, multi-monitor, DPI-aware) | Desktop Shell | 1 | M1.1 | Built |
-| HUD (TopBar, Dock, StatusBar, Viewport) | Desktop Shell | 1 | M1.2 | Planned |
+| HUD (TopBar, Dock, StatusBar, Viewport) | Desktop Shell | 1 | M1.2 | Built |
 | UI Components (GlassPanel, Button, Card, Tooltip, Modal, ContextMenu, Dropdown) | UI Primitives | 1 | M1.3 | Planned |
 | Theme (dark, cyber, dynamic; live switching) | Theming | 1 | M1.4 | Planned |
 | Three.js Core (renderer, scene, camera, lights) | Graphics | 2 | M2.1 | Planned |
@@ -152,8 +152,8 @@ Status: **Built** = delivered in Phase 0 (milestone checked in the roadmap).
   and its semantics are delivered across milestones — Hyprland integration
   (M4.4), the Rust command surface (M4.1), and the Workspace Manager
   (M5.5). See [`15_Workspace_Runtime.md`](15_Workspace_Runtime.md).
-- Status reflects the roadmap only. All Phase 0 milestones (M0.1–M0.4) are
-  delivered; Phase 1 (M1.1 Window) is the current phase and in progress.
+- Status reflects the roadmap only. All Phase 0 milestones (M0.1–M0.4) and
+  M1.1–M1.2 are delivered; Phase 1 (M1.3 UI Components) is next.
 - The phase gate applies to every milestone: each ends with a working
   vertical slice and green checks.
 
