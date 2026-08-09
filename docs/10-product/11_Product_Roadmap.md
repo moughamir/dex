@@ -98,7 +98,7 @@ timeline
 
 **Goal:** GPU visuals under the DOM chrome (`graphics/`).
 
-- [ ] **M2.1 Three.js Core** — renderer, scene, camera, lights
+- [x] **M2.1 Three.js Core** — renderer, scene, camera, lights
 - [ ] **M2.2 Effects** — bloom, fog, background, grid, particles
 - [ ] **M2.3 Animation Engine** — timeline, motion manager, transition manager
 - [ ] **M2.4 Performance** — object pooling, texture cache, FPS monitor

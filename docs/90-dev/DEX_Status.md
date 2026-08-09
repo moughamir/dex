@@ -1,18 +1,18 @@
 # DEX — Canonical Status
 
-> Last reconciled: 2026-08-09 (M2.1 implementation complete → IN REVIEW)
-> Commit: e36f6f2 (`feat(graphics): ship M2.1 Three.js core + shell backdrop`, on feat/m2.1-graphics)
-> Branch: feat/m2.1-graphics (work branch; develop unchanged @ 408498e)
+> Last reconciled: 2026-08-09 (M2.1 accepted + merged to develop)
+> Commit: 56f9aa6 (`feat(graphics): ship M2.1 Three.js core + shell backdrop`, squash-merge on develop)
+> Branch: develop @ 56f9aa6 (origin/develop @ 408498e; local ahead 2)
 
 ## Current
 
-- Phase: Phase 1 — Desktop Shell
-- Milestone: M2.1 (Three.js Core — implementation complete, IN REVIEW)
-- Status: M2.1 IN REVIEW — awaiting independent acceptance (do not mark DONE here)
-- Branch: feat/m2.1-graphics @ e36f6f2 (17 files, +1061/−21); develop unchanged @ 408498e
-- CI: PASS (`bun run verify` 9/9, 2026-08-09, on feat/m2.1-graphics HEAD)
+- Phase: Phase 2 — Graphics Engine
+- Milestone: M2.1 (Three.js Core — DONE); M2.2 (Effects) next, not started
+- Status: M2.1 DONE — accepted (4-lane independent review, 0 Critical/Major) and merged to develop
+- Branch: develop @ 56f9aa6 (M2.1 squash-merge; 22 files, +1113/−58); origin/develop @ 408498e
+- CI: PASS (`bun run verify` 9/9, 2026-08-09, on develop HEAD pre- and post-merge)
 - Verification: AUTOMATED VERIFIED — Vitest 141/141 (21 files: 94 node + 47 jsdom), Rust 67/67, svelte-check 0/0, clippy/build/format/lint PASS
-- Native: PASSED (smoke, 2026-08-09) — `bun run tauri:dev` on real Wayland/Hyprland display: app builds+runs, fullscreen transparent window (fullscreen:2, visible), WebGL scene live+animating, zero errors/panics in log. Pixel analysis: no solid fill (corners show wallpaper through), center scene region distinct + changes across frames. Screenshots `/tmp/opencode/dex-native-*.png`; visual inspection still at acceptance.
+- Native: PASSED (smoke, 2026-08-09) — `bun run tauri:dev` on real Wayland/Hyprland display: app builds+runs, fullscreen transparent window (fullscreen:2, visible), WebGL scene live+animating, zero errors/panics in log. Pixel analysis at acceptance (2026-08-09): no solid fill (corners show wallpaper through), center scene region distinct + changes across frames. Screenshots `/tmp/opencode/dex-native-*.png`.
 
 ## Milestones
 
@@ -24,15 +24,16 @@
 - M1.2 — DONE
 - M1.3 — DONE (acceptance review passed, shipped to develop; residual debts tracked in Kanban)
 - M1.4 — DONE (Theme / Visual System — live switching end to end; shipped to develop 3e0a38e)
-- M2.1 — IN REVIEW (CURRENT — Three.js Core implementation complete; awaiting independent acceptance)
+- M2.1 — DONE (Three.js Core — accepted 2026-08-09, merged to develop 56f9aa6)
 
 ## Active Work
 
-- M2.1 (Three.js Core) — implementation complete on feat/m2.1-graphics @ e36f6f2, IN REVIEW. Oracle review: READY FOR IN REVIEW (0 Critical/Major; 3 Minor + 3 Nits folded in). Native gate: PASSED (smoke) — transparent window + WebGL scene verified on real display; visual inspection queued at acceptance.
+- M2.1 (Three.js Core) — DONE. 4-lane independent review (architect, implementation, security, docs): READY FOR IN REVIEW, 0 Critical/Major; consensus one-liners folded (3ea9321: resize zero-guard, reduced-motion re-render, tick termination guard, pointer-events-none, contracts doc). Merged to develop 56f9aa6 (squash). Native gate: PASSED (smoke) + pixel-corroborated. `bun run verify` 9/9 pre- and post-merge.
+- M2.2 (Effects) — not started (next milestone).
 
 ## Blockers
 
-None. Native smoke gate passed on the real display (2026-08-09); visual inspection of the backdrop and final acceptance remain at the acceptance review.
+None. M2.1 accepted and merged; M2.2 (Effects) not yet started.
 
 ## Technical Debt
 
@@ -41,6 +42,7 @@ None. Native smoke gate passed on the real display (2026-08-09); visual inspecti
 - Portal-action duplication (6-line action, extract if a third consumer appears).
 - M1.4 deferred theme debt: motion system formalization, component-state consistency audit, legacy token aliases (`--dex-font-size-xs`, `--dex-tracking-wide`), extended typography/width scales (weight/line-height/family/`--type-*`, full `--width-*`).
 - Flaky splash handshake (pre-existing, self-healing, out of M1.x scope; track for M9 hardening).
+- M2.1 deferred: inert-renderer fallback test (M2.1-TEST-001); DPR re-query (M2.1-GFX-001); `--z-background` token (M2.1-GFX-002); context-loss pause (M2.1-GFX-003); palette-before-start ordering (M2.1-GFX-004); empty-scene 60 fps rAF idle (M2.1-GFX-005). Tracked in Kanban TECHNICAL DEBT.
 
 ## Documentation Drift
 
@@ -51,15 +53,15 @@ None. Native smoke gate passed on the real display (2026-08-09); visual inspecti
 
 ## Git Hygiene
 
-- feat/m2.1-graphics @ e36f6f2 carries the M2.1 slice (17 files): graphics modules, GraphicsBackdrop + AppShell mount, 5 test files, ADR-0008, docs reconciliations, three@0.185.1 / @types/three@0.185.4 deps. Not merged to develop (acceptance-gated).
-- develop unchanged @ 408498e, in sync with origin/develop. b34d267 (docs: refresh canonical state) is a local-only commit ahead of origin.
+- M2.1 merged to develop as 56f9aa6 (squash of 6 branch commits; 22 files, +1113/−58). feat/m2.1-graphics ref @ decfd45 retained until report; origin/feat/m2.1-graphics unchanged.
+- develop @ 56f9aa6, ahead 2 of origin/develop @ 408498e (b34d267 docs refresh + 56f9aa6 M2.1). Not pushed (no push requested).
 - `.opencode/` untracked tooling directory (own node_modules/package.json) — excluded from the M2.1 commit.
 - 5 stale branches remain as refs only (`agent/docs-librarian`, `agent/m1.1-*`, `agent/m1.3-ui-components`) — content merged or superseded; prune at next cleanup.
 - `main` still at `init` — expected per GitWorkflow (main receives milestone/release merges only).
 
 ## Next Action
 
-Independent (secondary orchestrator) acceptance review of M2.1 (feat/m2.1-graphics @ e36f6f2): run the `bun run tauri:dev` native gate on Wayland/Hyprland, review the slice, then accept → squash-merge to develop → mark M2.1 DONE. Fold deferred M1.4 theme debt into M2.x+ or M9 hardening.
+M2.1 is DONE (develop 56f9aa6). Next milestone: **M2.2 (Effects — bloom, fog, background, grid, particles)**: create `feat/m2.2-effects` from develop after a pre-M2.2 baseline reconciliation; push develop when desired. Fold deferred M1.4 theme debt and M2.1 debt into M2.x+ or M9 hardening. Remaining doc debt: M1.3-DOC-005/006/007.
 
 ## Last Review
 
