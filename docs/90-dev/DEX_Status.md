@@ -1,8 +1,8 @@
 # DEX — Canonical Status
 
-> Last reconciled: 2026-08-09 (pre-M2.1 reconciliation)
-> Commit: a13c836 (`chore: ignore dex.context.xml IDE state`; M1.4 at 3e0a38e)
-> Branch: develop (2 ahead of origin/develop — push held by user decision)
+> Last reconciled: 2026-08-09 (final pre-M2.1 baseline)
+> Commit: 408498e (`chore(dev): add @types/node devDependency`; M1.4 at 3e0a38e)
+> Branch: develop (in sync with origin/develop)
 
 ## Current
 
@@ -51,15 +51,12 @@ None.
 
 ## Git Hygiene
 
-- Working tree clean. (Root report deletions committed in `5677097`; `dex.context.xml` untracked + gitignored in `a13c836`.)
-- develop is 2 ahead of origin/develop (`5677097` docs, `a13c836` chore) — push held per user decision.
-- `agent/m1.4-theme` squash-merged to develop (3e0a38e) — delete local + remote branch.
-- 5 older agent worktrees/branches exist, all content merged or superseded:
-  - `agent/docs-librarian` (dad9031) — tip in develop history, MERGED — prune.
-  - `agent/m1.2-review` (5d133f6) — tip is develop ancestor (M1.1 ship), MERGED — prune.
-  - `agent/m1.1-window` (729c966) — IPC wrap folded into 5d133f6; content merged — prune.
-  - `agent/m1.3-ui-components` (df10d77) — squash-merged as 89e8c8e — prune.
-  - `agent/m1.1-review` (735ffa9) — review content superseded by docs/90-dev/M1-1-Review.md — archive or prune.
+- Working tree: only uncommitted `@types/node` dev-dep changes (`package.json`, `bun.lock`, `vite.config.js`) — unrelated to M2.1, left as the user had them.
+- develop is in sync with origin/develop (408498e, pushed by the @types/node chore; prior local commits 5677097/a13c836/bda811c now on origin).
+- 5 stale worktrees PRUNED (`docs-librarian`, `m1.1-review`, `m1.1-window`, `m1.2-review`, `m1.3-ui-components`) — none remain.
+- `agent/m1.4-theme` DELETED (local + remote) — was squash-merged to develop (3e0a38e).
+- `feat/m2.1-graphics` created from develop (bda811c) as the M2.1 launchpad — kept per user decision; still behind develop (408498e).
+- Stale branches remain as refs only (`agent/docs-librarian`, `agent/m1.1-*`, `agent/m1.3-ui-components`) — content merged or superseded; prune at next cleanup.
 - `main` still at `init` — expected per GitWorkflow (main receives milestone/release merges only).
 
 ## Next Action
