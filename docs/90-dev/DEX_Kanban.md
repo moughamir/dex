@@ -10,13 +10,13 @@ updated: 2026-08-09
 ## 🧭 Current State
 
 - Current Phase: Phase 2 — Graphics Engine
-- Current Milestone: M2.3 — Animation Engine (not started; M2.2 DONE)
-- Branch: develop @ 1931421 (M2.2 merged; origin/develop @ 408498e, local ahead 3)
-- Commit: 1931421 — feat(graphics): M2.2 effects (bloom, fog, background, grid, particles) (squash)
+- Current Milestone: M2.3 — Animation Engine (DONE; M2.4 Performance next)
+- Branch: develop @ 43c0e02 (M2.3 merged; origin/develop @ 408498e, local ahead 4)
+- Commit: 43c0e02 — feat(motion): ship M2.3 animation engine (manager, timeline, transitions, theme cross-fade) (squash)
 - CI: PASS (`bun run verify` 9/9, 2026-08-09, on branch tip pre-merge and develop HEAD post-merge)
-- Verification: AUTOMATED VERIFIED — Vitest 160/160 (22 files), Rust 67/67, svelte-check 0/0, clippy/build/format/lint PASS
-- Native Verification: PASSED (smoke, 2026-08-09) — debug binary (`cargo build`, no bundler) on real Wayland/sway display: transparent fullscreen window, WebGL scene live. Pixel analysis: corners EXACT match to wallpaper (TL 42,15,69 / TR 22,6,43 / BL 8,5,12 / BR 42,49,130 — transparency preserved with bloom ON, no alpha accumulation); 20.8% of pixels change between frames 2s apart (particles/fog animating; M2.1 was 3.8%); center distinct from corners (vignette + bloom). Screenshots `/tmp/opencode/m22-native-*.png`.
-- Overall Status: M2.2 DONE — accepted (3-lane independent review; 2 MAJORs closed + spot re-review READY) + merged to develop 1931421; M2.3 next
+- Verification: AUTOMATED VERIFIED — Vitest 205/205 (30 files), Rust 67/67, svelte-check 0/0, clippy/build/format/lint PASS
+- Native Verification: PASSED (smoke, 2026-08-09) — transparent fullscreen window, WebGL scene live, graphics unaffected by DOM motion work. Screenshots `/tmp/opencode/m22-native-*.png`. (Motion engine is DOM/CSS-side; no new native gate required — frontend-only delta, per M1.4 precedent.)
+- Overall Status: M2.3 DONE — accepted (implementation review ora-3: 3 MAJOR + minors, all closed incl. cascade-verified press fix + fill:"both" theme fade; spot re-review READY) + merged to develop 43c0e02; M2.4 next
 
 ## 📊 Milestone Progress
 
@@ -32,6 +32,7 @@ updated: 2026-08-09
 | M1.4 | Theme / Visual System | DONE | 100% | deferred theme debt below |
 | M2.1 | Three.js Core (renderer, scene, camera, lights) | DONE | 100% | — |
 | M2.2 | Effects (bloom, fog, background, grid, particles) | DONE | 100% | — |
+| M2.3 | Animation Engine (timeline, motion manager, transition manager) | DONE | 100% | — |
 
 > Milestone names per canonical `docs/10-product/11_Product_Roadmap.md` (M0.1–M0.4 only; no M0.5/M0.6). M9.4 = Documentation, M9.5 = Release (v1.0).
 
@@ -53,13 +54,13 @@ updated: 2026-08-09
 
 Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
 
-- [ ] **[M1.4 → deferred]** Motion system formalization
+- [x] **[M1.4 → deferred]** Motion system formalization
   - ID: M1.4-THEME-003
   - Source: roadmap M1.4 objective, status reconciliation
   - Priority: P1
   - Dependency: M1.4-THEME-001/002 (token foundation)
   - Acceptance: enter/exit/hover/press/focus/expand/collapse/theme-transition motion tokens; `prefers-reduced-motion` honored
-  - Note: deferred in M1-4-Review.md to keep M1.4 bounded; revisit at M2.x+ or M9
+  - RESOLVED: M2.3 (43c0e02) — `--motion-*` role tokens (hover/press/enter/exit/theme) + ADR-0009 engine; reduced motion honored at manager + CSS net
 - [ ] **[M1.4 → deferred]** Component-state consistency audit
   - ID: M1.4-THEME-004
   - Source: roadmap M1.4 objective
@@ -78,25 +79,26 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
   - Priority: P3
   - Dependency: none
   - Acceptance: `--font-weight-*`, line-height, `--font-family-*` (ui/mono), `--type-*` semantic scale; full `--width-*` scale
-- [ ] **[M1.4 → partial]** Theme/token behavior tests
+- [x] **[M1.4 → partial]** Theme/token behavior tests
   - ID: M1.4-TEST-001
   - Source: Testing.md contract
   - Priority: P2
   - Dependency: M1.4-THEME-003
   - Acceptance: delivered — 5 jsdom tests (mode switching dark/light/cyber, token resolution, persistence). Remaining: reduced-motion behavior, token-resolution across themes
   - Note: reduced-motion coverage deferred with THEME-003 motion work
+  - RESOLVED (reduced-motion part): M2.3 (43c0e02) — motion-manager reduced tests + theme-transition-reduced.test.ts; token-resolution-across-themes part remains open
 
 ---
 
 ## 🔨 WIP
 
-(none — M2.2 in IN REVIEW)
+(none — M2.3 merged; M2.4 not started)
 
 ---
 
 ## 🔍 IN REVIEW
 
-(none — M2.2 accepted and merged; M2.3 not started)
+(none — M2.3 accepted and merged; M2.4 not started)
 
 ---
 
@@ -148,6 +150,13 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
   - Native: PASSED — pixel-corroborated: corners = wallpaper exactly (transparency with bloom ON), 20.8% frame animation; /tmp/opencode/m22-native-*.png
   - Commit: 1931421
   - Residual debt: M2.1-TEST-001; M2.1-GFX-002/003/005 (see TECHNICAL DEBT)
+- [x] **[M2.3]** Animation Engine — timeline, motion manager, transition manager
+  - Accepted: implementation review (ora-3) — 3 MAJOR (press utility `!` beats reduced-motion net; theme fade lacked `fill: "both"`; no reopen-mid-close test) + minors, ALL closed incl. cascade-verified two-half press fix and fill:"both" theme fade; spot re-review READY; merged to develop 43c0e02 (squash of 3 branch commits)
+  - Evidence: ADR-0009 + Animation.md spec; ui/motion/{types,driver,presets,motion-manager,theme-transition,timeline,transition-manager,index}.ts; Modal/Menu enter-exit via transitionManager; Button/NavItem/Card/Tooltip/CursorGlow/splash tokenized transitions; production-500 fix (unbound matchMedia → bound); THEME-003 closed, M1.4-TEST-001 reduced-motion part closed
+  - Verification: `bun run verify` 9/9 ALL GATES PASSED (2026-08-09, pre-merge on branch tip and post-merge on develop HEAD); Vitest 205/205 (30 files), Rust 67/67, svelte-check 0/0
+  - Native: frontend-only delta — native gate SKIPPED per M1.4 precedent; smoke at M2.2 remains valid
+  - Commit: 43c0e02
+  - Residual debt: M1.4-TEST-001 remainder (token-resolution across themes); M1.4-THEME-004/005/006 (see TODO)
 
 ---
 
@@ -175,7 +184,7 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
   - Reason deferred: review note N1
 - [ ] **[M1.1]** Splash handshake flakiness — see BACKLOG M1.1-WIN-001
 - [ ] **[M1.4]** Legacy token aliases — see M1.4-THEME-005
-- [ ] **[M1.4]** Motion / state-audit / extended scales — see M1.4-THEME-003/004/006
+- [ ] **[M1.4]** State-audit / extended scales — see M1.4-THEME-004/006 (THEME-003 motion closed in M2.3)
 - [ ] **[M2.1]** Inert-renderer fallback path untested
   - ID: M2.1-TEST-001
   - Severity: P3
@@ -251,7 +260,7 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
   - Feature: theme store / tokens
   - Missing: `prefers-reduced-motion` behavior; token resolution assertions across themes
   - Required environment: jsdom
-  - Note: deferred with M1.4-THEME-003 motion work
+  - Note: reduced-motion part RESOLVED in M2.3 (43c0e02) — motion-manager reduced tests + theme-transition-reduced.test.ts; cross-theme token-resolution part remains open
 
 ---
 
@@ -265,6 +274,7 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
 - ADR-0006 — Window startup lifecycle
 - ADR-0007 — Overlay primitives (D1 floating-ui/dom, D2 body portal, D3 glass/blur backdrop)
 - ADR-0008 — Three.js as the graphics renderer (WebGL2, transparent, DPR, single rAF owner, DI seam)
+- ADR-0009 — Motion engine (token-only durations, one reduced-motion gate, THEME-TRANSITION root cross-fade carve-out)
 
 ---
 
@@ -279,13 +289,14 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
 | (pruned) | agent/m1.3-ui-components @ df10d77 | M1.3 primitives | PRUNED (squash-merged as 89e8c8e) |
 | (pruned) | feat/m2.1-graphics @ decfd45 | M2.1 work branch | MERGED (squash-merged as 56f9aa6; ref kept until report) |
 | (pruned) | feat/m2.2-effects @ ab93156 | M2.2 effects work | PRUNED (squash-merged as 1931421) |
+| (pruned) | feat/m2.3-animation @ <branch tip> | M2.3 animation work | PRUNED (squash-merged as 43c0e02) |
 | — | agent/m1.4-theme @ 88c60cd | M1.4 theme | DELETED (local + remote; squash-merged 3e0a38e) |
 
 ---
 
 ## 🧾 RECENT CHANGES
 
-- 2026-08-09 — **M2.2 ACCEPTED + MERGED to develop (1931421, squash)**: effects subsystem (bloom/fog/background/grid/particles + compose seam + EFFECTS_CONFIG) shipped; 3-lane review (architect/implementation/security) — 2 MAJOR (bloom alpha ADR-0004 breach; flat-tint vignette) + minors closed across fix rounds; spot re-review READY; `bun run verify` 9/9 PASS; native smoke pixel-corroborated (corners = wallpaper exactly with bloom ON; 20.8% frame animation); roadmap M2.2 `[x]`, Feature Matrix Built; GFX-001/004 resolved
+- 2026-08-09 — **M2.3 ACCEPTED + MERGED to develop (43c0e02, squash)**: animation engine shipped — ui/motion/{types,driver,presets,motion-manager,theme-transition,timeline,transition-manager,index}.ts; token-only durations (`--motion-*` role pairs, ADR-0009); single reduced-motion gate (manager + CSS net); THEME-TRANSITION root cross-fade (carve-out, `fill: "both"`); Modal/Menu enter-exit via transitionManager; chrome/Card/Tooltip/CursorGlow/splash tokenized; production-500 fix (unbound matchMedia → bound); implementation review (ora-3) 3 MAJOR + minors ALL closed (cascade-verified press fix; fill:"both" theme fade; reopen-mid-close test); `bun run verify` 9/9 PASS pre- and post-merge; Vitest 205/205 (30 files), Rust 67/67; THEME-003 closed, M1.4-TEST-001 reduced-motion part closed; roadmap M2.3 `[x]`, Feature Matrix Built
 - 2026-08-09 — **M2.1 ACCEPTED + MERGED to develop (56f9aa6, squash)**: 4-lane independent review (architect/implementation/security/docs) — 0 Critical/Major; consensus one-liners folded (3ea9321); doc debt fixed (8dd3543, Testing.md 43→47 + AGENTS.md graphics inventory); `bun run verify` 9/9 PASS pre- and post-merge; native smoke pixel-corroborated; roadmap M2.1 `[x]`, Feature Matrix Built
 - 2026-08-09 — M2.1 implementation complete → IN REVIEW: commit e36f6f2 on feat/m2.1-graphics (17 files); `bun run verify` 9/9 ALL GATES PASSED; oracle review READY FOR IN REVIEW (3 Minor + 3 Nits folded in); ADR-0008; 25_Graphics.md/README/Testing.md reconciled; native gate queued
 - 2026-08-09 — Final pre-M2.1 baseline: @types/node chore (408498e) pushed to origin/develop; Status/Kanban refreshed to 408498e; `bun run verify` ALL GATES PASSED independently at HEAD
@@ -299,4 +310,4 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
 
 ## ⏭️ NEXT ACTION
 
-M2.2 is DONE (merged to develop 1931421). Next: **M2.3 (Animation Engine — timeline, motion manager, transition manager)** — create `feat/m2.3-animation` from develop after a pre-M2.3 baseline reconciliation. Fold deferred M1.4 theme debt (THEME-003 motion, 004 state audit, 005 alias deprecation, 006 extended scales) and remaining graphics debt (M2.1-TEST-001, GFX-002/003/005) into M2.x+ or M9 hardening. Remaining documentation debt: M1.3-DOC-005 (Build.md/ProjectStructure.md counts), DOC-006 (Debug.md/Profiling.md audit), DOC-007 (release wording); DOC-004 partially closed (AGENTS.md inventory + Testing.md count reconciled in 8dd3543).
+M2.3 is DONE (merged to develop 43c0e02). Next: **M2.4 (Performance — object pooling, texture cache, FPS monitor)** — create `feat/m2.4-performance` from develop after a pre-M2.4 baseline reconciliation. Remaining deferred debt: M1.4-THEME-004/005/006, M1.4-TEST-001 remainder (cross-theme token resolution), graphics debt (M2.1-TEST-001, GFX-002/003/005) — fold into M2.x+ or M9 hardening. Documentation debt: M1.3-DOC-005 (Build.md/ProjectStructure.md counts), DOC-006 (Debug.md/Profiling.md audit), DOC-007 (release wording); DOC-004 partially closed (AGENTS.md inventory + Testing.md count reconciled in 8dd3543).
