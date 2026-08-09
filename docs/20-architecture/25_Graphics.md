@@ -164,6 +164,28 @@ speculative engine code shipped before a feature needed it.
 | M2.3 | Animation engine: timeline, motion manager, transition manager |
 | M2.4 | Performance: object pooling, texture cache, FPS monitor |
 
+## M2.2 Effects
+
+M2.2 adds the effects composition without disturbing the M2.1 ownership model:
+`RendererOptions.compose(ctx)` (in `renderer.ts`) returns a `RenderCompose`
+hook object that the renderer calls from its own loop, resize, applyPalette,
+and dispose paths — the renderer stays the single frame-loop and resource
+owner, and effects never schedule frames.
+
+`graphics/effects/manager.ts` (`createEffects`) is the composition root. It
+builds five effects into the renderer scene:
+
+| Effect | Palette source | Notes |
+|---|---|---|
+| Bloom (`UnrealBloomPass`) | — (luminance-driven) | Pass chain RenderPass → UnrealBloomPass → OutputPass. Alpha contract: three r185 OutputShader only transforms `.rgb` (keeping `value.a`), but UnrealBloomPass's blend material defaults to AdditiveBlending, which would add `bloomAlpha` onto the window alpha — the manager pins `CustomBlending` with `(ONE, ONE, ZERO, ONE)` factors so RGB stays additive while alpha passes through unchanged (ADR-0004). |
+| Fog (`FogExp2`) | `palette.fog` | `scene.fog`, not a scene child; blends RGB only. |
+| Background | `palette.background` | Transparent shader plane at z = −25; true screen-space vignette (fragments normalized by the frustum half-extents at that depth) so alpha reaches 0 at every window edge — `scene.background` remains `null` (ADR-0004). |
+| Grid | `palette.gridLine` / `palette.gridGlow` | Two `LineSegments` (minor + every-5th major) at y = −2; alpha comes from the `rgba()` strings. |
+| Particles | `palette.particle` | Ambient dust between camera and backdrop; zero-alloc in-place updates. |
+
+Palette strings are parsed by `graphics/effects/color.ts` (`parseColor` /
+`parseAlpha`) and pushed via `applyPalette` (ADR-0003) — never polled.
+
 ## Related Documents
 
 - System architecture and layer model: [`20_System_Architecture.md`](20_System_Architecture.md)

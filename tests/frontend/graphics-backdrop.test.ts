@@ -156,4 +156,15 @@ describe("GraphicsBackdrop", () => {
     expect(stop).toHaveBeenCalledTimes(1);
     expect(document.body.contains(canvas)).toBe(false);
   });
+
+  it("M2.2: createRenderer is wired with the palette and the effects compose seam", async () => {
+    render(GraphicsBackdrop);
+    await tick();
+
+    expect(mocks.createRenderer).toHaveBeenCalledTimes(1);
+    expect(mocks.createRenderer).toHaveBeenCalledWith({
+      palette: themeStore.palette,
+      compose: expect.any(Function),
+    });
+  });
 });

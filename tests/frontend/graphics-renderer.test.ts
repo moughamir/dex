@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PerspectiveCamera, Scene } from "three";
+import { PerspectiveCamera, Scene, Vector2 } from "three";
 
-import { createRenderer, type GLRendererLike } from "$lib/graphics/renderer";
+import {
+  createRenderer,
+  type ComposeContext,
+  type GLRendererLike,
+} from "$lib/graphics/renderer";
 import type { ThemePalette } from "$lib/ui/themes/types";
 
 let rafCallbacks: FrameRequestCallback[];
@@ -47,6 +51,8 @@ function createGlRendererStub(): GlStub {
     setPixelRatio: vi.fn(),
     setSize: vi.fn(),
     setClearColor: vi.fn(),
+    getPixelRatio: vi.fn(() => 1),
+    getSize: vi.fn(() => new Vector2(1, 1)),
     forceContextLoss: vi.fn(),
     renderLists: { dispose: vi.fn() },
     render: vi.fn(),
@@ -317,5 +323,138 @@ describe("createRenderer", () => {
     renderer.surface.resize(100, 100);
     expect(gl.setPixelRatio).not.toHaveBeenCalled();
     expect(gl.setSize).not.toHaveBeenCalled();
+  });
+
+  describe("M2.2 compose seam", () => {
+    function createFakeCompose() {
+      return {
+        render: vi.fn(),
+        resize: vi.fn(),
+        applyPalette: vi.fn(),
+        dispose: vi.fn(),
+      };
+    }
+
+    it("render() delegates to compose.render instead of the plain scene render", () => {
+      const { gl } = createGlRendererStub();
+      const compose = createFakeCompose();
+      const renderer = createRenderer({
+        glRenderer: gl,
+        compose: () => compose,
+      });
+
+      renderer.render();
+      expect(compose.render).toHaveBeenCalledTimes(1);
+      expect(gl.render).not.toHaveBeenCalled();
+    });
+
+    it("surface.resize forwards the device-pixel size to compose.resize", () => {
+      const { gl } = createGlRendererStub();
+      const compose = createFakeCompose();
+      const renderer = createRenderer({
+        glRenderer: gl,
+        compose: () => compose,
+      });
+
+      renderer.surface.resize(800, 600);
+      expect(compose.resize).toHaveBeenCalledWith(800, 600);
+    });
+
+    it("applyPalette forwards the palette to compose.applyPalette", () => {
+      const { gl } = createGlRendererStub();
+      const compose = createFakeCompose();
+      const renderer = createRenderer({
+        glRenderer: gl,
+        compose: () => compose,
+      });
+
+      const palette = darkPalette();
+      renderer.applyPalette(palette);
+      expect(compose.applyPalette).toHaveBeenCalledWith(palette);
+    });
+
+    it("dispose() forwards to compose.dispose exactly once", () => {
+      const { gl } = createGlRendererStub();
+      const compose = createFakeCompose();
+      const renderer = createRenderer({
+        glRenderer: gl,
+        compose: () => compose,
+      });
+
+      renderer.dispose();
+      renderer.dispose(); // idempotent — compose must not be double-released
+      expect(compose.dispose).toHaveBeenCalledTimes(1);
+    });
+
+    it("compose receives ctx with scene, camera, glRenderer, and the options palette", () => {
+      const { gl } = createGlRendererStub();
+      const compose = createFakeCompose();
+      const palette = darkPalette();
+      let captured: ComposeContext | null = null;
+
+      const renderer = createRenderer({
+        glRenderer: gl,
+        palette,
+        compose: (ctx) => {
+          captured = ctx;
+          return compose;
+        },
+      });
+
+      expect(captured).not.toBeNull();
+      const ctx = captured as unknown as ComposeContext;
+      expect(ctx.glRenderer).toBe(gl);
+      expect(ctx.scene).toBeInstanceOf(Scene);
+      expect(ctx.camera).toBeInstanceOf(PerspectiveCamera);
+      expect(ctx.palette).toBe(palette);
+
+      renderer.dispose();
+    });
+
+    it("a compose that returns undefined falls back to the plain scene render", () => {
+      const { gl } = createGlRendererStub();
+      const renderer = createRenderer({
+        glRenderer: gl,
+        compose: () => undefined,
+      });
+
+      renderer.render();
+      expect(gl.render).toHaveBeenCalledTimes(1);
+      const [scene, camera] = gl.render.mock.calls[0] as [unknown, unknown];
+      expect(scene).toBeInstanceOf(Scene);
+      expect(camera).toBeInstanceOf(PerspectiveCamera);
+    });
+
+    it("a compose that throws at construction still mounts and falls back to the plain scene render", () => {
+      const { gl } = createGlRendererStub();
+      const renderer = createRenderer({
+        glRenderer: gl,
+        compose: () => {
+          throw new Error("boom");
+        },
+      });
+
+      renderer.render();
+      expect(gl.render).toHaveBeenCalledTimes(1);
+      const [scene, camera] = gl.render.mock.calls[0] as [unknown, unknown];
+      expect(scene).toBeInstanceOf(Scene);
+      expect(camera).toBeInstanceOf(PerspectiveCamera);
+    });
+
+    it("a compose.dispose that throws must not prevent the glRenderer teardown", () => {
+      const { gl } = createGlRendererStub();
+      const renderer = createRenderer({
+        glRenderer: gl,
+        compose: () => ({
+          render: vi.fn(),
+          dispose: () => {
+            throw new Error("boom");
+          },
+        }),
+      });
+
+      renderer.dispose();
+      expect(gl.dispose).toHaveBeenCalledTimes(1);
+    });
   });
 });

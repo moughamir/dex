@@ -28,13 +28,19 @@ WebGL canvas composited **under** the DOM chrome.
 
 ## Layout (Phase 1+ implementations land in these files)
 
-- `renderer.ts` — `Renderer` implementation (WebGL context, loop, DPR)
-- `scene.ts`, `camera.ts`, `lighting.ts`, `controls.ts`, `particles.ts`
+- `renderer.ts` — `Renderer` implementation (WebGL context, loop, DPR,
+  `compose` seam)
+- `scene.ts`, `camera.ts`, `lighting.ts`, `controls.ts`
+- `effects/` — post/effects: `manager.ts` (composition root), `fog.ts`,
+  `background.ts`, `grid.ts`, `particles.ts`, `color.ts`
+- `shaders/` — GLSL: `background.glsl.ts`
 - `core/` — context/state helpers · `materials/` — shader materials ·
-  `effects/` — post/effects · `shaders/` — GLSL · `objects/` — scene objects
+  `objects/` — scene objects
 
 Phase 0 shipped only `contracts.ts` (+ this doc). M2.1 implements the core
 renderer behind the contracts (`renderer.ts`, `scene.ts`, `camera.ts`,
-`lighting.ts`; see ADR-0008). Later milestones add effects (M2.2), animation
-(M2.3), and pooling/texture cache/FPS monitor (M2.4) — no speculative engine
-code ahead of the milestone that needs it.
+`lighting.ts`; see ADR-0008). M2.2 adds the effects composition
+(`effects/manager.ts` + sub-effects, via the renderer's `compose` seam), with
+`scene.background` staying null — the backdrop is a transparent shader plane.
+Later milestones add animation (M2.3) and pooling/texture cache/FPS monitor
+(M2.4) — no speculative engine code ahead of the milestone that needs it.
