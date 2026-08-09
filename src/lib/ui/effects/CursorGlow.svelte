@@ -1,32 +1,14 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { motionManager } from "$lib/ui/motion";
 
   onMount(() => {
-    let ticking = false;
-    let lastX = window.innerWidth / 2;
-    let lastY = window.innerHeight / 2;
-
-    document.documentElement.style.setProperty("--cursor-x", `${lastX}px`);
-    document.documentElement.style.setProperty("--cursor-y", `${lastY}px`);
+    // Seed the glow to the viewport center until the first real pointermove.
+    // The manager writes --cursor-x/--cursor-y and no-ops under reduced motion.
+    motionManager.pointer.update(window.innerWidth / 2, window.innerHeight / 2);
 
     function update(event: PointerEvent) {
-      lastX = event.clientX;
-      lastY = event.clientY;
-
-      if (!ticking) {
-        ticking = true;
-        requestAnimationFrame(() => {
-          document.documentElement.style.setProperty(
-            "--cursor-x",
-            `${lastX}px`,
-          );
-          document.documentElement.style.setProperty(
-            "--cursor-y",
-            `${lastY}px`,
-          );
-          ticking = false;
-        });
-      }
+      motionManager.pointer.update(event.clientX, event.clientY);
     }
 
     window.addEventListener("pointermove", update, { passive: true });

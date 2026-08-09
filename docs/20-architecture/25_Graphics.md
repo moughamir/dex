@@ -133,6 +133,24 @@ The frame loop is driven by `requestAnimationFrame` and is owned exclusively
 by the renderer. It starts lazily (the renderer initializes on first visual
 need, per the performance contract) and stops with `dispose()`.
 
+## Boundary with the DOM motion engine
+
+M2.3 ships a DOM motion engine in `ui/motion/` (ADR-0009) for the chrome,
+primitives, and the theme cross-fade. The boundary is absolute:
+
+- **`ui/motion/` is DOM-only and never touches the renderer loop.** It is
+  rAF-free — no module under it schedules frames — so it cannot contend with
+  the renderer's frame ownership, and it never reaches the WebGL canvas or the
+  `graphics/` scene graph.
+- **Graphics-side animation belongs to the renderer loop / compose seam, not
+  `ui/motion/`.** Anything that animates the scene (M2.4 performance and
+  animation layers) hooks the renderer's own loop through
+  `RendererOptions.compose` — effects never schedule frames and DOM motion
+  never schedules them either.
+- The only shared input is the theme palette: both the renderer
+  (`applyPalette`) and the DOM theme cross-fade (`ui/motion/theme-transition.ts`)
+  consume the same `ThemePalette` mirror (ADR-0003) on a theme change.
+
 ## Performance contract
 
 The graphics layer is bound by the same performance contract as the rest of
@@ -161,7 +179,7 @@ speculative engine code shipped before a feature needed it.
 |---|---|
 | M2.1 | Three.js core: renderer, scene, camera, lights |
 | M2.2 | Effects: bloom, fog, background, grid, particles |
-| M2.3 | Animation engine: timeline, motion manager, transition manager |
+| M2.3 | DOM motion engine (not graphics): timeline, motion manager, transition manager — `ui/motion/`, ADR-0009 |
 | M2.4 | Performance: object pooling, texture cache, FPS monitor |
 
 ## M2.2 Effects
@@ -193,6 +211,7 @@ Palette strings are parsed by `graphics/effects/color.ts` (`parseColor` /
 - Design tokens and the programmatic palette mirror: [`../50-adr/0003-design-tokens.md`](../50-adr/0003-design-tokens.md)
 - Transparent window compositing: [`../50-adr/0004-transparent-compositing.md`](../50-adr/0004-transparent-compositing.md)
 - Renderer decision (Three.js, WebGL2): [`../50-adr/0008-threejs-renderer.md`](../50-adr/0008-threejs-renderer.md)
+- DOM motion engine boundary (M2.3): [`../50-adr/0009-motion-engine.md`](../50-adr/0009-motion-engine.md) and [`../30-specs/Animation.md`](../30-specs/Animation.md)
 - Design system and motion policy: [`../40-engineering/DesignSystem.md`](../40-engineering/DesignSystem.md)
 - Performance standard: [`../40-engineering/Performance.md`](../40-engineering/Performance.md)
 - Product roadmap (Phase 2): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)

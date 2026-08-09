@@ -39,13 +39,37 @@ CSS. Motion is a hard performance contract (60 FPS, GPU compositing).
    overrides both live there; the TS mirror is for programmatic/GPU use. Sync
    rule: changing a token means changing both — review checklist item.
 4. **Motion contract**: durations from the `--duration-*` scale
-   (`--duration-fast/normal/slow/slower` = 120/220/360/600 ms), single easing
-   `--ease-standard` (`cubic-bezier(0.2, 0.8, 0.2, 1)`), only
-   `transform`/`opacity` animated (GPU compositor-friendly).
+   (`--duration-micro/fast/normal/slow/slower` = 80/120/220/360/600 ms), a
+   single DEFAULT easing `--ease-standard`
+   (`cubic-bezier(0.2, 0.8, 0.2, 1)`) plus two designated variants:
+   `--ease-spring` (`cubic-bezier(0.18, 1.15, 0.3, 1)` — overshoot; hover
+   lifts, entrance pops) and `--ease-smooth` (`cubic-bezier(0.4, 0, 0.2, 1)` —
+   symmetric; theme cross-fade, expand/collapse). Only `transform`/`opacity`
+   are animated (GPU compositor-friendly).
    `prefers-reduced-motion` disables non-essential motion. Z-index comes
    exclusively from the token scale (no magic `z-9999`).
 5. **No magic values**: components never hardcode colors, radii, durations, or
    z-index; spacing may use the scale tokens or the spacing scale directly.
+
+## Amendment — THEME-TRANSITION carve-out (2026-08-09, ADR-0009)
+
+The strict single-easing / transform-opacity-only rule above is amended to let
+theme switching cross-fade. Rationale: a hard `data-theme` cut is jarring on
+large glass surfaces, and the M1.4 theme store applies synchronously before the
+next paint.
+
+Theme switching fades the `<html>` root element between palettes: a two-step
+opacity timeline (fade-out → swap `data-theme` at the opacity floor → fade-in)
+driven by the runtime helper `ui/motion/theme-transition.ts` through the
+`--motion-theme-*` mirrored values (`--motion-theme-duration` =
+`--duration-slower` 600ms / `--motion-theme-ease` = `--ease-smooth`). Only root
+`opacity` is animated — paint-only, never layout properties, never an opaque
+full-window overlay (ADR-0004) — and the fade is fully disabled under reduced
+motion (switching applies instantly). Known caveat: the pre-existing
+unconditional paint transitions in `app.css` (≈ lines 200-212) still fire on
+every `data-theme` change outside this fade window; that is pre-existing Phase 0
+behavior, not part of this carve-out. See
+[ADR-0009](0009-motion-engine.md) and `docs/30-specs/Animation.md`.
 
 ## Consequences
 

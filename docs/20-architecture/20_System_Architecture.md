@@ -166,10 +166,28 @@ Details and rationale: ADR-0001.
   into features. Effects (bloom, fog, background vignette, grid, particles) are
   composed through a single ownership seam (`RendererOptions.compose`).
 - Animation contract: `transform`/`opacity` only, durations from the
-  `--duration-*` scale (`--duration-fast/normal/slow/slower` =
-  120/220/360/600 ms) with the single easing `--ease-standard`
-  (`cubic-bezier(0.2, 0.8, 0.2, 1)`), `prefers-reduced-motion` respected
-  (ADR-0003).
+  `--duration-*` scale (`--duration-micro/fast/normal/slow/slower` =
+  80/120/220/360/600 ms) with one default easing `--ease-standard`
+  (`cubic-bezier(0.2, 0.8, 0.2, 1)`) plus two designated variants
+  (`--ease-spring` overshoot for hover lifts/entrance pops; `--ease-smooth`
+  symmetric for theme cross-fade and expand/collapse), `prefers-reduced-motion`
+  respected (ADR-0003 as amended by ADR-0009). Theme switching fades the
+  `<html>` root with a two-step opacity timeline via the `--motion-theme-*`
+  tokens (`--duration-slower` / `--ease-smooth`), swapping the palette at the
+  opacity floor — the THEME-TRANSITION carve-out (ADR-0003 amendment,
+  ADR-0009) — never layout properties, never an opaque full-window overlay
+  (ADR-0004).
+- **Motion engine (M2.3, ADR-0009):** `ui/motion/` hosts the DOM motion engine —
+  the motion manager (reduced-motion gate + `DurationToken`/`EaseToken` → ms /
+  bezier translation + pointer vars), the timeline (parallel steps with `at`
+  offsets), and the transition manager (enter/exit state machine with
+  auto-cancel), all behind a Web Animations API driver seam. It is rAF-free:
+  no module under `ui/motion/` schedules frames — the renderer stays the sole
+  continuous-loop owner (ADR-0008) — and it is DOM-only (graphics-side
+  animation belongs to the renderer/compose seam, M2.4). Reduced motion is a
+  manager-level gate (JS-orchestrated calls finish immediately) plus the CSS
+  `@media` safety net. `types.ts` mirrors the `--duration-*`/`--ease-*` tokens
+  (test-enforced sync rule); `presets.ts` is the only keyframe source.
 
 ## Design System
 
@@ -253,7 +271,8 @@ violations (D3). Business features are explicitly out of scope until Phase 1.
 ## Related Documents
 
 - Layer ownership, IPC contract, design tokens, transparency, plugin boundary,
-  window startup lifecycle, overlay primitives: `50-adr/` (ADR-0001–0007)
+  window startup lifecycle, overlay primitives, Three.js renderer, motion
+  engine: `50-adr/` (ADR-0001–0009)
 - Product roadmap and milestones: `10-product/11_Product_Roadmap.md`
 - Design system usage: `40-engineering/DesignSystem.md`
 - Frontend subsystem: `20-architecture/21_Frontend.md`

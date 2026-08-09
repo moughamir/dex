@@ -16,8 +16,8 @@
       "py-3",
       "text-sm",
       "font-medium",
-      "transition-all",
-      "duration-200",
+      "transition-[background-color,color,box-shadow]",
+      "duration-(--motion-hover-duration)",
       "select-none",
     ],
     {

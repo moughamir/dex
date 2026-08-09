@@ -145,10 +145,28 @@
   --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-spring: cubic-bezier(0.18, 1.15, 0.3, 1);
   --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-micro: 80ms; /* new primitive — press/active tactile */
   --duration-fast: 120ms;
   --duration-normal: 220ms;
   --duration-slow: 360ms;
   --duration-slower: 600ms;
+  /* Motion role pairs (ADR-0009) — default durations/easings per interaction. */
+  --motion-hover-duration: var(--duration-fast);
+  --motion-hover-ease: var(--ease-spring);
+  --motion-press-duration: var(--duration-micro);
+  --motion-press-ease: var(--ease-standard);
+  --motion-focus-duration: var(--duration-fast);
+  --motion-focus-ease: var(--ease-standard);
+  --motion-enter-duration: var(--duration-normal);
+  --motion-enter-ease: var(--ease-standard);
+  --motion-exit-duration: var(--duration-fast);
+  --motion-exit-ease: var(--ease-standard);
+  --motion-expand-duration: var(--duration-slow);
+  --motion-expand-ease: var(--ease-smooth);
+  --motion-collapse-duration: var(--duration-fast);
+  --motion-collapse-ease: var(--ease-smooth);
+  --motion-theme-duration: var(--duration-slower);
+  --motion-theme-ease: var(--ease-smooth);
 
   --hud-height: 56px;
   --sidebar-width: 280px;

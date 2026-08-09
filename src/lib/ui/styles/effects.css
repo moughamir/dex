@@ -184,7 +184,9 @@
 
   opacity: 0.14;
 
-  transition: translate 0.08s linear;
+  /* micro smoothing for the trail — sub-perceptual, so `linear` stays:
+     a spring/standard curve would change the trailing feel (ADR-0009) */
+  transition: translate var(--duration-micro) linear;
 }
 
 /* ==========================================================================

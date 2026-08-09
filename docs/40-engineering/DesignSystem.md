@@ -137,6 +137,7 @@ chips) uses `sm`.
 Titles use `lg`; descriptions and captions use `sm`.
 
 ### Motion — `--duration-*`, `--ease-*`
+- `--duration-micro: 80ms` (press, sub-perceptual)
 - `--duration-fast: 120ms` (hover, small state changes)
 - `--duration-normal: 220ms` (standard transitions)
 - `--duration-slow: 360ms` (bigger reveals)
@@ -302,8 +303,9 @@ Tokens: `--glass-*` (border, highlight), `--surface-*` (fill), `--radius-*`,
 (backdrop).
 
 Motion: when `interactive`, hover lifts via `translateY(-2px)` + shadow
-change, 120ms (`--duration-fast`), `--ease-standard`;
-`prefers-reduced-motion` disables. Transform/opacity only.
+change using the hover role pair (`--motion-hover-duration` /
+`--motion-hover-ease`, spring); `prefers-reduced-motion` disables.
+Transform/shadow/border-color only.
 
 Accessibility: no ARIA — presenting content is the native job of the element.
 When `interactive`, the caller wraps the Card in a real `<button>`/`<a>`; the
@@ -490,20 +492,41 @@ Dropdown already uses.
 
 ## Motion policy
 
-- Durations 120–360ms, token-driven: `--duration-fast` (120ms) for hover and
-  small state changes, `--duration-normal` (220ms) as the standard,
-  `--duration-slow` (360ms) for bigger reveals. The default easing is
-  `var(--ease-standard)`.
+- Durations token-driven from the scale `--duration-micro/fast/normal/slow/slower`
+  (80/120/220/360/600ms): press ≤ `--duration-micro`, hover/focus ≤
+  `--duration-fast`, `--duration-normal` as the standard reveal,
+  `--duration-slow`/`--duration-slower` for expands and the theme cross-fade.
+  Use the `--motion-*` role pairs (`--motion-hover-*`, `--motion-press-*`,
+  `--motion-focus-*`, `--motion-enter-*`, `--motion-exit-*`,
+  `--motion-expand-*`, `--motion-collapse-*`, `--motion-theme-*`) for the
+  per-role default duration + easing.
+- **Three designated easings.** `var(--ease-standard)` is the default;
+  `var(--ease-spring)` (overshoot) for hover lifts and entrance pops;
+  `var(--ease-smooth)` (symmetric) for theme cross-fade and
+  expand/collapse. No raw bezier strings.
 - **Transform and opacity only.** Never animate layout properties (width,
   height, top, left, margin). This keeps every animation on the compositor.
-- Hover *color* changes are implemented as an opacity-faded pseudo-element
-  wash (`::before`) — see `Button.svelte` / `Dock.svelte`. Reuse that pattern;
-  do not transition `background-color`.
-- **Reduced motion:** every interactive component wraps its transitions in
-  `@media (prefers-reduced-motion: reduce)` and disables them. Tooltips and
-  hovers must not animate when the user prefers reduced motion.
+- Hover *color* changes transition the affected properties directly (e.g.
+  `Button.svelte` transitions `background-color` in its ghost variant
+  alongside transform/shadow). Keep the property list targeted to what
+  actually changes; never `transition: all`.
+- **THEME-TRANSITION carve-out (ADR-0003 amendment / ADR-0009):** theme
+  switching fades the `<html>` root with a two-step opacity timeline
+  (`--motion-theme-*` = `--duration-slower` / `--ease-smooth`), swapping the
+  palette at the opacity floor, fully disabled under reduced motion, never
+  layout properties, never an opaque full-window overlay (ADR-0004). The
+  runtime helper (`ui/motion/theme-transition.ts`) drives the cross-fade.
+- **Reduced motion:** a single global `!important` safety net in `app.css`
+  disables transitions/animations under `prefers-reduced-motion: reduce`;
+  components don't wrap their own media queries. Tooltips and
+  hovers must not animate when the user prefers reduced motion. The
+  `ui/motion/` manager gate makes JS-orchestrated animation finish immediately
+  as well (ADR-0009).
 - No scroll-triggered or page-load animation churn in Phase 0. If you add a
   reveal, keep it to one opacity/transform pass.
+- JS-orchestrated sequences go through `ui/motion/` (presets + tokens only);
+  Svelte transition directives (`transition:`/`in:`/`out:`/`animate:`) are
+  banned in markup — one engine, one policy.
 
 ## Accessibility rules
 
@@ -530,7 +553,9 @@ Dropdown already uses.
   for glyphs.
 - Use `@floating-ui/dom` for popover positioning (ContextMenu, Dropdown — D1);
   keep Tooltip pure CSS (no floating-ui).
-- Keep motion to transform/opacity, 120–360ms, `--ease-standard`.
+- Keep motion to transform/opacity, token-driven durations and the three
+  designated easings (`--ease-standard` default, `--ease-spring`,
+  `--ease-smooth`); JS sequences go through `ui/motion/`.
 - Label every icon-only control.
 - Mirror CSS semantic changes into `themes/*.ts` (ADR-0003).
 

@@ -1,13 +1,27 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from "@testing-library/svelte";
+import { tick } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 
 import ContextMenuHarness from "./helpers/ContextMenuHarness.svelte";
 
+/**
+ * The Menu surface stays mounted while its exit animation runs (M2.3 phase
+ * state machine). In jsdom the real web driver finishes immediately, so two
+ * ticks flush the exit's onDone → "closed" → unmount.
+ */
+async function settle() {
+  await tick();
+  await tick();
+}
+
 describe("ContextMenu", () => {
   it("opens the menu on contextmenu with menuitem items", async () => {
     render(ContextMenuHarness);
-    await fireEvent.contextMenu(screen.getByRole("button", { name: "Trigger" }));
+    await fireEvent.contextMenu(
+      screen.getByRole("button", { name: "Trigger" }),
+    );
+    await settle();
 
     const menu = screen.getByRole("menu");
     expect(menu).not.toBeNull();
@@ -16,7 +30,10 @@ describe("ContextMenu", () => {
 
   it("renders separators and disabled items with the right ARIA", async () => {
     render(ContextMenuHarness);
-    await fireEvent.contextMenu(screen.getByRole("button", { name: "Trigger" }));
+    await fireEvent.contextMenu(
+      screen.getByRole("button", { name: "Trigger" }),
+    );
+    await settle();
 
     expect(screen.getByRole("separator")).not.toBeNull();
     const items = screen.getAllByRole("menuitem");
@@ -28,7 +45,10 @@ describe("ContextMenu", () => {
 
   it("moves focus to the first item on open and navigates with ArrowDown", async () => {
     render(ContextMenuHarness);
-    await fireEvent.contextMenu(screen.getByRole("button", { name: "Trigger" }));
+    await fireEvent.contextMenu(
+      screen.getByRole("button", { name: "Trigger" }),
+    );
+    await settle();
 
     const menu = screen.getByRole("menu");
     const items = screen.getAllByRole("menuitem");
@@ -41,7 +61,10 @@ describe("ContextMenu", () => {
   it("activates the focused item with Enter and calls onSelect", async () => {
     const onSelect = vi.fn();
     render(ContextMenuHarness, { onSelect });
-    await fireEvent.contextMenu(screen.getByRole("button", { name: "Trigger" }));
+    await fireEvent.contextMenu(
+      screen.getByRole("button", { name: "Trigger" }),
+    );
+    await settle();
 
     const menu = screen.getByRole("menu");
     await fireEvent.keyDown(menu, { key: "ArrowDown" });
@@ -55,9 +78,11 @@ describe("ContextMenu", () => {
     render(ContextMenuHarness);
     const trigger = screen.getByRole("button", { name: "Trigger" });
     await fireEvent.contextMenu(trigger);
+    await settle();
 
     const menu = screen.getByRole("menu");
     await fireEvent.keyDown(menu, { key: "Escape" });
+    await settle();
 
     expect(screen.queryByRole("menu")).toBeNull();
     expect(document.activeElement).toBe(trigger.parentElement);
@@ -68,13 +93,19 @@ describe("ContextMenu", () => {
     const trigger = screen.getByRole("button", { name: "Trigger" });
 
     await fireEvent.contextMenu(trigger);
+    await settle();
     expect(screen.getByRole("menu")).not.toBeNull();
+
     await fireEvent.contextMenu(trigger);
+    await settle();
     expect(screen.queryByRole("menu")).toBeNull();
 
     await fireEvent.contextMenu(trigger);
+    await settle();
     expect(screen.getByRole("menu")).not.toBeNull();
+
     await fireEvent.pointerDown(document.body);
+    await settle();
     expect(screen.queryByRole("menu")).toBeNull();
   });
 });
