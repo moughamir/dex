@@ -12,7 +12,7 @@
 - Branch: feat/m2.1-graphics @ e36f6f2 (17 files, +1061/−21); develop unchanged @ 408498e
 - CI: PASS (`bun run verify` 9/9, 2026-08-09, on feat/m2.1-graphics HEAD)
 - Verification: AUTOMATED VERIFIED — Vitest 141/141 (21 files: 94 node + 47 jsdom), Rust 67/67, svelte-check 0/0, clippy/build/format/lint PASS
-- Native: NOT VERIFIED — `bun run tauri:dev` desktop gate (transparent/compositor, WebGL in webview) queued for acceptance review
+- Native: PASSED (smoke, 2026-08-09) — `bun run tauri:dev` on real Wayland/Hyprland display: app builds+runs, fullscreen transparent window (fullscreen:2, visible), WebGL scene live+animating, zero errors/panics in log. Pixel analysis: no solid fill (corners show wallpaper through), center scene region distinct + changes across frames. Screenshots `/tmp/opencode/dex-native-*.png`; visual inspection still at acceptance.
 
 ## Milestones
 
@@ -28,11 +28,11 @@
 
 ## Active Work
 
-- M2.1 (Three.js Core) — implementation complete on feat/m2.1-graphics @ e36f6f2, IN REVIEW. Oracle review: READY FOR IN REVIEW (0 Critical/Major; 3 Minor + 3 Nits folded in). Native gate (`bun run tauri:dev`) pending at acceptance.
+- M2.1 (Three.js Core) — implementation complete on feat/m2.1-graphics @ e36f6f2, IN REVIEW. Oracle review: READY FOR IN REVIEW (0 Critical/Major; 3 Minor + 3 Nits folded in). Native gate: PASSED (smoke) — transparent window + WebGL scene verified on real display; visual inspection queued at acceptance.
 
 ## Blockers
 
-None. Native verification (transparent/WebGL desktop behavior) requires a Wayland/Hyprland display — queued for the acceptance review.
+None. Native smoke gate passed on the real display (2026-08-09); visual inspection of the backdrop and final acceptance remain at the acceptance review.
 
 ## Technical Debt
 

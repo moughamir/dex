@@ -15,7 +15,7 @@ updated: 2026-08-09
 - Commit: e36f6f2 — feat(graphics): ship M2.1 Three.js core + shell backdrop
 - CI: PASS (`bun run verify` 9/9, 2026-08-09, on feat/m2.1-graphics HEAD)
 - Verification: AUTOMATED VERIFIED — Vitest 141/141 (21 files: 94 node + 47 jsdom), Rust 67/67, svelte-check 0/0, clippy/build/format/lint PASS
-- Native Verification: NOT VERIFIED — `bun run tauri:dev` desktop gate (transparent/compositor, WebGL in webview) requires Wayland/Hyprland; queued for acceptance review
+- Native Verification: PASSED (smoke, 2026-08-09) — `bun run tauri:dev` on real Wayland/Hyprland display: app builds+runs, fullscreen transparent window (fullscreen:2, visible), WebGL scene live (no renderer errors in log; center region renders distinct scene + animates across frames; corners show wallpaper through — no solid fill), zero panics. Screenshots `/tmp/opencode/dex-native-*.png`. Pixel-level checks only; visual inspection still at acceptance.
 - Overall Status: M2.1 IN REVIEW — implementation complete, awaiting independent acceptance (do not mark DONE here)
 
 ## 📊 Milestone Progress
@@ -99,7 +99,7 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
   - Implementation: commit e36f6f2 on feat/m2.1-graphics (17 files, +1061/−21); three@0.185.1 / @types/three@0.185.4
   - Evidence: ADR-0008; 25_Graphics.md/README/Testing.md reconciled; oracle review READY FOR IN REVIEW (0 Critical/Major; 3 Minor + 3 Nits folded in)
   - Verification: `bun run verify` 9/9 ALL GATES PASSED (2026-08-09) — Vitest 141/141 (21 files), Rust 67/67, svelte-check 0/0
-  - Native: NOT VERIFIED — `bun run tauri:dev` desktop gate queued for acceptance review
+  - Native: PASSED (smoke) — `bun run tauri:dev` on real display: transparent fullscreen window, WebGL scene live+animating, zero errors; screenshots saved for acceptance review
   - Acceptance: independent (secondary orchestrator) — merge to develop on approval
 
 ---
