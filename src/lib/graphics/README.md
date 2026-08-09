@@ -33,5 +33,8 @@ WebGL canvas composited **under** the DOM chrome.
 - `core/` — context/state helpers · `materials/` — shader materials ·
   `effects/` — post/effects · `shaders/` — GLSL · `objects/` — scene objects
 
-Phase 0 ships only `contracts.ts` (+ this doc). Implementations arrive with
-the first feature that needs GPU visuals — no speculative engine code.
+Phase 0 shipped only `contracts.ts` (+ this doc). M2.1 implements the core
+renderer behind the contracts (`renderer.ts`, `scene.ts`, `camera.ts`,
+`lighting.ts`; see ADR-0008). Later milestones add effects (M2.2), animation
+(M2.3), and pooling/texture cache/FPS monitor (M2.4) — no speculative engine
+code ahead of the milestone that needs it.

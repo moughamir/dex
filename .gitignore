@@ -17,3 +17,4 @@ patch/
 
 # IDE state (regenerates on open)
 dex.context.xml
+.opencode/
