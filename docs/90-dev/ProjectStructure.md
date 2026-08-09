@@ -51,7 +51,7 @@ src/
 │   ├── features/      — business vertical slices (feature-first)
 │   ├── core/          — shared infrastructure
 │   ├── ui/            — reusable visuals
-│   ├── graphics/      — engine-agnostic renderer contracts
+│   ├── graphics/      — Three.js renderer (contracts, effects, shaders)
 │   └── types/         — cross-cutting shared types
 ```
 
@@ -101,11 +101,13 @@ Reusable visuals, consumed by features.
 
 ### graphics/
 
-Engine-agnostic rendering contracts (`contracts.ts`): the `Renderer` and
-`RenderSurface` interfaces, the transparency rule (ADR-0004), and the
-frame-loop ownership. Nothing outside `graphics/` touches WebGL or `three`.
-Phase 0 ships only the contracts; implementations arrive with the first GPU
-feature (Phase 2).
+The Three.js renderer (ADR-0008): engine-agnostic contracts (`contracts.ts`)
+— the `Renderer`/`RenderSurface` interfaces, the transparency rule
+(ADR-0004), and the frame-loop ownership — plus the live implementation
+(`renderer.ts` with the compose seam, `effects/` for bloom/fog/background
+vignette/grid/particles, `shaders/`). Wired into the shell via
+`GraphicsBackdrop.svelte` (M2.1/M2.2). Nothing outside `graphics/` touches
+WebGL or `three`.
 
 ### routes/
 

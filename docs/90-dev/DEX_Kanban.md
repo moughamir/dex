@@ -9,14 +9,14 @@ updated: 2026-08-09
 
 ## 🧭 Current State
 
-- Current Phase: Phase 1 — Desktop Shell
-- Current Milestone: M2.2 — Effects (not started; M2.1 DONE)
-- Branch: develop @ 56f9aa6 (M2.1 merged; origin/develop @ 408498e, local ahead 2)
-- Commit: 56f9aa6 — feat(graphics): ship M2.1 Three.js core + shell backdrop (squash)
-- CI: PASS (`bun run verify` 9/9, 2026-08-09, on develop HEAD pre- and post-merge)
-- Verification: AUTOMATED VERIFIED — Vitest 141/141 (21 files: 94 node + 47 jsdom), Rust 67/67, svelte-check 0/0, clippy/build/format/lint PASS
-- Native Verification: PASSED (smoke, 2026-08-09) — `bun run tauri:dev` on real Wayland/Hyprland display: app builds+runs, fullscreen transparent window (fullscreen:2, visible), WebGL scene live (no renderer errors in log; center region renders distinct scene + animates across frames; corners show wallpaper through — no solid fill), zero panics. Screenshots `/tmp/opencode/dex-native-*.png`. Pixel re-check at acceptance (2026-08-09): corners vary (no solid fill), center distinct + changes across frames.
-- Overall Status: M2.1 DONE — accepted (4-lane independent review, 0 Critical/Major) + merged to develop 56f9aa6; M2.2 next
+- Current Phase: Phase 2 — Graphics Engine
+- Current Milestone: M2.3 — Animation Engine (not started; M2.2 DONE)
+- Branch: develop @ 1931421 (M2.2 merged; origin/develop @ 408498e, local ahead 3)
+- Commit: 1931421 — feat(graphics): M2.2 effects (bloom, fog, background, grid, particles) (squash)
+- CI: PASS (`bun run verify` 9/9, 2026-08-09, on branch tip pre-merge and develop HEAD post-merge)
+- Verification: AUTOMATED VERIFIED — Vitest 160/160 (22 files), Rust 67/67, svelte-check 0/0, clippy/build/format/lint PASS
+- Native Verification: PASSED (smoke, 2026-08-09) — debug binary (`cargo build`, no bundler) on real Wayland/sway display: transparent fullscreen window, WebGL scene live. Pixel analysis: corners EXACT match to wallpaper (TL 42,15,69 / TR 22,6,43 / BL 8,5,12 / BR 42,49,130 — transparency preserved with bloom ON, no alpha accumulation); 20.8% of pixels change between frames 2s apart (particles/fog animating; M2.1 was 3.8%); center distinct from corners (vignette + bloom). Screenshots `/tmp/opencode/m22-native-*.png`.
+- Overall Status: M2.2 DONE — accepted (3-lane independent review; 2 MAJORs closed + spot re-review READY) + merged to develop 1931421; M2.3 next
 
 ## 📊 Milestone Progress
 
@@ -31,6 +31,7 @@ updated: 2026-08-09
 | M1.3 | UI Components | DONE | 100% | residual debts below |
 | M1.4 | Theme / Visual System | DONE | 100% | deferred theme debt below |
 | M2.1 | Three.js Core (renderer, scene, camera, lights) | DONE | 100% | — |
+| M2.2 | Effects (bloom, fog, background, grid, particles) | DONE | 100% | — |
 
 > Milestone names per canonical `docs/10-product/11_Product_Roadmap.md` (M0.1–M0.4 only; no M0.5/M0.6). M9.4 = Documentation, M9.5 = Release (v1.0).
 
@@ -89,13 +90,13 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
 
 ## 🔨 WIP
 
-(none — M2.1 in IN REVIEW)
+(none — M2.2 in IN REVIEW)
 
 ---
 
 ## 🔍 IN REVIEW
 
-(none — M2.1 accepted and merged; M2.2 not started)
+(none — M2.2 accepted and merged; M2.3 not started)
 
 ---
 
@@ -140,6 +141,13 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
   - Native: PASSED (smoke) + pixel-corroborated at acceptance; screenshots /tmp/opencode/dex-native-*.png
   - Commit: 56f9aa6
   - Residual debt: M2.1-TEST-001 (inert fallback test); M2.1-GFX-001…005 (see TECHNICAL DEBT)
+- [x] **[M2.2]** Effects — bloom, fog, background, grid, particles
+  - Accepted: 3-lane independent review (architect, implementation, security) — 2 MAJOR (bloom alpha ADR-0004 breach; flat-tint vignette) + minors, all closed across fix rounds; spot re-review (ora-6) READY; merged to develop 1931421 (squash)
+  - Evidence: compose seam (ComposeContext/RenderCompose) + EFFECTS_CONFIG boot-time toggle; effects/{manager,fog,background,grid,particles,color}.ts; shaders/background.glsl.ts; backdrop wiring with GFX-001 (DPR re-arm) + GFX-004 (palette-before-start) folded in; 25_Graphics.md M2.2 section + graphics/README.md reconciled
+  - Verification: `bun run verify` 9/9 ALL GATES PASSED (2026-08-09); Vitest 160/160 (22 files), Rust 67/67, svelte-check 0/0
+  - Native: PASSED — pixel-corroborated: corners = wallpaper exactly (transparency with bloom ON), 20.8% frame animation; /tmp/opencode/m22-native-*.png
+  - Commit: 1931421
+  - Residual debt: M2.1-TEST-001; M2.1-GFX-002/003/005 (see TECHNICAL DEBT)
 
 ---
 
@@ -173,11 +181,12 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
   - Severity: P3
   - Milestone: M2.1
   - Reason deferred: reviewer-flagged (architect F4, implementation #3); coverage gap only — add a test stubbing `THREE.WebGLRenderer` to throw and asserting the inert surface contract
-- [ ] **[M2.1]** DPR-change media query is one-shot (fires only the first change)
+- [x] **[M2.1]** DPR-change media query is one-shot (fires only the first change)
   - ID: M2.1-GFX-001
   - Severity: P3
   - Milestone: M2.2
   - Reason deferred: architect F1 — re-create the `(resolution: Xdppx)` query inside the change handler; masked by resize events on monitor moves
+  - RESOLVED: M2.2 (1931421) — query re-created inside the resize handler in GraphicsBackdrop
 - [ ] **[M2.1]** `--z-background` token unused; backdrop + Background hardcode `-z-50`
   - ID: M2.1-GFX-002
   - Severity: P3
@@ -188,11 +197,12 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
   - Severity: P3
   - Milestone: M2.2
   - Reason deferred: architect F3/R2 — pause loop on `lost`, re-assert backing-store size + resume on `restored`
-- [ ] **[M2.1]** Palette push precedes renderer start (first frame default-lit)
+- [x] **[M2.1]** Palette push precedes renderer start (first frame default-lit)
   - ID: M2.1-GFX-004
   - Severity: P4 (Nit)
   - Milestone: M2.2
   - Reason deferred: architect F7 — assign `renderer = created` before `start()` in the mount action; invisible with the empty scene
+  - RESOLVED: M2.2 (1931421) — initial palette applied at construction
 - [ ] **[M2.1]** Empty-scene rAF runs at 60 fps for the shell lifetime
   - ID: M2.1-GFX-005
   - Severity: P3
@@ -268,12 +278,14 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
 | (pruned) | agent/m1.2-review @ 5d133f6 | M1.2 review | PRUNED (was MERGED) |
 | (pruned) | agent/m1.3-ui-components @ df10d77 | M1.3 primitives | PRUNED (squash-merged as 89e8c8e) |
 | (pruned) | feat/m2.1-graphics @ decfd45 | M2.1 work branch | MERGED (squash-merged as 56f9aa6; ref kept until report) |
+| (pruned) | feat/m2.2-effects @ ab93156 | M2.2 effects work | PRUNED (squash-merged as 1931421) |
 | — | agent/m1.4-theme @ 88c60cd | M1.4 theme | DELETED (local + remote; squash-merged 3e0a38e) |
 
 ---
 
 ## 🧾 RECENT CHANGES
 
+- 2026-08-09 — **M2.2 ACCEPTED + MERGED to develop (1931421, squash)**: effects subsystem (bloom/fog/background/grid/particles + compose seam + EFFECTS_CONFIG) shipped; 3-lane review (architect/implementation/security) — 2 MAJOR (bloom alpha ADR-0004 breach; flat-tint vignette) + minors closed across fix rounds; spot re-review READY; `bun run verify` 9/9 PASS; native smoke pixel-corroborated (corners = wallpaper exactly with bloom ON; 20.8% frame animation); roadmap M2.2 `[x]`, Feature Matrix Built; GFX-001/004 resolved
 - 2026-08-09 — **M2.1 ACCEPTED + MERGED to develop (56f9aa6, squash)**: 4-lane independent review (architect/implementation/security/docs) — 0 Critical/Major; consensus one-liners folded (3ea9321); doc debt fixed (8dd3543, Testing.md 43→47 + AGENTS.md graphics inventory); `bun run verify` 9/9 PASS pre- and post-merge; native smoke pixel-corroborated; roadmap M2.1 `[x]`, Feature Matrix Built
 - 2026-08-09 — M2.1 implementation complete → IN REVIEW: commit e36f6f2 on feat/m2.1-graphics (17 files); `bun run verify` 9/9 ALL GATES PASSED; oracle review READY FOR IN REVIEW (3 Minor + 3 Nits folded in); ADR-0008; 25_Graphics.md/README/Testing.md reconciled; native gate queued
 - 2026-08-09 — Final pre-M2.1 baseline: @types/node chore (408498e) pushed to origin/develop; Status/Kanban refreshed to 408498e; `bun run verify` ALL GATES PASSED independently at HEAD
@@ -287,4 +299,4 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
 
 ## ⏭️ NEXT ACTION
 
-M2.1 is DONE (merged to develop 56f9aa6). Next: **M2.2 (Effects — bloom, fog, background, grid, particles)** — create `feat/m2.2-effects` from develop after a pre-M2.2 baseline reconciliation. Fold deferred M1.4 theme debt (THEME-003 motion, 004 state audit, 005 alias deprecation, 006 extended scales) and M2.1 debt (M2.1-TEST-001, GFX-001…005) into M2.x+ or M9 hardening. Remaining documentation debt: M1.3-DOC-005 (Build.md/ProjectStructure.md counts), DOC-006 (Debug.md/Profiling.md audit), DOC-007 (release wording); DOC-004 partially closed (AGENTS.md inventory + Testing.md count reconciled in 8dd3543).
+M2.2 is DONE (merged to develop 1931421). Next: **M2.3 (Animation Engine — timeline, motion manager, transition manager)** — create `feat/m2.3-animation` from develop after a pre-M2.3 baseline reconciliation. Fold deferred M1.4 theme debt (THEME-003 motion, 004 state audit, 005 alias deprecation, 006 extended scales) and remaining graphics debt (M2.1-TEST-001, GFX-002/003/005) into M2.x+ or M9 hardening. Remaining documentation debt: M1.3-DOC-005 (Build.md/ProjectStructure.md counts), DOC-006 (Debug.md/Profiling.md audit), DOC-007 (release wording); DOC-004 partially closed (AGENTS.md inventory + Testing.md count reconciled in 8dd3543).

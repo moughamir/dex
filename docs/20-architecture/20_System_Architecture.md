@@ -88,7 +88,7 @@ src/
       themes/      ThemePalette TS mirrors (light/dark/cyber)
     features/      business features; each owns components/, services/, stores/,
                    types/, utils/ (business logic only — never raw IPC)
-    graphics/      rendering engine contracts + future Three.js implementation
+    graphics/      Three.js renderer (contracts, effects, shaders) — ADR-0008
 
 src-tauri/
     commands/      #[tauri::command] handlers — thin, delegate to services/
@@ -158,11 +158,13 @@ Details and rationale: ADR-0001.
 
 - DOM/UI is composited by the browser; the shell window is transparent, so the
   Wayland desktop shows through (ADR-0004).
-- `graphics/` will host the Three.js renderer (Phase 2): a WebGL canvas with
-  `alpha: true` composited under the DOM chrome. Contracts live in
-  `graphics/contracts.ts`; implementations arrive with the first feature that
-  needs GPU visuals. The renderer owns its frame loop, resources, and
-  lifecycle; it never reaches into features.
+- `graphics/` hosts the Three.js renderer (Phase 2, ADR-0008): a WebGL canvas
+  with `alpha: true` composited under the DOM chrome. Contracts live in
+  `graphics/contracts.ts`; the live implementation (`renderer.ts`, `effects/`,
+  `shaders/`) is wired into the shell via `GraphicsBackdrop.svelte` (M2.1/M2.2).
+  The renderer owns its frame loop, resources, and lifecycle; it never reaches
+  into features. Effects (bloom, fog, background vignette, grid, particles) are
+  composed through a single ownership seam (`RendererOptions.compose`).
 - Animation contract: `transform`/`opacity` only, durations from the
   `--duration-*` scale (`--duration-fast/normal/slow/slower` =
   120/220/360/600 ms) with the single easing `--ease-standard`

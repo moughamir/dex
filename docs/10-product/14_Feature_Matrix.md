@@ -91,7 +91,7 @@ Status: **Built** = delivered (milestone checked in the roadmap).
 | UI Components (GlassPanel, Button, Card, Tooltip, Modal, ContextMenu, Dropdown) | UI Primitives | 1 | M1.3 | Built |
 | Theme (dark, cyber, dynamic; live switching) | Theming | 1 | M1.4 | Built |
 | Three.js Core (renderer, scene, camera, lights) | Graphics | 2 | M2.1 | Built |
-| Effects (bloom, fog, background, grid, particles) | Graphics | 2 | M2.2 | Planned |
+| Effects (bloom, fog, background, grid, particles) | Graphics | 2 | M2.2 | Built |
 | Animation Engine (timeline, motion manager, transition manager) | Graphics | 2 | M2.3 | Planned |
 | Graphics Performance (object pooling, texture cache, FPS monitor) | Graphics | 2 | M2.4 | Planned |
 | Widget SDK (registry, metadata, lifecycle) | Widgets | 3 | M3.1 | Planned |
