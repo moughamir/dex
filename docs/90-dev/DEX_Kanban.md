@@ -10,13 +10,13 @@ updated: 2026-08-09
 ## 🧭 Current State
 
 - Current Phase: Phase 1 — Desktop Shell
-- Current Milestone: M2.1 — next roadmap milestone (not started)
-- Branch: develop @ 408498e (in sync with origin/develop)
-- Commit: 408498e — chore(dev): add @types/node devDependency (M1.4 at 3e0a38e; canonical docs at bda811c)
-- CI: PASS (`bun run verify` 9/9, 2026-08-09); remote run on develop queued at closeout
-- Verification: AUTOMATED VERIFIED — Vitest 116/116 (16 files: 88 node + 28 jsdom), Rust 67/67, svelte-check 0/0, clippy/build/format/lint PASS
-- Native Verification: SKIPPED for M1.4 (frontend-only delta; native gate last run at M1.3 review)
-- Overall Status: M1.4 DONE — ready for M2.1
+- Current Milestone: M2.1 — Three.js Core (IN REVIEW; implementation complete)
+- Branch: feat/m2.1-graphics @ e36f6f2 (work branch; develop unchanged @ 408498e)
+- Commit: e36f6f2 — feat(graphics): ship M2.1 Three.js core + shell backdrop
+- CI: PASS (`bun run verify` 9/9, 2026-08-09, on feat/m2.1-graphics HEAD)
+- Verification: AUTOMATED VERIFIED — Vitest 141/141 (21 files: 94 node + 47 jsdom), Rust 67/67, svelte-check 0/0, clippy/build/format/lint PASS
+- Native Verification: NOT VERIFIED — `bun run tauri:dev` desktop gate (transparent/compositor, WebGL in webview) requires Wayland/Hyprland; queued for acceptance review
+- Overall Status: M2.1 IN REVIEW — implementation complete, awaiting independent acceptance (do not mark DONE here)
 
 ## 📊 Milestone Progress
 
@@ -30,7 +30,7 @@ updated: 2026-08-09
 | M1.2 | HUD / Application Shell | DONE | 100% | — |
 | M1.3 | UI Components | DONE | 100% | residual debts below |
 | M1.4 | Theme / Visual System | DONE | 100% | deferred theme debt below |
-| M2.1 | Three.js Core (renderer, scene, camera, lights) | TODO | 0% | none |
+| M2.1 | Three.js Core (renderer, scene, camera, lights) | IN REVIEW | 100% | native gate pending |
 
 > Milestone names per canonical `docs/10-product/11_Product_Roadmap.md` (M0.1–M0.4 only; no M0.5/M0.6). M9.4 = Documentation, M9.5 = Release (v1.0).
 
@@ -89,13 +89,18 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
 
 ## 🔨 WIP
 
-(none — M1.4 complete; no active M2.1 work yet)
+(none — M2.1 in IN REVIEW)
 
 ---
 
 ## 🔍 IN REVIEW
 
-(none)
+- [ ] **[M2.1]** Three.js Core — renderer, scene, camera, lights + shell backdrop
+  - Implementation: commit e36f6f2 on feat/m2.1-graphics (17 files, +1061/−21); three@0.185.1 / @types/three@0.185.4
+  - Evidence: ADR-0008; 25_Graphics.md/README/Testing.md reconciled; oracle review READY FOR IN REVIEW (0 Critical/Major; 3 Minor + 3 Nits folded in)
+  - Verification: `bun run verify` 9/9 ALL GATES PASSED (2026-08-09) — Vitest 141/141 (21 files), Rust 67/67, svelte-check 0/0
+  - Native: NOT VERIFIED — `bun run tauri:dev` desktop gate queued for acceptance review
+  - Acceptance: independent (secondary orchestrator) — merge to develop on approval
 
 ---
 
@@ -217,6 +222,7 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
 - ADR-0005 — Plugin boundary
 - ADR-0006 — Window startup lifecycle
 - ADR-0007 — Overlay primitives (D1 floating-ui/dom, D2 body portal, D3 glass/blur backdrop)
+- ADR-0008 — Three.js as the graphics renderer (WebGL2, transparent, DPR, single rAF owner, DI seam)
 
 ---
 
@@ -229,13 +235,14 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
 | (pruned) | agent/m1.1-window @ 729c966 | M1.1 window work | PRUNED (IPC wrap folded into 5d133f6) |
 | (pruned) | agent/m1.2-review @ 5d133f6 | M1.2 review | PRUNED (was MERGED) |
 | (pruned) | agent/m1.3-ui-components @ df10d77 | M1.3 primitives | PRUNED (squash-merged as 89e8c8e) |
+| — | feat/m2.1-graphics @ e36f6f2 | M2.1 work branch | IN REVIEW (kept; awaiting acceptance) |
 | — | agent/m1.4-theme @ 88c60cd | M1.4 theme | DELETED (local + remote; squash-merged 3e0a38e) |
-| — | feat/m2.1-graphics @ bda811c | M2.1 launchpad | CREATED (from develop; kept, no work yet) |
 
 ---
 
 ## 🧾 RECENT CHANGES
 
+- 2026-08-09 — M2.1 implementation complete → IN REVIEW: commit e36f6f2 on feat/m2.1-graphics (17 files); `bun run verify` 9/9 ALL GATES PASSED; oracle review READY FOR IN REVIEW (3 Minor + 3 Nits folded in); ADR-0008; 25_Graphics.md/README/Testing.md reconciled; native gate queued
 - 2026-08-09 — Final pre-M2.1 baseline: @types/node chore (408498e) pushed to origin/develop; Status/Kanban refreshed to 408498e; `bun run verify` ALL GATES PASSED independently at HEAD
 - 2026-08-09 — Pre-M2.1 reconciliation: M1.4→M2.1 transition verified (no M1.5); Testing.md Rust count 56→67; Status/Kanban refreshed to bda811c; worktrees pruned; agent/m1.4-theme deleted (local+remote); feat/m2.1-graphics created (launchpad, no work yet)
 - 2026-08-09 — M1.4 shipped to develop (3e0a38e)
@@ -247,4 +254,4 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
 
 ## ⏭️ NEXT ACTION
 
-Begin M2.1 (Three.js Core — renderer, scene, camera, lights, per canonical roadmap). Deferred M1.4 theme work (M1.4-THEME-003 motion, 004 state audit, 005 alias deprecation, 006 extended scales) folds into M2.x+ or M9 hardening; remaining documentation debt is M1.3-DOC-004…007.
+Independent (secondary orchestrator) acceptance review of M2.1 (IN REVIEW, feat/m2.1-graphics @ e36f6f2): run `bun run tauri:dev` native gate on Wayland/Hyprland, review the slice, then accept → squash-merge to develop → mark M2.1 DONE. Deferred M1.4 theme work (M1.4-THEME-003 motion, 004 state audit, 005 alias deprecation, 006 extended scales) folds into M2.x+ or M9 hardening; remaining documentation debt is M1.3-DOC-004…007.
