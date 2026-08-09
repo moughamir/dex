@@ -14,3 +14,6 @@ vite.config.ts.timestamp-*
 .ignore
 .obsidian/
 patch/
+
+# IDE state (regenerates on open)
+dex.context.xml
