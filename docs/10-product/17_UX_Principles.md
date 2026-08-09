@@ -76,10 +76,12 @@ in a way that conceals its existence; nothing is dumped on the user at once.
 ## Immediate Feedback
 
 Every action produces a visible response within the motion contract:
-150–250 ms, transform/opacity only, on the compositor. Activation reports
-progress; a service failure names the service; a command that succeeds is
-acknowledged. The interface never leaves the user wondering whether an
-action registered.
+press ≤ `--duration-micro` (80ms), hover/focus ≤ `--duration-fast` (120ms),
+reveals ≤ `--duration-normal` (220ms), theme/expand ≤
+`--duration-slow`/`--duration-slower` (360/600ms) — transform/opacity only, on
+the compositor (ADR-0003, ADR-0009). Activation reports progress; a service
+failure names the service; a command that succeeds is acknowledged. The
+interface never leaves the user wondering whether an action registered.
 
 - Why: feedback is how the user builds trust that the Runtime is doing what
   it was asked. Delayed or absent feedback reads as a hang.

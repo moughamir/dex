@@ -54,7 +54,7 @@
 
       <div class="h-1.5 w-full overflow-hidden rounded-full bg-(--surface-3)">
         <div
-          class="h-full w-full origin-left animate-pulse bg-(--dex-primary) transition-all duration-500"
+          class="h-full w-full origin-left animate-pulse bg-(--dex-primary) transition-[opacity,transform] duration-(--motion-enter-duration)"
         ></div>
       </div>
     </div>

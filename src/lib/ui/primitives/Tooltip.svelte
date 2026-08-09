@@ -5,8 +5,8 @@
   /**
    * Pure-CSS tooltip — no floating-ui. Wraps a trigger element; the tip
    * appears on `:hover` and `:focus-within` (keyboard users get it for free).
-   * Shows with a short delay, hides instantly. Reduced-motion kills the
-   * transition entirely.
+   * Shows after a short delay, hides fast. Reduced-motion is covered by the
+   * global CSS net (app.css) — no local override.
    */
 
   let {
@@ -48,11 +48,12 @@
     letter-spacing: var(--dex-tracking-wide);
     white-space: nowrap;
     pointer-events: none;
-    /* motion rule: transform/opacity only; visibility is a hard show/hide */
+    /* motion rule: transform/opacity only; visibility is a hard show/hide.
+       Base state = exit path: fast hide (--motion-exit-*) */
     transition:
-      opacity var(--dex-duration-base) var(--dex-ease-out),
-      transform var(--dex-duration-base) var(--dex-ease-out),
-      visibility 0s linear var(--dex-duration-base);
+      opacity var(--motion-exit-duration) var(--motion-exit-ease),
+      transform var(--motion-exit-duration) var(--motion-exit-ease),
+      visibility 0s linear var(--motion-exit-duration);
   }
 
   .dex-tooltip__tip[data-side="top"],
@@ -92,12 +93,13 @@
     visibility: visible;
     opacity: 1;
     transform: translate(-50%, 0) scale(1);
-    /* delayed fade-in so stray hovers don't flash the tip */
+    /* delayed fade-in so stray hovers don't flash the tip; enter path uses
+       the --motion-enter-* vocabulary with a fast delay */
     transition:
-      opacity var(--dex-duration-base) var(--dex-ease-out)
-        var(--dex-duration-fast),
-      transform var(--dex-duration-base) var(--dex-ease-out)
-        var(--dex-duration-fast),
+      opacity var(--motion-enter-duration) var(--motion-enter-ease)
+        var(--duration-fast),
+      transform var(--motion-enter-duration) var(--motion-enter-ease)
+        var(--duration-fast),
       visibility 0s;
   }
 
@@ -106,13 +108,5 @@
   .dex-tooltip:hover .dex-tooltip__tip[data-side="right"],
   .dex-tooltip:focus-within .dex-tooltip__tip[data-side="right"] {
     transform: translate(0, -50%) scale(1);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .dex-tooltip__tip,
-    .dex-tooltip:hover .dex-tooltip__tip,
-    .dex-tooltip:focus-within .dex-tooltip__tip {
-      transition: none;
-    }
   }
 </style>

@@ -12,6 +12,8 @@
   import type { HTMLAttributes } from "svelte/elements";
   import type { Snippet } from "svelte";
 
+  import { transitionManager } from "$lib/ui/motion";
+
   type ModalBase = Omit<
     HTMLAttributes<HTMLDivElement>,
     "onclose" | "title" | "open" | "aria-labelledby"
@@ -58,6 +60,64 @@
 
   let surfaceEl = $state<HTMLElement | null>(null);
   let backdropEl = $state<HTMLElement | null>(null);
+
+  /**
+   * Mount/unmount phase (ADR-0009 phase state machine). The backdrop + surface
+   * stay MOUNTED while `phase === "closing"` so the exit animation can run;
+   * both exits' `onDone` flip to `"closed"` and unmount.
+   */
+  type ModalPhase = "open" | "closing" | "closed";
+  let phase = $state<ModalPhase>("closed");
+
+  /** Drive the phase machine from the `open` prop. */
+  $effect(() => {
+    if (open) {
+      phase = "open";
+    } else if (phase !== "closed") {
+      phase = "closing";
+    }
+  });
+
+  /** Enter: pop the surface, fade the backdrop (default duration = normal). */
+  $effect(() => {
+    if (phase !== "open") return;
+    const surface = surfaceEl;
+    const backdrop = backdropEl;
+    if (!surface || !backdrop) return;
+    transitionManager.enter({ el: surface, kind: "pop" });
+    transitionManager.enter({ el: backdrop, kind: "fade" });
+  });
+
+  /**
+   * Exit: both presets finish before `onDone` (the last one) flips phase to
+   * "closed" and unmounts. Cancelled handles never fire `onDone` (the
+   * transition manager contract), so reopening mid-close is safe.
+   */
+  $effect(() => {
+    if (phase !== "closing") return;
+    const surface = surfaceEl;
+    const backdrop = backdropEl;
+    if (!surface || !backdrop) return;
+    let remaining = 2;
+    const onExitDone = () => {
+      remaining -= 1;
+      if (remaining === 0) phase = "closed";
+    };
+    const surfaceHandle = transitionManager.exit({
+      el: surface,
+      kind: "pop",
+      onDone: onExitDone,
+    });
+    const backdropHandle = transitionManager.exit({
+      el: backdrop,
+      kind: "fade",
+      onDone: onExitDone,
+    });
+    return () => {
+      surfaceHandle.cancel();
+      backdropHandle.cancel();
+    };
+  });
 
   /** Portal the backdrop + surface onto portalTarget (ADR-0007 D2). */
   function portal(node: HTMLElement) {
@@ -133,7 +193,7 @@
   });
 </script>
 
-{#if open}
+{#if phase !== "closed"}
   <div bind:this={backdropEl} use:portal class="dex-modal">
     <div
       bind:this={surfaceEl}
@@ -193,7 +253,6 @@
     background: var(--surface-1);
     backdrop-filter: blur(var(--blur-md));
     -webkit-backdrop-filter: blur(var(--blur-md));
-    animation: dex-modal-fade var(--duration-normal) var(--ease-standard);
   }
 
   .dex-modal__surface {
@@ -211,7 +270,6 @@
       var(--shadow-xl),
       inset 0 1px 0 var(--glass-border-light);
     outline: none;
-    animation: dex-modal-in var(--duration-normal) var(--ease-standard);
   }
 
   .dex-modal__header {
@@ -271,32 +329,5 @@
     gap: var(--space-2);
     padding: var(--space-4) var(--space-5);
     border-top: 1px solid var(--border-subtle);
-  }
-
-  @keyframes dex-modal-fade {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  @keyframes dex-modal-in {
-    from {
-      opacity: 0;
-      transform: scale(0.98);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .dex-modal,
-    .dex-modal__surface {
-      animation: none;
-    }
   }
 </style>

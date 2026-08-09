@@ -82,10 +82,11 @@
       var(--shadow-lg),
       inset 0 1px 0 var(--glass-border-light),
       inset 0 -1px 0 var(--border-subtle);
+    /* hover lift/shadow adopt the spring motion vocabulary (ADR-0009) */
     transition:
-      transform var(--duration-fast) var(--ease-standard),
-      box-shadow var(--duration-fast) var(--ease-standard),
-      border-color var(--duration-fast) var(--ease-standard);
+      transform var(--motion-hover-duration) var(--motion-hover-ease),
+      box-shadow var(--motion-hover-duration) var(--motion-hover-ease),
+      border-color var(--motion-hover-duration) var(--motion-hover-ease);
   }
 
   .dex-card--radius-md {
@@ -152,12 +153,5 @@
 
   .dex-padding--lg {
     padding: var(--space-6);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .dex-card,
-    .dex-card--interactive:hover {
-      transition: none;
-    }
   }
 </style>

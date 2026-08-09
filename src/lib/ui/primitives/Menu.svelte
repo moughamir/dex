@@ -11,6 +11,8 @@
   import { Check } from "lucide-svelte";
   import type { Snippet } from "svelte";
 
+  import { transitionManager } from "$lib/ui/motion";
+
   import { enabledItems, stepFocus, type MenuItem } from "./menu";
 
   interface Props {
@@ -38,6 +40,50 @@
   }: Props = $props();
 
   let surfaceEl = $state<HTMLElement | null>(null);
+
+  /**
+   * Mount/unmount phase (ADR-0009 phase state machine). The surface stays
+   * MOUNTED while `phase === "closing"` so the exit animation can run; the
+   * exit's `onDone` flips to `"closed"` and unmounts.
+   */
+  type MenuPhase = "open" | "closing" | "closed";
+  let phase = $state<MenuPhase>("closed");
+
+  /** Drive the phase machine from the `open` prop. */
+  $effect(() => {
+    if (open) {
+      phase = "open";
+    } else if (phase !== "closed") {
+      phase = "closing";
+    }
+  });
+
+  /** Enter: pop the surface (default duration = normal). */
+  $effect(() => {
+    if (phase !== "open") return;
+    const surface = surfaceEl;
+    if (!surface) return;
+    transitionManager.enter({ el: surface, kind: "pop" });
+  });
+
+  /**
+   * Exit: the pop exit finishes before `onDone` flips phase to "closed" and
+   * unmounts. A cancelled handle never fires `onDone` (transition manager
+   * contract), so reopening mid-close is safe.
+   */
+  $effect(() => {
+    if (phase !== "closing") return;
+    const surface = surfaceEl;
+    if (!surface) return;
+    const handle = transitionManager.exit({
+      el: surface,
+      kind: "pop",
+      onDone: () => {
+        phase = "closed";
+      },
+    });
+    return () => handle.cancel();
+  });
 
   /** Portal the menu surface onto document.body (ADR-0007 D2). */
   function portal(node: HTMLElement) {
@@ -139,7 +185,7 @@
   }
 </script>
 
-{#if open}
+{#if phase !== "closed"}
   <div
     bind:this={surfaceEl}
     use:portal
@@ -199,18 +245,6 @@
     backdrop-filter: blur(var(--blur-lg));
     -webkit-backdrop-filter: blur(var(--blur-lg));
     outline: none;
-    animation: dex-menu-in var(--duration-fast) var(--ease-standard);
-  }
-
-  @keyframes dex-menu-in {
-    from {
-      opacity: 0;
-      transform: translateY(-4px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
   }
 
   .dex-menu__item {
@@ -255,11 +289,5 @@
   .dex-menu__check {
     flex-shrink: 0;
     margin-left: auto;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .dex-menu {
-      animation: none;
-    }
   }
 </style>

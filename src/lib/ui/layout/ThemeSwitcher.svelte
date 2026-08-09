@@ -1,6 +1,7 @@
 <script lang="ts">
   import { themes, type ThemeName } from "$lib/core/config/theme";
   import { themeStore } from "$lib/core/stores/theme.svelte";
+  import { transitionTheme } from "$lib/ui/motion";
   import { Dropdown } from "$lib/ui/primitives";
 
   const labelOf = {
@@ -15,11 +16,17 @@
       label: labelOf[id],
     })),
   );
+
+  function handleSelect(id: string) {
+    // Runs the cross-fade timeline; the store apply happens inside the
+    // helper at the opacity floor (no direct store call here).
+    void transitionTheme(id as ThemeName);
+  }
 </script>
 
 <Dropdown
   label={labelOf[themeStore.current]}
   {items}
   selected={themeStore.current}
-  onSelect={(id) => themeStore.apply(id as ThemeName)}
+  onSelect={handleSelect}
 />

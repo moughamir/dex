@@ -189,7 +189,7 @@ export function createEffects(
     composer = (bloom.composerFactory ?? defaultComposer)(ctx.glRenderer, 1, 1);
   }
 
-  const clock = new THREE.Clock();
+  const clock = new THREE.Timer();
 
   function render(): void {
     particlesEffect?.update(clock.getDelta());

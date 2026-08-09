@@ -194,6 +194,14 @@
 
 .dex-interactive:active {
   transform: scale(0.985);
+
+  /* Press is faster than hover (--motion-press-duration = --duration-micro).
+     Unlayered normal beats the unlayered .dex-interactive `transition:`
+     shorthand by specificity (0,2,0 > 0,1,0), and the unlayered !important
+     reduced-motion net in app.css still wins over it under `prefers-reduced-
+     motion: reduce` (important > normal). Do NOT use !important here — a
+     layered !important utility would beat the net. */
+  transition-duration: var(--motion-press-duration);
 }
 
 .dex-interactive:focus-visible {
