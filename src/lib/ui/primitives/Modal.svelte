@@ -201,7 +201,7 @@
     display: flex;
     flex-direction: column;
     width: 100%;
-    max-width: 28rem;
+    max-width: var(--modal-max-width);
     max-height: 100%;
     overflow: hidden;
     border: 1px solid var(--glass-border);
@@ -225,7 +225,7 @@
 
   .dex-modal__title {
     margin: 0;
-    font-size: 1.125rem;
+    font-size: var(--font-size-lg);
     font-weight: 600;
     color: var(--text-primary);
   }
@@ -260,7 +260,7 @@
 
   .dex-modal__description {
     margin: 0 0 var(--space-4);
-    font-size: 0.875rem;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
   }
 

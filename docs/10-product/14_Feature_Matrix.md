@@ -89,7 +89,7 @@ Status: **Built** = delivered (milestone checked in the roadmap).
 | Window (transparent, fullscreen, multi-monitor, DPI-aware) | Desktop Shell | 1 | M1.1 | Built |
 | HUD (TopBar, Dock, StatusBar, Viewport) | Desktop Shell | 1 | M1.2 | Built |
 | UI Components (GlassPanel, Button, Card, Tooltip, Modal, ContextMenu, Dropdown) | UI Primitives | 1 | M1.3 | Built |
-| Theme (dark, cyber, dynamic; live switching) | Theming | 1 | M1.4 | Planned |
+| Theme (dark, cyber, dynamic; live switching) | Theming | 1 | M1.4 | Built |
 | Three.js Core (renderer, scene, camera, lights) | Graphics | 2 | M2.1 | Planned |
 | Effects (bloom, fog, background, grid, particles) | Graphics | 2 | M2.2 | Planned |
 | Animation Engine (timeline, motion manager, transition manager) | Graphics | 2 | M2.3 | Planned |
@@ -153,7 +153,8 @@ Status: **Built** = delivered (milestone checked in the roadmap).
   (M4.4), the Rust command surface (M4.1), and the Workspace Manager
   (M5.5). See [`15_Workspace_Runtime.md`](15_Workspace_Runtime.md).
 - Status reflects the roadmap only. All Phase 0 milestones (M0.1–M0.4) and
-  M1.1–M1.2 are delivered; Phase 1 (M1.3 UI Components) is next.
+  all Phase 1 milestones (M1.1–M1.4) are delivered; Phase 2 (Graphics Engine)
+  is next.
 - The phase gate applies to every milestone: each ends with a working
   vertical slice and green checks.
 

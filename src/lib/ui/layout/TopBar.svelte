@@ -12,6 +12,7 @@
 
   import { Button, GlassPanel, Tooltip } from "$lib/ui/primitives";
   import { SearchBox } from "$lib/ui/navigation";
+  import ThemeSwitcher from "./ThemeSwitcher.svelte";
 
   const label = $derived(workspaceLabel(shellStore.activeWorkspace));
 
@@ -58,6 +59,8 @@
           {/if}
         </Button>
       </Tooltip>
+
+      <ThemeSwitcher />
 
       {#if searchOpen}
         <div class="w-64 max-w-md">

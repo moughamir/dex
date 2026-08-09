@@ -238,8 +238,11 @@ primitives, transparency contract, typed IPC layer (`core/api`,
 
 Roadmap milestones M0.1–M0.4 are done — Phase 0 is shipped, and the standard
 gate `bun run verify` (nine steps, fail-fast) is wired into CI on push/PR to
-`develop`/`main`. M1.1 (Window) and M1.2 (HUD) are delivered; the current
-milestone is M1.3 (UI Components). The M1.3 overlay-primitive decisions —
+`develop`/`main`. M1.1 (Window), M1.2 (HUD), and M1.3 (UI Components) are
+delivered. M1.4 (Theme) is complete — live theme switching end to end: the
+ThemeSwitcher control in the TopBar, the three built-in themes (dark, light,
+cyber), and the `--font-size-*` typography scale. The M1.3 overlay-primitive
+decisions —
 floating positioning, body portals, and translucent modal backdrops — are
 recorded in ADR-0007 (D1–D3); an overlay rendered inside a glass panel without
 a portal is review-rejectable (D2), and opaque modal backdrops are contract

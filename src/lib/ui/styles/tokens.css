@@ -120,6 +120,15 @@
   --space-12: 3rem;
   --space-16: 4rem;
   /* ------------------------------------------------------------------------
+   * Font sizes
+   * ---------------------------------------------------------------------- */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  /* ------------------------------------------------------------------------
    * Shadows
    * ---------------------------------------------------------------------- */
   --shadow-xs: 0 2px 4px rgb(0 0 0 / 0.2);
@@ -148,6 +157,7 @@
   --status-height: 34px;
   --shell-padding: 32px;
   --content-max-width: 1200px;
+  --modal-max-width: 28rem;
   --content-gap: 24px;
   --dock-icon: 54px;
   --dock-scale: 1.45;

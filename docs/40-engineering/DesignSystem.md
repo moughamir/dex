@@ -29,7 +29,7 @@ no preprocessors, no `@apply`, safe to `@import`.
 
 | Layer | Selector | Contents | Themeable? |
 |---|---|---|---|
-| Primitives | `:root` | raw values: color ramps (aurora, noise), spacing, radii, blur, motion, z-index, shadows, chrome dimensions | no |
+| Primitives | `:root` | raw values: color ramps (aurora, noise), spacing, radii, typography (`--font-size-*`), blur, motion, z-index, shadows, chrome dimensions | no |
 | Semantic | `:root` | role mapping for the **default (dark)** theme: surfaces (`--surface-*`), text (`--text-*`), borders (`--border-*`), glass (`--glass-*`, `--glass-border-*`), backdrop (`--bg-*`), HUD/sidebar/dock chrome, focus (`--focus-ring`), selection (`--selection-*`), scrollbars (`--scrollbar-*`). Brand `--dex-*` is reserved for brand/accent only: `--dex-primary`, `--dex-secondary`, `--dex-accent`, `--dex-success`, `--dex-warning`, `--dex-danger`, `--on-primary` | yes |
 | Theme overrides | `[data-theme="light"]`, `[data-theme="cyber"]` | override **only** the semantic layer | — |
 
@@ -131,6 +131,11 @@ from it.
 Buttons/dock tiles use `md`–`lg`; panels use `lg`; small chrome (tooltips,
 chips) uses `sm`.
 
+### Font sizes — `--font-size-*` (rem)
+`xs: 0.75` · `sm: 0.875` · `md: 1` · `lg: 1.125` · `xl: 1.25` · `2xl: 1.5`
+
+Titles use `lg`; descriptions and captions use `sm`.
+
 ### Motion — `--duration-*`, `--ease-*`
 - `--duration-fast: 120ms` (hover, small state changes)
 - `--duration-normal: 220ms` (standard transitions)
@@ -150,7 +155,7 @@ Never invent z-index values; always reference a token.
 ### Layout — HUD chrome dimensions
 `--hud-height: 56px` · `--sidebar-width: 280px` · `--sidebar-collapsed-width: 76px` ·
 `--dock-height: 76px` · `--status-height: 34px` · `--shell-padding: 32px` ·
-`--content-max-width: 1200px` · `--content-gap: 24px` · `--dock-icon: 54px` ·
+`--content-max-width: 1200px` · `--modal-max-width: 28rem` · `--content-gap: 24px` · `--dock-icon: 54px` ·
 `--dock-scale: 1.45`
 
 ### Glass blur — `--blur-*` (px)
@@ -340,7 +345,10 @@ contract violation), `aria-describedby` when `description` is set.
 
 Tokens: `--z-dialog` (150), glass surface via `--surface-2` + `--glass-*`
 hairlines, `--radius-lg`–`xl`, `--shadow-xl`, backdrop blur `--blur-md` +
-translucent fill (D3).
+translucent fill (D3). Title and description font sizes come from the
+`--font-size-*` scale and the surface max-width from `--modal-max-width`
+(28rem), resolving the M1.3 carry-forward M2/M3 note on raw values in the
+primitive.
 
 Motion: backdrop fades opacity in; surface scales 0.98 → 1, 220ms
 (`--duration-normal`), `--ease-standard`; `prefers-reduced-motion` disables.
@@ -461,6 +469,24 @@ all times.
   onSelect={setTheme}
 />
 ```
+
+### ThemeSwitcher — HUD theme control
+
+A Dropdown-based HUD control living in the TopBar action cluster
+(`src/lib/ui/layout/ThemeSwitcher.svelte`). It is a thin configuration of the
+Dropdown primitive, not a new menu implementation.
+
+The trigger label shows the current theme name (Dark / Light / Cyber); the
+items are exactly the three built-in themes. `selected` is bound to the theme
+store's current theme and `onSelect` applies the choice. Switching is live —
+the store sets the `data-theme` attribute on `<html>` before the next paint —
+and the choice persists across sessions through the theme store.
+
+Keyboard and ARIA behavior are inherited from the Dropdown primitive: a real
+`<button>` trigger, `role="menuitemradio"` with `aria-checked` on the selected
+item, ArrowDown / Enter / Space opens, Escape closes, and focus returns to the
+trigger. No new dependencies; positioning stays on `@floating-ui/dom`, which
+Dropdown already uses.
 
 ## Motion policy
 

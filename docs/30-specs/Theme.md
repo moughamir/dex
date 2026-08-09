@@ -114,6 +114,13 @@ there are no inline styles.
   graphics engine.
 - `initTheme()` runs at boot so the attribute is set before first paint.
 
+**M1.4 reading of "dynamic" (D1):** dynamic theming is TH-2 live runtime
+switching — the change is applied before the next paint and persisted across
+sessions. There are exactly three built-in themes (dark, light, cyber) and no
+system-follow mode is in scope. The typography scale `--font-size-*` and the
+chrome dimension `--modal-max-width` exist in the primitive scale tokens and
+are not themeable.
+
 ```mermaid
 flowchart LR
     STORE["theme store (theme.svelte.ts)"]

@@ -11,13 +11,15 @@ production.
 
 ## Current state — honest
 
-Frontend tests run via `bun run test` (`vitest run`): 11 files under
+Frontend tests run via `bun run test` (`vitest run`): 16 files under
 `tests/frontend/` — contracts, events, helpers, ipc-error, navigation-config,
-shell-store, storage, theme-store, utils, window-geometry, window-store — 88
-tests in the default **node** environment, with `$lib` and lucide-svelte stubs
-configured in `vitest.config.ts`. Behavior tests that render components opt
-into a DOM per file (see [Component behavior tests](#component-behavior-tests)
-below). Rust tests run via `bun run cargo:test` (cwd-independent,
+primitives-card, primitives-context-menu, primitives-dropdown,
+primitives-modal, shell-store, storage, theme-store, theme-switcher, utils,
+window-geometry, window-store — 88 tests in the default **node** environment
+plus 28 jsdom component-behavior tests (Card, Modal, ContextMenu, Dropdown,
+ThemeSwitcher), with `$lib` and lucide-svelte stubs configured in
+`vitest.config.ts`. Behavior tests that render components opt into a DOM per
+file (see [Component behavior tests](#component-behavior-tests) below). Rust tests run via `bun run cargo:test` (cwd-independent,
 `--manifest-path`): 56 unit tests across the providers, database migrations,
 utils, and commands. The other `tests/` directories —
 `tests/{backend,unit,integration,e2e}/` — remain scaffolding.
@@ -86,10 +88,11 @@ and the most numerous.
 ### Component behavior tests
 
 Added in **M1.3 (UI Components)** for the overlay primitives (Modal,
-ContextMenu, Dropdown, Card). These tests render **real Svelte 5 runes
-components** and assert _behavior_ — open/close transitions, keyboard and
-focus handling, Escape and click-outside dismissal — **not visual appearance**
-(layout, colors, and motion stay in the manual desktop gate).
+ContextMenu, Dropdown, Card) and extended in **M1.4 (Theme)** for the
+ThemeSwitcher. These tests render **real Svelte 5 runes components** and
+assert _behavior_ — open/close transitions, keyboard and focus handling,
+Escape and click-outside dismissal, live theme application — **not visual
+appearance** (layout, colors, and motion stay in the manual desktop gate).
 
 **Strategy — node stays the default.** `vitest.config.ts` keeps
 `environment: "node"`. A behavior test opts into a DOM with a per-file
