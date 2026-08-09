@@ -11,8 +11,8 @@ updated: 2026-08-09
 
 - Current Phase: Phase 1 — Desktop Shell
 - Current Milestone: M2.1 — next roadmap milestone (not started)
-- Branch: develop @ 3e0a38e (in sync with origin/develop)
-- Commit: 3e0a38e — feat(theme): ship M1.4 live theme switching end to end
+- Branch: develop @ a13c836 (2 ahead of origin/develop — push held by user decision)
+- Commit: a13c836 — chore: ignore dex.context.xml IDE state (M1.4 at 3e0a38e; canonical docs at 5677097)
 - CI: PASS (`bun run verify` 9/9, 2026-08-09); remote run on develop queued at closeout
 - Verification: AUTOMATED VERIFIED — Vitest 116/116 (16 files: 88 node + 28 jsdom), Rust 67/67, svelte-check 0/0, clippy/build/format/lint PASS
 - Native Verification: SKIPPED for M1.4 (frontend-only delta; native gate last run at M1.3 review)
@@ -224,17 +224,18 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
 
 | Worktree | Branch | Purpose | Status |
 |---|---|---|---|
-| dex-worktrees/docs-librarian | agent/docs-librarian @ dad9031 | M0.4 docs alignment | MERGED (ahead 0, behind 6) — prune |
-| dex-worktrees/m1.1-review | agent/m1.1-review @ 735ffa9 | M1.1 review (NEEDS CHANGES) | 1 ahead — reconcile or archive |
-| dex-worktrees/m1.1-window | agent/m1.1-window @ 729c966 | M1.1 window work | 5 ahead — verify merge or archive |
-| dex-worktrees/m1.2-review | agent/m1.2-review @ 5d133f6 | M1.2 review | MERGED (ahead 0) — prune |
-| dex-worktrees/m1.3-ui-components | agent/m1.3-ui-components @ df10d77 | M1.3 primitives | 1 ahead, 1 behind — diff vs 89e8c8e, archive |
+| dex-worktrees/docs-librarian | agent/docs-librarian @ dad9031 | M0.4 docs alignment | MERGED (tip in develop history) — prune |
+| dex-worktrees/m1.1-review | agent/m1.1-review @ 735ffa9 | M1.1 review (NEEDS CHANGES) | content superseded by docs/90-dev/M1-1-Review.md — archive or prune |
+| dex-worktrees/m1.1-window | agent/m1.1-window @ 729c966 | M1.1 window work | MERGED (IPC wrap folded into 5d133f6) — prune |
+| dex-worktrees/m1.2-review | agent/m1.2-review @ 5d133f6 | M1.2 review | MERGED (tip is develop ancestor) — prune |
+| dex-worktrees/m1.3-ui-components | agent/m1.3-ui-components @ df10d77 | M1.3 primitives | SQUASH-MERGED as 89e8c8e — prune |
 | — | agent/m1.4-theme @ 88c60cd | M1.4 theme | SQUASH-MERGED to develop 3e0a38e — delete local + remote branch |
 
 ---
 
 ## 🧾 RECENT CHANGES
 
+- 2026-08-09 — Pre-M2.1 reconciliation: M1.4→M2.1 transition verified (no M1.5); Testing.md Rust count 56→67; Status/Kanban refreshed to a13c836; worktree audit completed (all content merged or superseded)
 - 2026-08-09 — M1.4 shipped to develop (3e0a38e)
 - 2026-08-09 — M1-4-Review.md (READY FOR MERGE; native gate SKIPPED — frontend-only delta)
 - 2026-08-09 — Wave 0 reconciliation: `bun run verify` ALL GATES PASSED at HEAD; canonical status + this board created

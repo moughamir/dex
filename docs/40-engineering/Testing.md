@@ -20,7 +20,7 @@ plus 28 jsdom component-behavior tests (Card, Modal, ContextMenu, Dropdown,
 ThemeSwitcher), with `$lib` and lucide-svelte stubs configured in
 `vitest.config.ts`. Behavior tests that render components opt into a DOM per
 file (see [Component behavior tests](#component-behavior-tests) below). Rust tests run via `bun run cargo:test` (cwd-independent,
-`--manifest-path`): 56 unit tests across the providers, database migrations,
+`--manifest-path`): 67 unit tests across the providers, database migrations,
 utils, and commands. The other `tests/` directories —
 `tests/{backend,unit,integration,e2e}/` — remain scaffolding.
 
@@ -164,7 +164,7 @@ run on Wayland/Hyprland, not in a browser tab.
 ### Rust tests
 
 `bun run cargo:test` (`--manifest-path`, cwd-independent) covers the Rust
-side: 56 unit tests across the providers, database migrations, utils, and
+side: 67 unit tests across the providers, database migrations, utils, and
 commands, plus integration tests for command handlers and the database access
 layer. Rust owns all system access (ADR-0001), so the Rust test suite is the
 primary guard on filesystem, SQLite, and Hyprland behavior.
