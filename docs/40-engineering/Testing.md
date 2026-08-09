@@ -11,14 +11,16 @@ production.
 
 ## Current state — honest
 
-Frontend tests run via `bun run test` (`vitest run`): 16 files under
-`tests/frontend/` — contracts, events, helpers, ipc-error, navigation-config,
-primitives-card, primitives-context-menu, primitives-dropdown,
-primitives-modal, shell-store, storage, theme-store, theme-switcher, utils,
-window-geometry, window-store — 88 tests in the default **node** environment
-plus 28 jsdom component-behavior tests (Card, Modal, ContextMenu, Dropdown,
-ThemeSwitcher), with `$lib` and lucide-svelte stubs configured in
-`vitest.config.ts`. Behavior tests that render components opt into a DOM per
+Frontend tests run via `bun run test` (`vitest run`): 21 files under
+`tests/frontend/` — contracts, events, graphics-backdrop, graphics-camera,
+graphics-lighting, graphics-renderer, graphics-scene, helpers, ipc-error,
+navigation-config, primitives-card, primitives-context-menu,
+primitives-dropdown, primitives-modal, shell-store, storage, theme-store,
+theme-switcher, utils, window-geometry, window-store — 94 tests in the default
+**node** environment plus 43 jsdom component-behavior tests (Card, Modal,
+ContextMenu, Dropdown, ThemeSwitcher, plus the M2.1 GraphicsBackdrop and the
+renderer lifecycle via DI stubs), with `$lib` and lucide-svelte stubs
+configured in `vitest.config.ts`. Behavior tests that render components opt into a DOM per
 file (see [Component behavior tests](#component-behavior-tests) below). Rust tests run via `bun run cargo:test` (cwd-independent,
 `--manifest-path`): 67 unit tests across the providers, database migrations,
 utils, and commands. The other `tests/` directories —

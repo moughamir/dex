@@ -1,5 +1,6 @@
 <script lang="ts">
   import Background from "$lib/ui/effects/Background.svelte";
+  import GraphicsBackdrop from "$lib/ui/effects/GraphicsBackdrop.svelte";
   import { shellStore } from "$lib/core/stores/shell.svelte";
 
   import TopBar from "./TopBar.svelte";
@@ -24,6 +25,8 @@
   class="relative h-screen w-screen overflow-hidden bg-transparent text-(--text-primary)"
   data-tauri-drag-region
 >
+  <GraphicsBackdrop />
+
   <Background />
 
   <TopBar />
