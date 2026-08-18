@@ -35,7 +35,7 @@
 # Build artifacts
 build/
 dist/
-
+.svelte-kit/
 # Dependencies
 node_modules/
 venv/
