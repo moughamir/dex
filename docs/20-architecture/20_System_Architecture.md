@@ -12,7 +12,7 @@ model, the boundaries between subsystems, and the rules that keep the system
 composable and safe. Decisions recorded here are binding; structural or
 cross-cutting changes go through `50-adr/`.
 
-Stack: Svelte 5 (runes) · TypeScript (strict) · Three.js (Phase 1+) ·
+Stack: Svelte 5 (runes) · TypeScript (strict) · Three.js (Phase 2) ·
 CSS variables · Bun · Tauri v2 · Rust · Tokio · Serde · SQLite (rusqlite).
 
 ## Background
@@ -82,13 +82,13 @@ src/
       config/      constants and app config
       types/       shared domain models
     ui/            reusable visuals only
-      layout/      the HUD shell (TopBar, Dock, StatusBar, HUD)
-      primitives/  GlassPanel, Button, Icon, Tooltip, Divider, …
+      layout/      the HUD shell (HUD, AppShell, TopBar, Sidebar, Dock, StatusBar, Viewport)
+      primitives/  GlassPanel, Button, Tooltip, Divider, …
       styles/      tokens.css + design system docs
       themes/      ThemePalette TS mirrors (light/dark/cyber)
     features/      business features; each owns components/, services/, stores/,
                    types/, utils/ (business logic only — never raw IPC)
-    graphics/      rendering engine contracts + future Three.js implementation
+    graphics/      Three.js renderer (contracts, effects, shaders) — ADR-0008
 
 src-tauri/
     commands/      #[tauri::command] handlers — thin, delegate to services/
@@ -158,14 +158,36 @@ Details and rationale: ADR-0001.
 
 - DOM/UI is composited by the browser; the shell window is transparent, so the
   Wayland desktop shows through (ADR-0004).
-- `graphics/` will host the Three.js renderer (Phase 1+): a WebGL canvas with
-  `alpha: true` composited under the DOM chrome. Contracts live in
-  `graphics/contracts.ts`; implementations arrive with the first feature that
-  needs GPU visuals. The renderer owns its frame loop, resources, and
-  lifecycle; it never reaches into features.
-- Animation contract: `transform`/`opacity` only, 150–250 ms,
-  `cubic-bezier(.22,.61,.36,1)`, `prefers-reduced-motion` respected
-  (ADR-0003).
+- `graphics/` hosts the Three.js renderer (Phase 2, ADR-0008): a WebGL canvas
+  with `alpha: true` composited under the DOM chrome. Contracts live in
+  `graphics/contracts.ts`; the live implementation (`renderer.ts`, `effects/`,
+  `shaders/`) is wired into the shell via `GraphicsBackdrop.svelte` (M2.1/M2.2).
+  The renderer owns its frame loop, resources, and lifecycle; it never reaches
+  into features. Effects (bloom, fog, background vignette, grid, particles) are
+  composed through a single ownership seam (`RendererOptions.compose`).
+- Animation contract: `transform`/`opacity` only, durations from the
+  `--duration-*` scale (`--duration-micro/fast/normal/slow/slower` =
+  80/120/220/360/600 ms) with one default easing `--ease-standard`
+  (`cubic-bezier(0.2, 0.8, 0.2, 1)`) plus two designated variants
+  (`--ease-spring` overshoot for hover lifts/entrance pops; `--ease-smooth`
+  symmetric for theme cross-fade and expand/collapse), `prefers-reduced-motion`
+  respected (ADR-0003 as amended by ADR-0009). Theme switching fades the
+  `<html>` root with a two-step opacity timeline via the `--motion-theme-*`
+  tokens (`--duration-slower` / `--ease-smooth`), swapping the palette at the
+  opacity floor — the THEME-TRANSITION carve-out (ADR-0003 amendment,
+  ADR-0009) — never layout properties, never an opaque full-window overlay
+  (ADR-0004).
+- **Motion engine (M2.3, ADR-0009):** `ui/motion/` hosts the DOM motion engine —
+  the motion manager (reduced-motion gate + `DurationToken`/`EaseToken` → ms /
+  bezier translation + pointer vars), the timeline (parallel steps with `at`
+  offsets), and the transition manager (enter/exit state machine with
+  auto-cancel), all behind a Web Animations API driver seam. It is rAF-free:
+  no module under `ui/motion/` schedules frames — the renderer stays the sole
+  continuous-loop owner (ADR-0008) — and it is DOM-only (graphics-side
+  animation belongs to the renderer/compose seam, M2.4). Reduced motion is a
+  manager-level gate (JS-orchestrated calls finish immediately) plus the CSS
+  `@media` safety net. `types.ts` mirrors the `--duration-*`/`--ease-*` tokens
+  (test-enforced sync rule); `presets.ts` is the only keyframe source.
 
 ## Design System
 
@@ -211,8 +233,12 @@ Details and rationale: ADR-0001.
   features and existing deps (`cva`, `clsx`, `zod`).
 - Conventional commits (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`,
   `style:`, `perf:`).
-- Verification order: `bun run check` → `cargo check` (in `src-tauri/`) →
-  `bun run tauri dev` (desktop, manual).
+- Verification order: the standard gate is `bun run verify` — nine steps,
+  fail-fast, in order: `format:check` → `cargo:fmt:check` → `lint` → `check`
+  → `cargo:clippy` → `cargo:check` → `test` → `build` → `cargo:test`. CI runs
+  exactly this on push/PR to `develop`/`main`. `bun run tauri:dev` stays the
+  manual desktop check — transparent/compositor behavior is not testable
+  headless (ADR-0004).
 
 ## Evolution Rules
 
@@ -225,17 +251,28 @@ Details and rationale: ADR-0001.
 
 ## Phase 0 Deliverable Status
 
-Implemented in Phase 0: layer model + ADRs (0001–0005), design tokens +
+Implemented in Phase 0: layer model + ADRs (0001–0007), design tokens +
 primitives, transparency contract, typed IPC layer (`core/api`,
 `core/services` pattern), theme store, Rust command scaffolding (incl.
 `tauri-plugin-log` + `log:default` grant), strict CSP, engineering docs.
-Roadmap milestones M0.1–M0.3 are done; M0.4 (dev tooling/CI) is open.
-Business features are explicitly out of scope until Phase 1.
+
+Roadmap milestones M0.1–M0.4 are done — Phase 0 is shipped, and the standard
+gate `bun run verify` (nine steps, fail-fast) is wired into CI on push/PR to
+`develop`/`main`. M1.1 (Window), M1.2 (HUD), and M1.3 (UI Components) are
+delivered. M1.4 (Theme) is complete — live theme switching end to end: the
+ThemeSwitcher control in the TopBar, the three built-in themes (dark, light,
+cyber), and the `--font-size-*` typography scale. The M1.3 overlay-primitive
+decisions —
+floating positioning, body portals, and translucent modal backdrops — are
+recorded in ADR-0007 (D1–D3); an overlay rendered inside a glass panel without
+a portal is review-rejectable (D2), and opaque modal backdrops are contract
+violations (D3). Business features are explicitly out of scope until Phase 1.
 
 ## Related Documents
 
-- Layer ownership, IPC contract, design tokens, transparency, plugin boundary:
-  `50-adr/` (ADR-0001–0005)
+- Layer ownership, IPC contract, design tokens, transparency, plugin boundary,
+  window startup lifecycle, overlay primitives, Three.js renderer, motion
+  engine: `50-adr/` (ADR-0001–0009)
 - Product roadmap and milestones: `10-product/11_Product_Roadmap.md`
 - Design system usage: `40-engineering/DesignSystem.md`
 - Frontend subsystem: `20-architecture/21_Frontend.md`

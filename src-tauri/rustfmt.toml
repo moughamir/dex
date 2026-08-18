@@ -1,0 +1,21 @@
+# rustfmt configuration for the omnizya-dex crate.
+#
+# The codebase is formatted with stock rustfmt defaults; this file pins those
+# rules explicitly so `cargo fmt` output stays stable across toolchain
+# updates. All keys are stable-available (no nightly-only options) so
+# `cargo fmt --check` runs warning-free on the stable toolchain.
+#
+# The settings apply to the whole crate — async code (tokio, zbus), the
+# rusqlite layer, tracing setup, and the Tauri command surface — none of
+# which need per-dependency formatting tweaks.
+
+# Edition must track Cargo.toml ("2021").
+edition = "2021"
+
+max_width = 100
+tab_spaces = 4
+newline_style = "Unix"
+
+# Keep the compact style rustfmt already applies to field/arg/literal lists.
+use_field_init_shorthand = true
+use_small_heuristics = "Default"

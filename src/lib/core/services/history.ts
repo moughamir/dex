@@ -10,6 +10,8 @@ export interface HistoryListResult {
   entries: HistoryEntry[];
 }
 
-export async function historyList(limit?: number | null): Promise<HistoryListResult> {
+export async function historyList(
+  limit?: number | null,
+): Promise<HistoryListResult> {
   return invoke(COMMANDS.historyList, { limit: limit ?? null });
 }

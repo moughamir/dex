@@ -36,12 +36,11 @@ dex [global options] <command> [command options] [arguments]
 | Option | Description |
 |---|---|
 | `--json` | Emit machine-readable JSON on stdout (see [JSON output](#json-output)) |
-| `--quiet`, `-q` | Suppress non-error output |
-| `--verbose`, `-v` | Increase log verbosity (repeatable) |
-| `--help`, `-h` | Show help for the command |
-| `--version`, `-V` | Print the `dex` version |
+| `--workspace <path>` | Run the command against the workspace at `path` |
+| `--verbose` | Increase log verbosity |
 
-Global options may appear before or after the subcommand.
+Help and version are subcommands rather than flags: `dex help [command]`
+and `dex version`. Global options may appear before or after the subcommand.
 
 ## Command tree
 
@@ -51,23 +50,25 @@ shell drives.
 
 ```
 dex
-├── theme            manage the active theme                     [M1.4]
-├── widget           install, list, remove Widgets               [M3.1]
-├── search           query filesystem and Context                [M4.2]
-├── secrets          store and retrieve secrets                  [Phase 4]
-├── workspace        activate, list, deactivate Workspaces       [M5.5]
-├── manifest         validate and inspect Workspace Manifests    [M5.5]
-├── snapshot         create and restore Workspace Snapshots      [M5.5]
-├── service          start, stop, status of Workspace Services   [M5.5]
-├── journal          append and read journal entries             [Phase 5]
-├── vault            query the Knowledge Vault                   [M6.2]
-├── automation       run and schedule workflows                  [M7.1]
-└── plugin           install, list, remove Plugins               [M8.1]
+├── init             write a Workspace Manifest                       [M5.5]
+├── activate         perform Workspace Activation                     [M5.5]
+├── snapshot         capture a Workspace Snapshot                     [M5.5]
+├── restore          restore a Workspace to a Snapshot                [M5.5]
+├── service          start, stop, status, list Services               [M5.5]
+├── plugin           install, list, update, uninstall Plugins         [M8.1]
+├── widget           install, list, enable, disable Widgets           [M3.1]
+├── vault            query, add, search the Knowledge Vault           [M6.2]
+├── theme            list, set, validate themes                       [M1.4]
+├── journal          show and export journal entries                  [Phase 5]
+├── secrets          store and retrieve secrets                       [Phase 4]
+├── automation       run, list, validate workflows                    [M7.1]
+├── help             show help for a command
+└── version          print the `dex` version
 ```
 
 The milestone in brackets is the roadmap milestone that delivers the
-subcommand. Subcommands without a milestone are planned within the phase
-named.
+subcommand. `help` and `version` are always available and have no milestone;
+every other subcommand is planned within the phase or milestone named.
 
 ## Subcommand reference
 
@@ -75,34 +76,37 @@ Each subcommand is **planned**; the exact arguments and output schemas are
 owned by [`../30-specs/CLI.md`](../30-specs/CLI.md) and the per-domain
 specifications. The entries below are the intended surface.
 
-### `dex workspace`
+### `dex init`
 
-Manage Workspaces — the atomic unit of the developer's day.
-
-| Subcommand | Arguments | Description | Milestone |
-|---|---|---|---|
-| `dex workspace list` | — | list declared Workspaces | M5.5 |
-| `dex workspace activate <name>` | `name` | perform Workspace Activation | M5.5 |
-| `dex workspace deactivate` | — | leave the active Workspace | M5.5 |
-
-### `dex manifest`
-
-Work with Workspace Manifests.
+Write a Workspace Manifest.
 
 | Subcommand | Arguments | Description | Milestone |
 |---|---|---|---|
-| `dex manifest validate <path>` | `path` | validate a Workspace Manifest | M5.5 |
-| `dex manifest show <name>` | `name` | print a Workspace Manifest | M5.5 |
+| `dex init` | — | write a Workspace Manifest | M5.5 |
+
+### `dex activate`
+
+Perform Workspace Activation.
+
+| Subcommand | Arguments | Description | Milestone |
+|---|---|---|---|
+| `dex activate <workspace>` | `workspace` | activate the named Workspace | M5.5 |
 
 ### `dex snapshot`
 
-Capture and restore Workspace Snapshots.
+Capture a Workspace Snapshot.
 
 | Subcommand | Arguments | Description | Milestone |
 |---|---|---|---|
-| `dex snapshot create <name>` | `name` | capture a Workspace Snapshot | M5.5 |
-| `dex snapshot restore <name>` | `name` | restore a Workspace to a Snapshot | M5.5 |
-| `dex snapshot list` | — | list Snapshots | M5.5 |
+| `dex snapshot <workspace>` | `workspace` | capture a Snapshot of the Workspace | M5.5 |
+
+### `dex restore`
+
+Restore a Workspace to a Snapshot.
+
+| Subcommand | Arguments | Description | Milestone |
+|---|---|---|---|
+| `dex restore <snapshot>` | `snapshot` | restore a Workspace to a Snapshot | M5.5 |
 
 ### `dex service`
 
@@ -110,9 +114,42 @@ Supervise Workspace Services.
 
 | Subcommand | Arguments | Description | Milestone |
 |---|---|---|---|
-| `dex service start <name>` | `name` | start a Workspace Service | M5.5 |
-| `dex service stop <name>` | `name` | stop a Workspace Service | M5.5 |
-| `dex service status` | — | report Workspace Service states | M5.5 |
+| `dex service start <name>` | `name` | start a Service | M5.5 |
+| `dex service stop <name>` | `name` | stop a Service | M5.5 |
+| `dex service status` | — | report Service states | M5.5 |
+| `dex service list` | — | list Services | M5.5 |
+
+### `dex plugin`
+
+Manage Plugins.
+
+| Subcommand | Arguments | Description | Milestone |
+|---|---|---|---|
+| `dex plugin install <manifest>` | `manifest` | install a Plugin from a manifest | M8.1 |
+| `dex plugin list` | — | list installed Plugins | M8.1 |
+| `dex plugin update <id>` | `id` | update an installed Plugin | M8.1 |
+| `dex plugin uninstall <id>` | `id` | uninstall a Plugin | M8.1 |
+
+### `dex widget`
+
+Manage Widgets.
+
+| Subcommand | Arguments | Description | Milestone |
+|---|---|---|---|
+| `dex widget install <manifest>` | `manifest` | install a Widget from a manifest | M3.1 |
+| `dex widget list` | — | list installed Widgets | M3.1 |
+| `dex widget enable <id>` | `id` | enable an installed Widget | M3.1 |
+| `dex widget disable <id>` | `id` | disable an installed Widget | M3.1 |
+
+### `dex vault`
+
+Query the Knowledge Vault.
+
+| Subcommand | Arguments | Description | Milestone |
+|---|---|---|---|
+| `dex vault query <terms>` | `terms` | query the Knowledge Vault | M6.2 |
+| `dex vault add <note>` | `note` | add a note to the Knowledge Vault | M6.2 |
+| `dex vault search <terms>` | `terms` | search the Knowledge Vault | M6.2 |
 
 ### `dex theme`
 
@@ -122,35 +159,16 @@ Switch and inspect themes.
 |---|---|---|---|
 | `dex theme list` | — | list available themes | M1.4 |
 | `dex theme set <name>` | `name` | set the active theme | M1.4 |
-| `dex theme get` | — | print the active theme | M1.4 |
+| `dex theme validate <manifest>` | `manifest` | validate a theme manifest | M1.4 |
 
-### `dex widget`
+### `dex journal`
 
-Manage Widgets.
-
-| Subcommand | Arguments | Description | Milestone |
-|---|---|---|---|
-| `dex widget list` | — | list installed Widgets | M3.1 |
-| `dex widget install <id>` | `id` | install a Widget | M3.1 |
-| `dex widget remove <id>` | `id` | remove a Widget | M3.1 |
-
-### `dex plugin`
-
-Manage Plugins.
+Read journal entries.
 
 | Subcommand | Arguments | Description | Milestone |
 |---|---|---|---|
-| `dex plugin list` | — | list installed Plugins | M8.1 |
-| `dex plugin install <id>` | `id` | install a Plugin | M8.1 |
-| `dex plugin remove <id>` | `id` | remove a Plugin | M8.1 |
-
-### `dex search`
-
-Search filesystem and Context.
-
-| Subcommand | Arguments | Description | Milestone |
-|---|---|---|---|
-| `dex search query <term>` | `term` | run a search | M4.2 |
+| `dex journal show` | — | show journal entries | Phase 5 |
+| `dex journal export` | — | export journal entries | Phase 5 |
 
 ### `dex secrets`
 
@@ -160,33 +178,34 @@ Store and retrieve secrets.
 |---|---|---|---|
 | `dex secrets set <key>` | `key` | store a secret (read from stdin) | Phase 4 |
 | `dex secrets get <key>` | `key` | retrieve a secret | Phase 4 |
-| `dex secrets delete <key>` | `key` | delete a secret | Phase 4 |
-
-### `dex journal`
-
-Append and read journal entries.
-
-| Subcommand | Arguments | Description | Milestone |
-|---|---|---|---|
-| `dex journal append <text>` | `text` | append an entry | Phase 5 |
-| `dex journal read` | — | read recent entries | Phase 5 |
-
-### `dex vault`
-
-Query the Knowledge Vault.
-
-| Subcommand | Arguments | Description | Milestone |
-|---|---|---|---|
-| `dex vault query <term>` | `term` | query the Knowledge Vault | M6.2 |
+| `dex secrets rotate <key>` | `key` | rotate a secret | Phase 4 |
+| `dex secrets revoke <key>` | `key` | revoke a secret | Phase 4 |
 
 ### `dex automation`
 
-Run and schedule workflows.
+Run and inspect workflows.
 
 | Subcommand | Arguments | Description | Milestone |
 |---|---|---|---|
-| `dex automation run <name>` | `name` | run a workflow | M7.1 |
+| `dex automation run <workflow>` | `workflow` | run a workflow | M7.1 |
 | `dex automation list` | — | list workflows | M7.1 |
+| `dex automation validate <manifest>` | `manifest` | validate a workflow manifest | M7.1 |
+
+### `dex help`
+
+Show help for a command.
+
+| Subcommand | Arguments | Description | Milestone |
+|---|---|---|---|
+| `dex help [command]` | `command` (optional) | show help for a command | — |
+
+### `dex version`
+
+Print the `dex` version.
+
+| Subcommand | Arguments | Description | Milestone |
+|---|---|---|---|
+| `dex version` | — | print the `dex` version | — |
 
 ## Exit codes
 
@@ -201,9 +220,9 @@ mapping is finalized in [`../30-specs/CLI.md`](../30-specs/CLI.md).
 | `2` | Usage error (unknown command, missing or invalid argument) |
 | `3` | Validation failure |
 | `4` | Not found |
-| `5` | Conflict |
-| `6` | Unsupported operation |
-| `7` | Permission denied |
+| `5` | Permission denied |
+| `6` | Conflict |
+| `7` | Unsupported operation |
 | `130` | Interrupted (SIGINT) |
 
 ## JSON output
@@ -231,18 +250,18 @@ On failure, the error envelope mirrors the IPC `AppError` shape:
 
 ```bash
 # Activate a Workspace
-dex workspace activate my-project
+dex activate my-project
 
-# Validate a Workspace Manifest before committing it
-dex manifest validate ./dex.workspace.yaml
+# Write a Workspace Manifest before committing it
+dex init ./dex.workspace.yaml
 
 # Capture a Snapshot, machine-readable
-dex --json snapshot create before-refactor
+dex --json snapshot my-project
 
 # Set the active theme
 dex theme set cyber
 
-# Install a Plugin
+# Install a Plugin from a manifest
 dex plugin install org.example.tooling
 ```
 

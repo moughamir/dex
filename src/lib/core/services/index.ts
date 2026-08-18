@@ -6,6 +6,7 @@
  * directly, and the `services` container groups them for call sites that
  * prefer a single namespaced object. Constructed once at module load.
  */
+export * from "./core";
 export * from "./system";
 export * from "./network";
 export * from "./process";
@@ -16,6 +17,7 @@ export * from "./terminal";
 export * from "./plugins";
 export * from "./history";
 
+import * as core from "./core";
 import * as history from "./history";
 import * as modem from "./modem";
 import * as network from "./network";
@@ -26,8 +28,9 @@ import * as system from "./system";
 import * as terminal from "./terminal";
 import * as widgets from "./widgets";
 
-/** Typed container of all nine contract clients. */
+/** Typed container of all ten contract clients. */
 export const services = {
+  core,
   system,
   network,
   process,

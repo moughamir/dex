@@ -41,7 +41,8 @@ export class IpcError extends Error {
    */
   static fromUnknown(cause: unknown): IpcError {
     const parsed = ErrorEnvelope.safeParse(cause);
-    if (parsed.success) return new IpcError(parsed.data.type, parsed.data.message);
+    if (parsed.success)
+      return new IpcError(parsed.data.type, parsed.data.message);
     const message = cause instanceof Error ? cause.message : String(cause);
     return new IpcError("unknown", message);
   }
@@ -58,7 +59,11 @@ export async function invoke<A extends z.ZodType, R extends z.ZodType>(
   const parsedArgs = contract.args.parse(args) as InvokeArgs;
   let raw: unknown;
   try {
-    raw = await tauriInvoke(contract.name, parsedArgs);
+    // Tauri 2 keys invoke payloads by the Rust parameter name (ADR-0002):
+    // commands declare their single struct arg as `args`, so the wire shape
+    // is { args: { ...fields } }, never the fields themselves. Field-spread
+    // invoke fails every command ("command <name> missing required key args").
+    raw = await tauriInvoke(contract.name, { args: parsedArgs });
   } catch (cause) {
     throw IpcError.fromUnknown(cause);
   }

@@ -40,7 +40,7 @@ Everything in the shell is reachable and operable by keyboard.
 
 Keyboard users must always see where focus is.
 
-- **`:focus-visible` renders the `var(--dex-focus-ring)` ring.** This is the
+- **`:focus-visible` renders the `var(--focus-ring)` ring.** This is the
   token-governed focus indicator; it is never removed and never replaced with
   an invisible style.
 - The focus ring is visible on every interactive element, including the
@@ -65,9 +65,9 @@ Every control has an accessible name.
 
 Contrast is token-governed and meets WCAG AA for body copy.
 
-- **`--dex-text-1` on `--dex-surface-1` passes AA for body copy.** This is the
+- **`--text-primary` on `--surface-1` passes AA for body copy.** This is the
   default pairing and it is enforced by the token values, not by hand.
-- **Muted text (`--dex-text-3`) is reserved for non-critical chrome** (the
+- **Muted text (`--text-muted`) is reserved for non-critical chrome** (the
   status bar). It is not used for body copy.
 - **Never lower text contrast by hand.** A component that needs more contrast
   uses a higher-contrast token; it never hardcodes a color.
@@ -111,14 +111,13 @@ The shell is readable by a screen reader.
 ## Automated and manual checks
 
 Accessibility is verified by both automated and manual checks. The automated
-checks are not yet wired into CI (roadmap M0.4); until then, the manual checks
-below are the gate, and the desktop check in the verification order includes
-them.
+checks are not part of the `bun run verify` gate; the manual checks below are
+the gate, and the manual desktop pass (`bun run tauri:dev`) includes them.
 
 ```mermaid
 flowchart TD
     A["Change touches UI?"] -->|no| PASS["No a11y gate"]
-    A -->|yes| B["Automated: axe-core scan (M0.4)"]
+    A -->|yes| B["Automated: axe-core scan (future)"]
     B --> C["Manual: full keyboard walk — Tab order, focus ring, no traps"]
     C --> D["Manual: screen reader pass — names, landmarks, icon-only labels"]
     D --> E["Manual: reduced-motion check — no animation when preferred"]
@@ -127,8 +126,8 @@ flowchart TD
     F --> E
 ```
 
-**Automated checks (once M0.4 lands):** an axe-core scan in CI catches
-missing labels, contrast violations, and non-semantic interactive elements.
+**Automated checks (future):** an axe-core scan in CI catches missing labels,
+contrast violations, and non-semantic interactive elements.
 
 **Manual checks (always):**
 

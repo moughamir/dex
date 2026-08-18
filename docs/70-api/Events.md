@@ -76,12 +76,33 @@ log-and-drop path; the frontend never uses `console.*`.
 
 ## Current state
 
-The event surface is **wired but empty**. Phase 0 (M0.3) shipped the
-plumbing — the typed `onEvent` wrapper, the validation-and-drop semantics,
-the `EVENTS` registry — and the only Rust plugin live today is the log
-plugin (`tauri-plugin-log`, granted `log:default`), which writes to stdout
-and the app log directory. No `dex.*` event is emitted yet and the `EVENTS`
-registry declares no entries.
+The event surface is **declared, not yet emitted**. Phase 0 (M0.3) shipped
+the plumbing — the typed `onEvent` wrapper, the validation-and-drop
+semantics, the `EVENTS` registry — and the registry already declares **16
+events** across six domains (below). No `dex.*` event is *emitted* yet: the
+Rust emitter module (`src-tauri/src/events/`) is a future phase, and the only
+live Rust plugin today is the log plugin (`tauri-plugin-log`, granted
+`log:default`), which writes to stdout and the app log directory.
+
+### Registered events
+
+Declared in the `EVENTS` registry (`core/api/events.ts`) with payload schemas.
+Subscribing to these is valid today, but payloads only arrive once the Rust
+emitter lands in a future phase.
+
+| Domain | Registered events |
+|---|---|
+| `system` | `dex.system.resources`, `dex.system.battery` |
+| `process` | `dex.process.updated`, `dex.process.spawned`, `dex.process.exited` |
+| `network` | `dex.network.adapter_added`, `dex.network.adapter_removed`, `dex.network.adapter_state_changed`, `dex.network.statistics` |
+| `modem` | `dex.modem.added`, `dex.modem.removed`, `dex.modem.state_changed`, `dex.modem.signal_changed` |
+| `terminal` | `dex.terminal.output`, `dex.terminal.exit` |
+| `settings` | `dex.settings.changed` |
+
+The `dex.theme.*`, `dex.widget.*`, `dex.search.*`, `dex.secrets.*`,
+`dex.workspace.*`, `dex.snapshot.*`, `dex.service.*`, `dex.journal.*`,
+`dex.vault.*`, `dex.automation.*`, and `dex.plugin.*` events below remain
+**planned** — they are not in the registry.
 
 ```mermaid
 flowchart LR

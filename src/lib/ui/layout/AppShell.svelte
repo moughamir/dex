@@ -1,44 +1,49 @@
 <script lang="ts">
-	import Background from "$lib/ui/effects/Background.svelte";
-	import { shellStore } from "$lib/core/stores/shell.svelte";
+  import Background from "$lib/ui/effects/Background.svelte";
+  import GraphicsBackdrop from "$lib/ui/effects/GraphicsBackdrop.svelte";
+  import { shellStore } from "$lib/core/stores/shell.svelte";
 
-	import TopBar from "./TopBar.svelte";
-	import Sidebar from "./Sidebar.svelte";
-	import Dock from "./Dock.svelte";
-	import StatusBar from "./StatusBar.svelte";
+  import TopBar from "./TopBar.svelte";
+  import Sidebar from "./Sidebar.svelte";
+  import Dock from "./Dock.svelte";
+  import StatusBar from "./StatusBar.svelte";
+  import Viewport from "./Viewport.svelte";
 
-	import type { Snippet } from "svelte";
+  import type { Snippet } from "svelte";
 
-	interface Props {
-		children?: Snippet;
-	}
+  interface Props {
+    children?: Snippet;
+  }
 
-	let { children }: Props = $props();
+  let { children }: Props = $props();
 
-	const sidebarVisible = $derived(shellStore.sidebarVisible);
-	const dockVisible = $derived(shellStore.dockVisible);
+  const sidebarVisible = $derived(shellStore.sidebarVisible);
+  const dockVisible = $derived(shellStore.dockVisible);
 </script>
 
-<div class="relative h-screen w-screen overflow-hidden bg-transparent text-(--text-primary)" data-tauri-drag-region>
+<div
+  class="relative h-screen w-screen overflow-hidden bg-transparent text-(--text-primary)"
+  data-tauri-drag-region
+>
+  <GraphicsBackdrop />
 
-	<Background />
+  <Background />
 
-	<TopBar />
+  <TopBar />
 
-	<div class="flex h-full pt-(--hud-height)">
-		{#if sidebarVisible}
-			<Sidebar />
-		{/if}
+  <div class="flex h-full pt-(--hud-height)">
+    {#if sidebarVisible}
+      <Sidebar />
+    {/if}
 
-		<main class="relative flex-1 overflow-auto p-8">
-			{@render children?.()}
-		</main>
-	</div>
+    <Viewport>
+      {@render children?.()}
+    </Viewport>
+  </div>
 
-	{#if dockVisible}
-		<Dock />
-	{/if}
+  {#if dockVisible}
+    <Dock />
+  {/if}
 
-	<StatusBar />
-
+  <StatusBar />
 </div>

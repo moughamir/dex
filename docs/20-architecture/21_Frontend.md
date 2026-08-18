@@ -82,7 +82,7 @@ must agree, or the mismatch must fail loudly and locally. Zod is the
 validator; the registry is the single source of command names; the error
 envelope is the single error shape.
 
-The seam is three modules in `core/api/`, and a hard import rule:
+The seam is four modules in `core/api/`, and a hard import rule:
 
 ### Command registry — `core/api/commands.ts`
 
@@ -123,9 +123,11 @@ misbehaving emitter must not crash the shell. Event names follow
 ### The import rule
 
 `@tauri-apps/api` is imported nowhere outside `core/api/`. The command
-registry, the invoke wrapper, and the event wrapper are the only files that
-touch the Tauri runtime API. Everything else — every feature, every
-component — talks to Rust through `core/services` contract clients.
+registry, the invoke wrapper, the event wrapper, and the window wrapper
+(`core/api/window.ts` — the window/monitor/DPI boundary, added in M1.1) are
+the only files that touch the Tauri runtime API. Everything else — every
+feature, every component — talks to Rust through `core/services` contract
+clients.
 
 ```mermaid
 sequenceDiagram
@@ -134,12 +136,12 @@ sequenceDiagram
     participant S as core/services contract client
     participant A as core/api/tauri.ts invoke
     participant R as Rust #[tauri::command]
-    F->>S: typed domain call, e.g. greet(name)
-    S->>A: invoke(COMMANDS.greet, { name })
+    F->>S: typed domain call, e.g. setComplete({ task: "frontend" })
+    S->>A: invoke(COMMANDS.setComplete, { task: "frontend" })
     A->>A: contract.args.parse() — fail fast on malformed args
-    A->>R: tauriInvoke("greet", parsedArgs)
+    A->>R: tauriInvoke("set_complete", parsedArgs)
     R->>R: serde deserialize → handler logic
-    R-->>A: Result<GreetOutput, AppError>
+    R-->>A: Result<(), AppError>
     A->>A: contract.result.parse()<br/>or IpcError.fromUnknown(rejection)
     A-->>S: typed result, or IpcError
     S-->>F: domain-typed result — errors are typed, never unknown
@@ -151,10 +153,17 @@ sequenceDiagram
 mirroring `src-tauri/src/commands/<domain>.rs` (ADR-0001/0002). A contract
 client is the only public surface a feature may use to reach Rust: a set of
 typed async functions built on the shared `invoke`, surfacing `IpcError` on
-failure. The `greet` domain is the live example today:
+failure. The first command wired end-to-end is `set_complete`:
 
-- `core/api/commands.ts` → `COMMANDS.greet` contract
-- `core/services/greet.ts` → `greet(name): Promise<string>`
+- `core/api/commands.ts` → `COMMANDS.setComplete` contract (`set_complete`,
+  args `{ task: string }` with values `"frontend"`/`"backend"`, result
+  `null`, errors `validation`/`internal`)
+- the splashscreen (`src/routes/splashscreen/+page.svelte`) invokes
+  `COMMANDS.setComplete` with `{ task: "frontend" }` at boot
+
+`greet` is Rust-only — registered in `generate_handler!` but with no
+`COMMANDS` entry and no contract client, so it is not callable from the
+frontend; `core/services/greet.ts` does not exist.
 
 Adding a command domain follows the five-step checklist in
 [`20_System_Architecture.md`](20_System_Architecture.md). New domains —
@@ -184,20 +193,38 @@ persists the choice through `core/utils/storage.ts`, and exposes
 `$derived`/`$effect`. The CSS does the visual switching — no inline styles.
 `initTheme()` runs once at boot, before first paint.
 
+Two more cross-cutting rune stores are live alongside `theme.svelte.ts`:
+`core/stores/window.svelte.ts` (M1.1 window/monitor/DPI metrics) and
+`core/stores/shell.svelte.ts` (HUD chrome state — sidebar/dock visibility).
+
 ## Rendering and Visuals
 
 The DOM is composited by the browser over a **transparent window** — the
 Wayland desktop shows through the shell (ADR-0004). Visual backdrops come
-from glass panels (`backdrop-filter` over translucent `--dex-surface-*`
+from glass panels (`backdrop-filter` over translucent `--glass-*`/`--surface-*`
 tokens), never from an opaque window-sized paint. Layout components in
 `ui/layout/` compose the shell; primitives in `ui/primitives/` provide
-GlassPanel, Button, Icon, Tooltip, Divider. Components consume semantic
+GlassPanel, Button, Badge, Separator, Tooltip, Divider, ViewPlaceholder. Components consume semantic
 design tokens only — no hardcoded colors, radii, or durations; the token
 architecture and its dual CSS/TS mirrors are owned by
 [`../40-engineering/DesignSystem.md`](../40-engineering/DesignSystem.md).
 
+### HUD Layout and Viewport
+
+`ui/layout/HUD.svelte` mounts `AppShell.svelte`, which composes the chrome —
+`TopBar`, `Sidebar`, `Dock`, `StatusBar` — around the `Viewport`
+(`ui/layout/Viewport.svelte`): the `role="main"` scrollable content region
+between the chrome. The Viewport hosts feature content — the dashboard today,
+widget/engine canvases in later phases — and is bounded by
+`--content-max-width` (1200 px, `margin-inline: auto`). Chrome consumes the
+stacking and sizing tokens: `--z-hud`, `--z-sidebar`, `--z-dock`,
+`--z-status` and `--hud-height`, `--status-height`. All shell surfaces are
+glass panels per ADR-0004 — translucent `backdrop-filter` layers, never
+opaque full-window fills.
+
 Motion is a performance contract, not a preference: `transform`/`opacity`
-only, 150–250 ms, `cubic-bezier(.22,.61,.36,1)`, `prefers-reduced-motion`
+only, driven by the `--duration-*` scale (120/220/360/600 ms) with
+`--ease-standard` (cubic-bezier(0.2, 0.8, 0.2, 1)), `prefers-reduced-motion`
 respected (ADR-0003). GPU visuals are delegated to `graphics/`, whose
 engine-agnostic renderer contracts live in `graphics/contracts.ts` and whose
 implementation is covered by [`25_Graphics.md`](25_Graphics.md).

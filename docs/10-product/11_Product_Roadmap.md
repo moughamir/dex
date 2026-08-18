@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The roadmap is the product-level plan for DEX: ten phases, thirty-four
+The roadmap is the product-level plan for DEX: ten phases, forty-five
 milestones, and the deliverables that carry each milestone to a working
 vertical slice. It is the source of truth for what ships and in what order.
 Architecture reference: `20-architecture/20_System_Architecture.md` +
@@ -18,8 +18,9 @@ production-ready.
 
 ## Phase Gate
 
-Every milestone ends with a working vertical slice and green checks
-(`bun run check`, `cargo check`, `bun run tauri dev`).
+Every milestone ends with a working vertical slice and green checks under
+the standard gate: `bun run verify` (nine steps, fail-fast) plus
+`bun run tauri:dev` as the manual desktop check.
 
 ## Success Criteria
 
@@ -67,7 +68,7 @@ timeline
     9 Production : performance, testing, packaging, docs, release
 ```
 
-## Phase 0 — Foundation (current)
+## Phase 0 — Foundation (complete)
 
 **Goal:** the layer every feature depends on. No business features.
 
@@ -78,26 +79,28 @@ timeline
 - [x] **M0.3 Core Infrastructure** — typed IPC layer + command registry,
       contract clients, event bus, theme store, logger, error envelope
       (ADR-0002, ADR-0005; `core/api`, `core/services`, `core/utils`)
-- [ ] **M0.4 Development Tooling** — ESLint, Prettier, Rustfmt, Clippy,
-      test runner, git hooks, CI skeleton
+- [x] **M0.4 Development Tooling** — nine-step `bun run verify` gate, ESLint,
+      Prettier, Rustfmt, Clippy, vitest runner, CI on push/PR to
+      `develop`/`main`
 
-## Phase 1 — Desktop Shell
+## Phase 1 — Desktop Shell (current)
 
 **Goal:** first usable shell surface, proving the seams end to end.
 
-- [ ] **M1.1 Window** — transparent, fullscreen, multi-monitor, DPI-aware
-- [ ] **M1.2 HUD** — TopBar, Dock, StatusBar, Viewport wiring
-- [ ] **M1.3 UI Components** — GlassPanel, Button, Card, Tooltip, Modal,
+- [x] **M1.1 Window** — transparent, fullscreen, multi-monitor, DPI-aware
+      (real startup handshake, event-driven window store)
+- [x] **M1.2 HUD** — TopBar, Dock, StatusBar, Viewport wiring
+- [x] **M1.3 UI Components** — GlassPanel, Button, Card, Tooltip, Modal,
       ContextMenu, Dropdown (complete the primitive set)
-- [ ] **M1.4 Theme** — dark, cyber, dynamic; live switching end to end
+- [x] **M1.4 Theme** — dark, cyber, dynamic; live switching end to end
 
 ## Phase 2 — Graphics Engine
 
 **Goal:** GPU visuals under the DOM chrome (`graphics/`).
 
-- [ ] **M2.1 Three.js Core** — renderer, scene, camera, lights
-- [ ] **M2.2 Effects** — bloom, fog, background, grid, particles
-- [ ] **M2.3 Animation Engine** — timeline, motion manager, transition manager
+- [x] **M2.1 Three.js Core** — renderer, scene, camera, lights
+- [x] **M2.2 Effects** — bloom, fog, background, grid, particles
+- [x] **M2.3 Animation Engine** — timeline, motion manager, transition manager
 - [ ] **M2.4 Performance** — object pooling, texture cache, FPS monitor
 
 ## Phase 3 — Widget Platform

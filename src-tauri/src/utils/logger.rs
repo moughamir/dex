@@ -4,6 +4,14 @@
 //! thin `log_*` helpers that delegate to the corresponding `tracing` macros.
 //! The frontend has its own logger (`core/utils/logger.ts`); this is the
 //! Rust-side counterpart.
+//!
+//! # Status
+//!
+//! Intentionally scaffolded foundation: nothing in the crate calls these yet,
+//! and they must not be deleted just to silence `dead_code`. The Rust-side
+//! logging surface is consumed by the backend wiring milestone (M0.6+); until
+//! then the allowance below is scoped to this single module.
+#![allow(dead_code)]
 
 use std::sync::OnceLock;
 

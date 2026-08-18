@@ -28,14 +28,15 @@ assets/          — creative assets: fonts, icons, images, models, shaders,
 database/        — append-only SQL migrations, seeds, and the local dex.db
 docs/            — the ten-section documentation tree (see below)
 plugins/         — extension manifests for future Plugins (empty)
-scripts/         — automation scripts: build, clean, migrate, release, seed
-                   (empty scaffolding; land with M0.4)
+scripts/         — automation scripts: verify, build, clean, migrate, release,
+                   seed (verify.ts live; the rest empty scaffolding)
 src/             — the Svelte frontend
 src-tauri/       — the Rust crate
 static/          — static web assets served by the SPA (favicon, manifest)
 tests/           — unit, integration, e2e, backend, frontend suites
-                   (empty scaffolding; land with M0.4)
-.github/         — CI workflows and the PR template (empty; M0.4)
+                   (frontend suite live via vitest; the rest empty scaffolding)
+.github/         — CI workflows and the PR template (ci.yml live, runs the
+                   verify gate)
 ```
 
 ## src/ — the frontend
@@ -50,7 +51,7 @@ src/
 │   ├── features/      — business vertical slices (feature-first)
 │   ├── core/          — shared infrastructure
 │   ├── ui/            — reusable visuals
-│   ├── graphics/      — engine-agnostic renderer contracts
+│   ├── graphics/      — Three.js renderer (contracts, effects, shaders)
 │   └── types/         — cross-cutting shared types
 ```
 
@@ -100,11 +101,13 @@ Reusable visuals, consumed by features.
 
 ### graphics/
 
-Engine-agnostic rendering contracts (`contracts.ts`): the `Renderer` and
-`RenderSurface` interfaces, the transparency rule (ADR-0004), and the
-frame-loop ownership. Nothing outside `graphics/` touches WebGL or `three`.
-Phase 0 ships only the contracts; implementations arrive with the first GPU
-feature (Phase 2).
+The Three.js renderer (ADR-0008): engine-agnostic contracts (`contracts.ts`)
+— the `Renderer`/`RenderSurface` interfaces, the transparency rule
+(ADR-0004), and the frame-loop ownership — plus the live implementation
+(`renderer.ts` with the compose seam, `effects/` for bloom/fog/background
+vignette/grid/particles, `shaders/`). Wired into the shell via
+`GraphicsBackdrop.svelte` (M2.1/M2.2). Nothing outside `graphics/` touches
+WebGL or `three`.
 
 ### routes/
 
@@ -127,6 +130,8 @@ src-tauri/
 │   ├── models/        — Rust models mirroring the schema
 │   ├── state/         — shared app state
 │   ├── plugins/       — Plugin loading and manifests (ADR-0005)
+│   ├── providers/     — capability, dbus, health, modem, network, process,
+│   │                    provider, registry, state (live)
 │   ├── ai/            — AI providers (Phase 6)
 │   ├── ipc/           — IPC protocol helpers
 │   ├── config/        — app configuration
@@ -142,6 +147,13 @@ Commands take exactly one serde struct arg and return `Result<T, AppError>`
 the `{type, message}` envelope and must never be replaced with a derived one
 (ADR-0002). Every command is registered in the **single** `invoke_handler` in
 `lib.rs` — a second call silently shadows the first.
+
+`lib.rs` declares `mod commands; mod database; pub mod providers; mod utils;`.
+Live today: `commands::core`, `database::{connection, migrations}`,
+`providers/*`, and `utils::{errors, logger}` — 56 Rust unit tests pass.
+`models/` exists but is **not** `mod`-declared, so it is not compiled; 35 of
+96 `*.rs` files under `src-tauri/src/` are empty placeholders. Declare a
+module only when its slice ships.
 
 ## docs/ — the ten-section documentation tree
 
@@ -163,15 +175,26 @@ the `{type, message}` envelope and must never be replaced with a derived one
 `database/migrations/` holds zero-padded SQL migrations (`001_init.sql`
 through `005_history.sql`). Migrations are **append-only** (ADR-0001): a
 committed migration is never edited; every schema change is a new migration
-plus a Rust model plus a zod schema in one slice. `database/seeds/default.sql`
-seeds local state; `database/dex.db` is the local database file.
+plus a Rust model plus a zod schema in one slice.
+
+- `001_init.sql` is real and applied by `database/migrations.rs` (creates the
+  `schema_version` table and enables WAL).
+- `002_settings.sql`, `003_widgets.sql`, `004_plugins.sql` exist but are not
+  yet registered in `migrations.rs`.
+- `005_history.sql` is empty (0 bytes).
+- `database/seeds/default.sql` is empty; `database/dex.db` is the local
+  database file.
 
 ## tests/, scripts/, .github/
 
-All three are empty scaffolding today. The roadmap milestone **M0.4
-(Development Tooling)** lands the test runner, linting, formatting, git
-hooks, and the CI skeleton; the empty files exist so the layout is fixed in
-advance. Nothing in these trees is imported or executed yet.
+The roadmap milestone **M0.4 (Development Tooling) is shipped** — the test
+runner, linting, formatting, and the CI skeleton are live. `scripts/verify.ts`
+drives the nine-gate `bun run verify` gate (see
+[Verification](#verification-the-gate)), and `.github/workflows/ci.yml` runs
+exactly that gate on push/PR to `develop`/`main`. `tests/frontend/` runs under
+vitest; the remaining suites (`backend`, `e2e`, `integration`, `unit`) and the
+other `scripts/*.ts` tasks are empty scaffolding — the files exist so the
+layout is fixed in advance.
 
 ## Layer ownership
 
@@ -227,8 +250,10 @@ scene colors from `ui/themes/*.ts` and never imports business logic.
    `src/lib/core/services/<domain>.ts` that returns the domain's typed result
    and surfaces `IpcError` on failure.
 5. **Capability:** grant any plugin surface the command needs in
-   `src-tauri/capabilities/default.json` (`log:default` and `opener:default`
-   are already granted).
+   `src-tauri/capabilities/default.json`. Today it grants `core:default`,
+   `opener:default`, `log:default`, plus `core:window`
+   allow-set-decorations/shadow/effects/background-color/title-bar-style — to
+   the **main** window.
 
 The wire contract for a command lives in exactly two places — the registry in
 `core/api/commands.ts` and the handler list in `src-tauri/src/lib.rs`. A
@@ -243,22 +268,47 @@ logged and dropped, never thrown into the handler (ADR-0002).
 
 ## Current state of the tree
 
-Phase 0 (M0.1–M0.3) is done; business features are not built yet. The
-populated surface today is:
+Phase 0 (M0.1–M0.4) is complete — the M0.4 nine-gate verification
+(`bun run verify`) and CI are live. Phase 1 (M1.1 Window) is in progress.
+Business features are not built yet. The populated surface today is:
 
-- `core/api/` fully populated; `core/services/` currently ships one contract
-  client (`greet.ts`); `core/stores/` ships the theme store plus shell and
-  notification stores; `core/utils/` ships `logger.ts` and `storage.ts`.
-- `src-tauri/` ships `commands::core` (the `greet` command) and
-  `utils::errors` (`AppError`); `lib.rs` wires the `opener` and `log` plugins.
+- `core/api/` fully populated; `core/services/` ships nine typed contract
+  clients — system, network, process, modem, settings, widgets, terminal,
+  plugins, history — aggregated by an index barrel; `core/stores/` ships the
+  theme store plus shell and notification stores; `core/utils/` ships
+  `logger.ts` and `storage.ts`.
+- The TS `COMMANDS` registry declares 25 forward contracts; only
+  `set_complete` is wired end-to-end today (registered in both `COMMANDS` and
+  Rust's `generate_handler!`), and `greet` is registered in Rust only.
+- `src-tauri/` ships `commands::core`, `database::{connection, migrations}`,
+  `providers/*`, and `utils::{errors, logger}`; `lib.rs` wires the `opener`
+  and `log` plugins. `models/` is not `mod`-declared (inert); 35 of 96 `*.rs`
+  files are empty placeholders.
 - Most of `features/**`, the remaining `core/**` modules, and the rest of
   `src-tauri/**` are empty scaffolding that lands with its owning milestone.
   Undeclared Rust modules are not compiled — do not `mod` an empty file.
-- `database/`, `tests/`, `scripts/`, `.github/` are empty as described above.
+- `database/` migrations are real and append-only (see above); `tests/`,
+  `scripts/`, `.github/` are as described above.
 
 Do not assume an empty file works or import it. A command is only callable
 once it exists in both contract files; a Rust module is only compiled once
 its `mod` declaration exists.
+
+## Verification (the gate)
+
+Run `bun run verify` (`scripts/verify.ts`) from any cwd before merging. It runs nine gates in order, fail-fast:
+
+1. `format:check` — frontend formatting (`prettier --check src/`)
+2. `cargo:fmt:check` — backend formatting (`cargo fmt --check`, `--manifest-path`)
+3. `lint` — frontend lint (`eslint src/`)
+4. `check` — frontend types (`svelte-kit sync && svelte-check`)
+5. `cargo:clippy` — backend lint (`clippy --all-targets --all-features -D warnings`)
+6. `cargo:check` — backend types
+7. `test` — frontend tests (`vitest run`)
+8. `build` — frontend production build (`vite build`)
+9. `cargo:test` — backend tests
+
+CI runs exactly this gate on push/PR to `develop`/`main`. The individual `bun run check` and `bun run cargo:check` remain valid single-gate checks during development; `bun run tauri:dev` stays a manual desktop gate (transparent/compositor behavior cannot be tested headless, ADR-0004). A change failing any gate is not ready for review.
 
 ## Related Documents
 

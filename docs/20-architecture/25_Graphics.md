@@ -7,8 +7,8 @@ engine-agnostic renderer contracts, the rendering stack, the ownership
 boundary, the renderer lifecycle, and the performance contract. It explains
 *why* the shell renders the way it does and *how* the pieces compose. It is
 not an implementation guide; the formal renderer contracts live in
-`src/lib/graphics/contracts.ts` and the renderer decision is recorded in
-ADR-0006.
+`src/lib/graphics/contracts.ts`. The renderer decision (Three.js, WebGL2) is
+recorded in [ADR-0008](../50-adr/0008-threejs-renderer.md), chosen with M2.1.
 
 ## Background — why a graphics layer exists
 
@@ -77,10 +77,10 @@ The graphics layer exposes exactly three contracts, defined in
 | `RenderSurface` | The drawing surface: a canvas plus a DPR-aware `resize` |
 | `Renderer` | The shell renderer: `start()`, `render()`, `dispose()` |
 
-These contracts are engine-agnostic on purpose. Three.js is not yet a
-dependency; Phase 2 implements the contracts inside `graphics/`. Consumers in
-`ui/` and `features/` depend on the contracts and on the theme palette — never
-on WebGL or Three.js directly.
+These contracts are engine-agnostic on purpose. Three.js is a dependency of
+`graphics/` only (M2.1, ADR-0008); consumers in `ui/` and `features/` depend
+on the contracts and on the theme palette — never on WebGL or Three.js
+directly.
 
 ## Ownership boundary
 
@@ -96,7 +96,7 @@ flowchart LR
     end
     subgraph Graphics["graphics/ layer"]
         CONTRACTS["contracts.ts"]
-        IMPL["Three.js implementation (Phase 2)"]
+        IMPL["Three.js implementation (M2.1, ADR-0008)"]
     end
     subgraph Theme["ui/themes/*.ts"]
         PAL["ThemePalette"]
@@ -133,6 +133,24 @@ The frame loop is driven by `requestAnimationFrame` and is owned exclusively
 by the renderer. It starts lazily (the renderer initializes on first visual
 need, per the performance contract) and stops with `dispose()`.
 
+## Boundary with the DOM motion engine
+
+M2.3 ships a DOM motion engine in `ui/motion/` (ADR-0009) for the chrome,
+primitives, and the theme cross-fade. The boundary is absolute:
+
+- **`ui/motion/` is DOM-only and never touches the renderer loop.** It is
+  rAF-free — no module under it schedules frames — so it cannot contend with
+  the renderer's frame ownership, and it never reaches the WebGL canvas or the
+  `graphics/` scene graph.
+- **Graphics-side animation belongs to the renderer loop / compose seam, not
+  `ui/motion/`.** Anything that animates the scene (M2.4 performance and
+  animation layers) hooks the renderer's own loop through
+  `RendererOptions.compose` — effects never schedule frames and DOM motion
+  never schedules them either.
+- The only shared input is the theme palette: both the renderer
+  (`applyPalette`) and the DOM theme cross-fade (`ui/motion/theme-transition.ts`)
+  consume the same `ThemePalette` mirror (ADR-0003) on a theme change.
+
 ## Performance contract
 
 The graphics layer is bound by the same performance contract as the rest of
@@ -152,16 +170,39 @@ the shell (ADR-0003, `40-engineering/Performance.md`):
 
 ## Roadmap mapping
 
-The graphics subsystem ships in Phase 2 (roadmap M2.1–M2.4). Phase 0 ships
-only the contracts and this document; implementations arrive with the first
-feature that needs GPU visuals — no speculative engine code.
+The graphics subsystem ships in Phase 2 (roadmap M2.1–M2.4). M2.1 shipped the
+Three.js core (renderer, scene, camera, lights) behind the engine-agnostic
+contracts; M2.2–M2.4 add effects, animation, and the performance layers. No
+speculative engine code shipped before a feature needed it.
 
 | Milestone | Deliverable |
 |---|---|
 | M2.1 | Three.js core: renderer, scene, camera, lights |
 | M2.2 | Effects: bloom, fog, background, grid, particles |
-| M2.3 | Animation engine: timeline, motion manager, transition manager |
+| M2.3 | DOM motion engine (not graphics): timeline, motion manager, transition manager — `ui/motion/`, ADR-0009 |
 | M2.4 | Performance: object pooling, texture cache, FPS monitor |
+
+## M2.2 Effects
+
+M2.2 adds the effects composition without disturbing the M2.1 ownership model:
+`RendererOptions.compose(ctx)` (in `renderer.ts`) returns a `RenderCompose`
+hook object that the renderer calls from its own loop, resize, applyPalette,
+and dispose paths — the renderer stays the single frame-loop and resource
+owner, and effects never schedule frames.
+
+`graphics/effects/manager.ts` (`createEffects`) is the composition root. It
+builds five effects into the renderer scene:
+
+| Effect | Palette source | Notes |
+|---|---|---|
+| Bloom (`UnrealBloomPass`) | — (luminance-driven) | Pass chain RenderPass → UnrealBloomPass → OutputPass. Alpha contract: three r185 OutputShader only transforms `.rgb` (keeping `value.a`), but UnrealBloomPass's blend material defaults to AdditiveBlending, which would add `bloomAlpha` onto the window alpha — the manager pins `CustomBlending` with `(ONE, ONE, ZERO, ONE)` factors so RGB stays additive while alpha passes through unchanged (ADR-0004). |
+| Fog (`FogExp2`) | `palette.fog` | `scene.fog`, not a scene child; blends RGB only. |
+| Background | `palette.background` | Transparent shader plane at z = −25; true screen-space vignette (fragments normalized by the frustum half-extents at that depth) so alpha reaches 0 at every window edge — `scene.background` remains `null` (ADR-0004). |
+| Grid | `palette.gridLine` / `palette.gridGlow` | Two `LineSegments` (minor + every-5th major) at y = −2; alpha comes from the `rgba()` strings. |
+| Particles | `palette.particle` | Ambient dust between camera and backdrop; zero-alloc in-place updates. |
+
+Palette strings are parsed by `graphics/effects/color.ts` (`parseColor` /
+`parseAlpha`) and pushed via `applyPalette` (ADR-0003) — never polled.
 
 ## Related Documents
 
@@ -169,7 +210,8 @@ feature that needs GPU visuals — no speculative engine code.
 - Layer ownership: [`../50-adr/0001-layer-ownership.md`](../50-adr/0001-layer-ownership.md)
 - Design tokens and the programmatic palette mirror: [`../50-adr/0003-design-tokens.md`](../50-adr/0003-design-tokens.md)
 - Transparent window compositing: [`../50-adr/0004-transparent-compositing.md`](../50-adr/0004-transparent-compositing.md)
-- Renderer decision (recorded when the renderer is chosen, Phase 2): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
+- Renderer decision (Three.js, WebGL2): [`../50-adr/0008-threejs-renderer.md`](../50-adr/0008-threejs-renderer.md)
+- DOM motion engine boundary (M2.3): [`../50-adr/0009-motion-engine.md`](../50-adr/0009-motion-engine.md) and [`../30-specs/Animation.md`](../30-specs/Animation.md)
 - Design system and motion policy: [`../40-engineering/DesignSystem.md`](../40-engineering/DesignSystem.md)
 - Performance standard: [`../40-engineering/Performance.md`](../40-engineering/Performance.md)
 - Product roadmap (Phase 2): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)

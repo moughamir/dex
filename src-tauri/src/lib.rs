@@ -6,6 +6,72 @@ mod utils;
 use tauri::Manager;
 use tauri_plugin_log::{log::LevelFilter, Target, TargetKind};
 
+/// How long the startup handshake may take before the fallback in
+/// [`startup_fallback`] force-completes the splashscreen → main transition.
+const STARTUP_HANDSHAKE_TIMEOUT_SECS: u64 = 10;
+
+/// Completes the backend half of the startup handshake.
+///
+/// This spawned async lane is the seam where real asynchronous backend
+/// initialization (providers, DB warm-up, …) lands in later milestones. Today
+/// backend initialization is synchronous inside `.setup`, so this immediately
+/// reports the backend task as complete.
+async fn setup_backend(app: tauri::AppHandle) {
+    if let Some(state) = app.try_state::<std::sync::Mutex<commands::core::SetupState>>() {
+        let _ = commands::core::set_complete(
+            app.clone(),
+            state,
+            commands::core::SetCompleteArgs {
+                task: "backend".into(),
+            },
+        )
+        .await;
+    }
+}
+
+/// Failure-fallback safety net for the startup handshake.
+///
+/// If neither side has completed the splashscreen → main transition within
+/// [`STARTUP_HANDSHAKE_TIMEOUT_SECS`], force it so the user is never stranded
+/// on a hidden main window. Only acts while `SetupState.shown` is still false;
+/// after a successful handshake it is a no-op.
+async fn startup_fallback(app: tauri::AppHandle) {
+    tokio::time::sleep(tokio::time::Duration::from_secs(
+        STARTUP_HANDSHAKE_TIMEOUT_SECS,
+    ))
+    .await;
+
+    if let Some(state) = app.try_state::<std::sync::Mutex<commands::core::SetupState>>() {
+        let mut state_lock = match state.lock() {
+            Ok(guard) => guard,
+            Err(_) => return,
+        };
+
+        if !commands::core::fallback_should_fire(
+            state_lock.shown,
+            STARTUP_HANDSHAKE_TIMEOUT_SECS,
+            STARTUP_HANDSHAKE_TIMEOUT_SECS,
+        ) {
+            return;
+        }
+
+        crate::utils::logger::log_warn(
+            "startup handshake did not complete within the timeout; \
+             forcing splashscreen → main transition",
+        );
+
+        if let Some(splash) = app.get_webview_window("splashscreen") {
+            let _ = splash.close();
+        }
+        if let Some(main) = app.get_webview_window("main") {
+            let _ = main.show();
+            let _ = main.set_focus();
+        }
+
+        state_lock.shown = true;
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -21,6 +87,11 @@ pub fn run() {
                 ])
                 .build(),
         )
+        .manage(std::sync::Mutex::new(commands::core::SetupState {
+            frontend_task: false,
+            backend_task: false,
+            shown: false,
+        }))
         .setup(|app| {
             // Initialize the local SQLite store (M0.6): open/create the
             // database and apply pending migrations. The runner is
@@ -28,11 +99,17 @@ pub fn run() {
             let app_data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_data_dir)?;
             database::init(&app_data_dir.join("dex.db"))?;
+
+            tauri::async_runtime::spawn(setup_backend(app.handle().clone()));
+            tauri::async_runtime::spawn(startup_fallback(app.handle().clone()));
             Ok(())
         })
         // Exactly one invoke_handler — append commands to the single
         // generate_handler!, never add a second call (ADR-0002).
-        .invoke_handler(tauri::generate_handler![commands::core::greet])
+        .invoke_handler(tauri::generate_handler![
+            commands::core::greet,
+            commands::core::set_complete
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

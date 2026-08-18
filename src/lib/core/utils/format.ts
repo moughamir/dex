@@ -45,5 +45,8 @@ export function formatFrequency(mhz: number): string {
 
 export function formatNumber(n: number): string {
   if (!Number.isFinite(n)) return "0";
-  return String(Math.round(n * 100) / 100).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return String(Math.round(n * 100) / 100).replace(
+    /\B(?=(\d{3})+(?!\d))/g,
+    ",",
+  );
 }

@@ -14,6 +14,9 @@ export async function pluginsList(): Promise<PluginsListResult> {
   return invoke(COMMANDS.pluginsList, {});
 }
 
-export async function pluginsSetEnabled(id: string, enabled: boolean): Promise<null> {
+export async function pluginsSetEnabled(
+  id: string,
+  enabled: boolean,
+): Promise<null> {
   return invoke(COMMANDS.pluginsSetEnabled, { id, enabled });
 }

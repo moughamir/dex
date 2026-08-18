@@ -1,41 +1,30 @@
 <script lang="ts">
-	import {
-		Bot,
-		FolderPlus,
-		Plug,
-		Database
-	} from "lucide-svelte";
+  import { Bot, FolderPlus, Plug, Database } from "lucide-svelte";
 
-	import { Button } from "$lib/ui/primitives";
-	import Widget from "./Widget.svelte";
+  import { Button } from "$lib/ui/primitives";
+  import Widget from "./Widget.svelte";
 </script>
 
-<Widget
-	title="Quick Actions"
->
+<Widget title="Quick Actions">
+  <div class="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+    <Button variant="secondary">
+      <FolderPlus />
+      Project
+    </Button>
 
-	<div class="grid grid-cols-2 gap-3">
+    <Button variant="secondary">
+      <Bot />
+      Agent
+    </Button>
 
-		<Button>
-			<FolderPlus />
-			Project
-		</Button>
+    <Button variant="secondary">
+      <Database />
+      Database
+    </Button>
 
-		<Button>
-			<Bot />
-			Agent
-		</Button>
-
-		<Button>
-			<Database />
-			Database
-		</Button>
-
-		<Button>
-			<Plug />
-			Plugin
-		</Button>
-
-	</div>
-
+    <Button variant="secondary">
+      <Plug />
+      Plugin
+    </Button>
+  </div>
 </Widget>

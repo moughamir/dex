@@ -77,7 +77,7 @@ gantt
 
 ## Matrix
 
-Status: **Built** = delivered in Phase 0 (milestone checked in the roadmap).
+Status: **Built** = delivered (milestone checked in the roadmap).
 **Planned** = scheduled in the roadmap and not yet delivered.
 
 | Feature | Domain | Phase | Milestone | Status |
@@ -85,14 +85,14 @@ Status: **Built** = delivered in Phase 0 (milestone checked in the roadmap).
 | Project Architecture (layer model, ADRs, coding standards, engineering docs) | Foundation | 0 | M0.1 | Built |
 | Design System (tokens, typography, colors, icons, motion, theme engine) | Theming | 0 | M0.2 | Built |
 | Core Infrastructure (typed IPC, command registry, contract clients, event bus, theme store, logger, error envelope) | Core Infrastructure | 0 | M0.3 | Built |
-| Development Tooling (ESLint, Prettier, Rustfmt, Clippy, test runner, git hooks, CI skeleton) | Engineering | 0 | M0.4 | Planned |
-| Window (transparent, fullscreen, multi-monitor, DPI-aware) | Desktop Shell | 1 | M1.1 | Planned |
-| HUD (TopBar, Dock, StatusBar, Viewport) | Desktop Shell | 1 | M1.2 | Planned |
-| UI Components (GlassPanel, Button, Card, Tooltip, Modal, ContextMenu, Dropdown) | UI Primitives | 1 | M1.3 | Planned |
-| Theme (dark, cyber, dynamic; live switching) | Theming | 1 | M1.4 | Planned |
-| Three.js Core (renderer, scene, camera, lights) | Graphics | 2 | M2.1 | Planned |
-| Effects (bloom, fog, background, grid, particles) | Graphics | 2 | M2.2 | Planned |
-| Animation Engine (timeline, motion manager, transition manager) | Graphics | 2 | M2.3 | Planned |
+| Development Tooling (nine-step `bun run verify` gate, ESLint, Prettier, Rustfmt, Clippy, vitest runner, CI on push/PR to develop/main) | Engineering | 0 | M0.4 | Built |
+| Window (transparent, fullscreen, multi-monitor, DPI-aware) | Desktop Shell | 1 | M1.1 | Built |
+| HUD (TopBar, Dock, StatusBar, Viewport) | Desktop Shell | 1 | M1.2 | Built |
+| UI Components (GlassPanel, Button, Card, Tooltip, Modal, ContextMenu, Dropdown) | UI Primitives | 1 | M1.3 | Built |
+| Theme (dark, cyber, dynamic; live switching) | Theming | 1 | M1.4 | Built |
+| Three.js Core (renderer, scene, camera, lights) | Graphics | 2 | M2.1 | Built |
+| Effects (bloom, fog, background, grid, particles) | Graphics | 2 | M2.2 | Built |
+| Animation Engine (timeline, motion manager, transition manager) | Graphics | 2 | M2.3 | Built |
 | Graphics Performance (object pooling, texture cache, FPS monitor) | Graphics | 2 | M2.4 | Planned |
 | Widget SDK (registry, metadata, lifecycle) | Widgets | 3 | M3.1 | Planned |
 | Layout Engine (drag, resize, snap, dock, float) | Widgets | 3 | M3.2 | Planned |
@@ -152,8 +152,9 @@ Status: **Built** = delivered in Phase 0 (milestone checked in the roadmap).
   and its semantics are delivered across milestones — Hyprland integration
   (M4.4), the Rust command surface (M4.1), and the Workspace Manager
   (M5.5). See [`15_Workspace_Runtime.md`](15_Workspace_Runtime.md).
-- Status reflects the roadmap only. M0.4 is the only Phase 0 milestone not
-  yet delivered; it is scheduled and open.
+- Status reflects the roadmap only. All Phase 0 milestones (M0.1–M0.4) and
+  all Phase 1 milestones (M1.1–M1.4) are delivered; Phase 2 (Graphics Engine)
+  is next.
 - The phase gate applies to every milestone: each ends with a working
   vertical slice and green checks.
 

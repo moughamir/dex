@@ -74,3 +74,70 @@ impl fmt::Display for ProviderError {
 }
 
 impl std::error::Error for ProviderError {}
+
+#[cfg(test)]
+mod tests {
+    use super::ProviderError;
+
+    #[test]
+    fn display_for_registration_conflicts() {
+        let error = ProviderError::AlreadyRegistered {
+            id: "network".into(),
+        };
+        assert_eq!(
+            error.to_string(),
+            "provider 'network' is already registered"
+        );
+    }
+
+    #[test]
+    fn display_for_not_found() {
+        let error = ProviderError::NotFound { id: "modem".into() };
+        assert_eq!(error.to_string(), "provider 'modem' was not found");
+    }
+
+    #[test]
+    fn display_for_structural_variants() {
+        assert_eq!(
+            ProviderError::CapabilityUnavailable.to_string(),
+            "requested capability is unavailable"
+        );
+        assert_eq!(
+            ProviderError::PermissionDenied.to_string(),
+            "permission denied"
+        );
+        assert_eq!(ProviderError::Timeout.to_string(), "operation timed out");
+    }
+
+    #[test]
+    fn display_for_reasoned_variants() {
+        assert_eq!(
+            ProviderError::InitializationFailed {
+                reason: "missing device".into(),
+            }
+            .to_string(),
+            "provider initialization failed: missing device"
+        );
+        assert_eq!(
+            ProviderError::ShutdownFailed {
+                reason: "busy".into(),
+            }
+            .to_string(),
+            "provider shutdown failed: busy"
+        );
+        assert_eq!(
+            ProviderError::CommunicationError {
+                reason: "timeout".into(),
+            }
+            .to_string(),
+            "communication error: timeout"
+        );
+        assert_eq!(
+            ProviderError::Internal {
+                reason: "panic".into(),
+            }
+            .to_string(),
+            "internal provider error: panic"
+        );
+    }
+}

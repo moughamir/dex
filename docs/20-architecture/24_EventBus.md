@@ -104,9 +104,21 @@ mindmap
       unloaded
 ```
 
-These are the planned namespaces — the registry is empty today and entries
-are added when their first emitter lands (Phase 4 M4.x onward), each with a
-payload schema.
+The `EVENTS` registry is not empty: it already declares **16 events across
+six domains** — `dex.system.resources`, `dex.system.battery`,
+`dex.process.updated`, `dex.process.spawned`, `dex.process.exited`,
+`dex.network.adapter_added`, `dex.network.adapter_removed`,
+`dex.network.adapter_state_changed`, `dex.network.statistics`,
+`dex.modem.added`, `dex.modem.removed`, `dex.modem.state_changed`,
+`dex.modem.signal_changed`, `dex.terminal.output`, `dex.terminal.exit`, and
+`dex.settings.changed`. No Rust emitter exists yet — `src-tauri/src/events/`
+is future (Phase 4 M4.x onward) — so none of these can fire today. The
+mindmap above also shows **planned but not registered** namespaces that are
+not part of the contract yet: `dex.theme.*`, `dex.widget.*`, `dex.search.*`,
+`dex.secrets.*`, `dex.workspace.*`, `dex.snapshot.*`, `dex.service.*`,
+`dex.journal.*`, `dex.vault.*`, `dex.automation.*`, `dex.plugin.*`,
+`dex.hyprland.*`. Registered entries land with a payload schema; planned
+namespaces are added to the registry when their first emitter lands.
 
 ## Live Bus vs. Durable Journal
 
@@ -130,10 +142,11 @@ bus's low-latency delivery.
 
 ## Current State
 
-The bus is wired but empty:
+The bus is wired but no emitter is live:
 
 - `core/api/events.ts` implements `onEvent` and the `EVENTS` registry; the
-  registry has no entries.
+  registry declares 16 events across six domains
+  (system/process/network/modem/terminal/settings), but no emitter is live.
 - `src-tauri/src/events/` holds the emitter module scaffold; no emitter is
   live.
 - The only Rust→shell wiring active in the Runtime is the log plugin

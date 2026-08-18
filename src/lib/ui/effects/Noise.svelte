@@ -1,3 +1,3 @@
 <div class="dex-effect">
-	<div class="dex-noise"></div>
+  <div class="dex-noise"></div>
 </div>

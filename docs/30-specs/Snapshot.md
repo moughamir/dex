@@ -122,7 +122,7 @@ A Snapshot is captured on one of three triggers.
 | Trigger | Source | Notes |
 |---|---|---|
 | Manual | User command (`workspace.snapshot` from CLI or shell) | Always available, regardless of policy. |
-| On-demand | A lifecycle transition (e.g. `pre_leave`, `pre_pause`) | Governed by `snapshot_policy.on_leave` and `snapshot_policy.on_pause` in the Manifest. |
+| On-demand | A lifecycle transition (e.g. `pre_leave`) | Governed by `snapshot_policy.on_leave` in the Manifest. |
 | Periodic | A timer | Governed by `snapshot_policy.periodic` (`interval` or `cron`); the timer belongs to the Runtime, not to a cron daemon. |
 
 Scheduling is declared in the Workspace Manifest's `snapshot_policy`

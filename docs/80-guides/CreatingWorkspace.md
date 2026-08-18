@@ -31,8 +31,8 @@ transfer unchanged.
 
 ## Prerequisites
 
-- DEX built and running. Verification order: `bun run check`, `cargo check`
-  in `src-tauri/`, then `bun run tauri dev` on a Wayland/Hyprland session.
+- DEX built and running. Verification order: `bun run verify`, then `bun run tauri:dev` on a
+  Wayland/Hyprland session.
 - The `dex` CLI on `PATH` (after M5.5; see Capability gates).
 - A project directory that will become the Workspace root; the Manifest lives
   there as a file.

@@ -1,44 +1,30 @@
 <script lang="ts">
-	import type { IconComponent } from "$lib/types/icon";
-	import Widget from "./Widget.svelte";
+  import type { IconComponent } from "$lib/types/icon";
+  import Widget from "./Widget.svelte";
 
-	interface Props {
+  interface Props {
+    title: string;
 
-		title: string;
+    value: string | number;
 
-		value: string | number;
+    icon: IconComponent;
 
-		icon: IconComponent;
+    change?: string;
+  }
 
-		change?: string;
-	}
-
-	let {
-		title,
-		value,
-		icon,
-		change
-	}: Props = $props();
+  let { title, value, icon, change }: Props = $props();
 </script>
 
-<Widget
-	{title}
-	{icon}
-	class="min-h-42.5"
->
+<Widget {title} {icon} class="min-h-42.5">
+  <div class="flex h-full flex-col justify-end">
+    <h2 class="text-4xl font-bold">
+      {value}
+    </h2>
 
-	<div class="flex h-full flex-col justify-end">
-
-		<h2 class="text-4xl font-bold">
-			{value}
-		</h2>
-
-		{#if change}
-			<p class="mt-2 text-sm text-(--dex-success)">
-				{change}
-			</p>
-		{/if}
-
-	</div>
-
+    {#if change}
+      <p class="mt-2 text-sm text-(--dex-success)">
+        {change}
+      </p>
+    {/if}
+  </div>
 </Widget>

@@ -11,16 +11,22 @@ moment it is pushed, not the moment it is deployed.
 
 ## Current state — honest
 
-**No CI is configured.** The workflow files (`.github/workflows/ci.yml`,
-`lint.yml`, `release.yml`) are empty scaffolding, `scripts/*.ts` are empty
-scaffolding, and the repository has no remote. The verification order —
-`bun run check` → `cargo check` → `bun run tauri dev` — is run locally.
+**M0.4 CI skeleton is live.** `.github/workflows/ci.yml` runs the single
+authoritative gate, `bun run verify` (`scripts/verify.ts`), on push/PR to
+`develop`/`main`. The gate is nine steps, fail-fast: `format:check` →
+`cargo:fmt:check` → `lint` → `check` → `cargo:clippy` → `cargo:check` →
+`test` → `build` → `cargo:test`. Every cargo step passes `--manifest-path`, so
+the gate is cwd-independent and CI runs exactly the same commands a developer
+runs locally. CI runs a single "Verify" job on push/PR to `develop`/`main`
+(ubuntu-latest, Bun 1.3.14, Rust stable with rustfmt + clippy, webkit2gtk
+system dependencies, `bun install --frozen-lockfile`, then `bun run verify`).
 
-This gap is tracked by roadmap milestone **M0.4 (Development Tooling)**, which
-is open. M0.4 delivers ESLint, Prettier, Rustfmt, Clippy, a test runner, git
-hooks, and the CI skeleton. This document describes the **intended** pipeline
-as the design that M0.4 and the Phase 9 production milestones will implement.
-It does not claim the pipeline is live.
+The manual desktop check (`bun run tauri:dev`) is still not in CI — it requires
+Wayland/Hyprland and a real compositor (ADR-0004).
+
+This document describes the **intended** full pipeline as the design that M0.4
+and the Phase 9 production milestones will implement; the M0.4 slice (verify
+gate) is the first live stage of that design.
 
 ## Why CI
 
@@ -42,12 +48,8 @@ next runs; a failure stops the pipeline and reports the failing stage.
 ```mermaid
 flowchart LR
     A["push / pull request"] --> B["bun install"]
-    B --> C["bun run check (svelte-check)"]
-    C --> D["cargo check (src-tauri)"]
-    D --> E["lint — ESLint, Prettier, Rustfmt, Clippy (M0.4)"]
-    E --> F["tests — bun test, cargo test (M0.4)"]
-    F --> G["build — vite build"]
-    G --> H["artifacts"]
+    B --> C["bun run verify (9-step gate)"]
+    C --> D["manual desktop check — bun run tauri:dev (review gate)"]
 ```
 
 ### Stage details
@@ -55,30 +57,27 @@ flowchart LR
 1. **`bun install`** — install dependencies with Bun, never npm. Lockfile
    changes are validated (a PR that adds a dependency without justification is
    caught at review, not by CI).
-2. **`bun run check`** — `svelte-kit sync && svelte-check`. The frontend type
-   gate.
-3. **`cargo check`** — inside `src-tauri/`. The Rust type gate.
-4. **Lint** (M0.4) — ESLint + Prettier for the frontend, Rustfmt + Clippy for
-   the Rust crate. Formatting and lint are enforced by the machine so style
-   disputes never reach review.
-5. **Tests** (M0.4) — the automated suites defined in `Testing.md`: frontend
-   unit/integration via the test runner, Rust via `cargo test`.
-6. **Build** — `vite build` produces the static SPA bundle (adapter-static,
-   SPA mode). A build failure is a hard gate.
-7. **Artifacts** — build outputs and (at release milestones) installable
-   packages are stored as pipeline artifacts.
+2. **`bun run verify`** — the M0.4 gate (`scripts/verify.ts`), nine fail-fast
+   steps: frontend format (`prettier --check src/`) → backend format
+   (`cargo fmt --check`) → frontend lint (`eslint src/`) → frontend types
+   (`svelte-check`) → backend lint (`clippy -D warnings`) → backend types
+   (`cargo check`) → frontend tests (`vitest`) → frontend build (`vite build`)
+   → backend tests (`cargo test`). CI runs exactly this script and no other
+   checks, so a red pipeline reproduces locally with one command.
+3. **Manual desktop check** — `bun run tauri:dev` stays a review-time gate; it
+   cannot run headless (ADR-0004).
 
 ### What CI does not run
 
-The manual desktop check (`bun run tauri dev`) is **not** part of CI. It
+The manual desktop check (`bun run tauri:dev`) is **not** part of CI. It
 requires Wayland/Hyprland and a real compositor (ADR-0004), which CI runners
 do not provide. CI covers every check that can run headless; the desktop check
 remains a manual gate at review and at milestone gates.
 
 ## Artifact strategy
 
-- **Every successful build stores the SPA bundle** as an artifact for
-  inspection and debugging.
+- **The M0.4 gate does not publish artifacts.** It verifies code; packaging
+  and artifact storage land with the release pipeline.
 - **At release milestones** (M9.x), the build stage produces the packaging
   targets defined in `Release.md` — Arch, AppImage, Flatpak (M9.3) — and
   stores them as release artifacts.
@@ -86,7 +85,7 @@ remains a manual gate at review and at milestone gates.
 
 ## Branch protection intent
 
-Branch protection is a goal for `develop` and `main` once CI is live:
+Branch protection is a goal for `develop` and `main` now that CI is live:
 
 - **`main` requires CI green** and a release gate; it is not pushed directly.
 - **`develop` requires CI green** and at least one review; feature branches
@@ -98,11 +97,11 @@ merge, and a merge without the pipeline is impossible.
 
 ## Roadmap
 
-- **M0.4 (open):** the CI skeleton with the stages above, plus the lint and
-  test tooling the pipeline runs. This is the first CI slice.
+- **M0.4 (shipped):** the CI skeleton — a single `bun run verify` gate run on
+  push/PR. Formatting, lint, types, tests, and the build are all machine-enforced.
 - **M9.x (Production):** the pipeline is hardened — packaging artifacts
-  (M9.3), performance and testing gates (M9.1, M9.2) — as part of the road to
-  v1.0 at M9.5.
+  (M9.3), performance and testing gates (M9.1, M9.2), branch protection — as
+  part of the road to v1.0 at M9.5.
 
 ## Related Documents
 

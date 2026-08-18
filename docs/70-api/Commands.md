@@ -91,25 +91,50 @@ maps to `z.null()` on the frontend.
 ### `greet` — core domain
 
 The canonical command, implemented in Phase 0 (M0.3) to prove the typed IPC
-seam end to end. It is the only live command today.
+seam end to end. It is registered in the Rust `invoke_handler` only — there is
+**no** `COMMANDS` entry and **no** `core/services/greet.ts` client, so it is
+not callable from the frontend (ADR-0002: a command is callable only when it
+is in *both* the TS registry and the `generate_handler!`).
 
 | Field | Value |
 |---|---|
 | Command name | `greet` |
 | Domain | `core` |
 | Milestone | M0.3 (implemented) |
-| Status | **implemented** |
+| Status | **implemented** (Rust edge only) |
 | Args schema | `{ name: string }` |
 | Result schema | `{ message: string }` |
 | Error types | `internal` (the handler returns `Ok` unconditionally today) |
 | Rust handler | `src-tauri/src/commands/core.rs` → `commands::core::greet` |
-| Contract client | `core/services/greet.ts` → `greet(name): Promise<string>` |
+| Contract client | none |
 
-The contract client returns the `message` string directly:
+### `set_complete` — core domain
+
+The startup barrier, implemented in Phase 1 (M1.1): the frontend calls it
+after its init sequence, the Rust setup calls it after backend setup, and the
+splash window closes once both have reported. It is the first command wired
+end to end — present in **both** `COMMANDS` and the `generate_handler!`.
+
+| Field | Value |
+|---|---|
+| Command name | `set_complete` |
+| Domain | `core` |
+| Milestone | M1.1 (implemented) |
+| Status | **implemented** (both edges) |
+| Args schema | `{ task: string }` — `"frontend"` or `"backend"` |
+| Result schema | `null` (infallible → `z.null()`) |
+| Error types | `validation` (unknown task), `internal` (state lock failure) |
+| Rust handler | `src-tauri/src/commands/core.rs` → `commands::core::set_complete` |
+| Contract client | none — called directly from the splashscreen bootstrap |
+
+The splashscreen (`src/routes/splashscreen/+page.svelte`) reports frontend
+completion via the typed invoke wrapper:
 
 ```ts
-import { greet } from "$lib/core/services/greet";
-const message = await greet("Ada"); // "Hello, Ada! You've been greeted from Rust!"
+import { invoke } from "$lib/core/api/tauri";
+import { COMMANDS } from "$lib/core/api/commands";
+
+await invoke(COMMANDS.setComplete, { task: "frontend" });
 ```
 
 ## Planned command domains

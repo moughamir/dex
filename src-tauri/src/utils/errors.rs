@@ -18,6 +18,14 @@ use serde::Serialize;
 use crate::providers::error::ProviderError;
 
 /// Closed set of error codes surfaced to the frontend (ADR-0002).
+///
+/// Only `Internal` is constructed today (via the `From` impls below); the
+/// remaining variants are the documented wire codes that future command
+/// domains will construct. They are intentional foundation, not dead code —
+/// removing them would silently shrink the IPC error contract. `#[allow(dead_code)]`
+/// is scoped to this enum so the closed code set stays complete until each
+/// variant's owning command ships.
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum AppError {
     Validation(Option<String>),
@@ -28,6 +36,13 @@ pub enum AppError {
     Internal(Option<String>),
 }
 
+/// Constructor surface for the closed error-code set (ADR-0002).
+///
+/// Only `Internal` is produced today (via the `From` impls); the remaining
+/// constructors are what future command domains call to return domain-specific
+/// errors. Intentional foundation — the allowance mirrors the one on the enum
+/// and stays narrow to this constructor block.
+#[allow(dead_code)]
 impl AppError {
     /// Constructs a `Validation` error carrying a context message.
     pub fn validation(msg: impl Into<String>) -> Self {
@@ -129,6 +144,7 @@ impl From<std::io::Error> for AppError {
 #[cfg(test)]
 mod tests {
     use super::AppError;
+    use crate::providers::error::ProviderError;
     use serde_json::json;
 
     /// The wire envelope is exactly `{ "type": <code>, "message": <text> }`
@@ -210,5 +226,41 @@ mod tests {
             assert_eq!(value["type"], json!(code));
             assert_eq!(value["message"], json!(message));
         }
+    }
+
+    /// Variants without a carried message fall back to their documented
+    /// default display string.
+    #[test]
+    fn display_falls_back_to_default_messages() {
+        let cases = [
+            (AppError::Validation(None), "Validation failed"),
+            (AppError::NotFound(None), "Resource not found"),
+            (AppError::PermissionDenied(None), "Permission denied"),
+            (
+                AppError::Conflict(None),
+                "Operation conflicts with the current state",
+            ),
+            (AppError::Unsupported(None), "Operation is not supported"),
+            (AppError::Internal(None), "An internal error occurred"),
+        ];
+
+        for (variant, expected) in cases {
+            assert_eq!(variant.to_string(), expected);
+        }
+    }
+
+    /// The `From` impls map foreign errors onto `Internal` while carrying
+    /// the underlying message verbatim.
+    #[test]
+    fn from_impls_map_to_internal() {
+        let from_provider = AppError::from(ProviderError::NotFound {
+            id: "modem".to_string(),
+        });
+        assert_eq!(from_provider.code(), "internal");
+        assert_eq!(from_provider.to_string(), "provider 'modem' was not found");
+
+        let from_io = AppError::from(std::io::Error::other("disk full"));
+        assert_eq!(from_io.code(), "internal");
+        assert_eq!(from_io.to_string(), "disk full");
     }
 }

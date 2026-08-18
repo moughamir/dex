@@ -7,51 +7,51 @@ import type { Theme, ThemePalette } from "./types";
  * [data-theme="cyber"].
  */
 export const cyber: Theme = {
-    id: "cyber",
+  id: "cyber",
+  name: "cyber",
+
+  palette: {
     name: "cyber",
 
-    palette: {
-        name: "cyber",
+    /* Brand */
 
-        /* Brand */
+    accent: "#66e6ff",
+    accentStrong: "#00e5ff",
 
-        accent: "#66e6ff",
-        accentStrong: "#00e5ff",
+    /* Surfaces */
 
-        /* Surfaces */
+    background: "#060a14",
 
-        background: "#060a14",
+    surface1: "rgba(8, 12, 24, 0.45)",
+    surface2: "rgba(8, 12, 24, 0.70)",
+    surface3: "rgba(255, 255, 255, 0.10)",
 
-        surface1: "rgba(8, 12, 24, 0.45)",
-        surface2: "rgba(8, 12, 24, 0.70)",
-        surface3: "rgba(255, 255, 255, 0.10)",
+    /* Typography */
 
-        /* Typography */
+    text1: "#ffffff",
+    text2: "#a8e6f7",
 
-        text1: "#ffffff",
-        text2: "#a8e6f7",
+    /* Borders */
 
-        /* Borders */
+    border: "rgba(0, 229, 255, 0.30)",
 
-        border: "rgba(0, 229, 255, 0.30)",
+    /* Graphics */
 
-        /* Graphics */
+    gridLine: "rgba(160, 110, 255, 0.10)",
+    gridGlow: "rgba(102, 230, 255, 0.30)",
 
-        gridLine: "rgba(160, 110, 255, 0.10)",
-        gridGlow: "rgba(102, 230, 255, 0.30)",
+    ambient: "#081221",
+    fog: "#060a14",
 
-        ambient: "#081221",
-        fog: "#060a14",
+    particle: "#66e6ff",
+    particleGlow: "#00ffff",
 
-        particle: "#66e6ff",
-        particleGlow: "#00ffff",
+    /* Semantic */
 
-        /* Semantic */
+    selection: "rgba(102, 230, 255, 0.22)",
 
-        selection: "rgba(102, 230, 255, 0.22)",
-
-        success: "#22c55e",
-        warning: "#facc15",
-        danger: "#ff4d6d"
-    } satisfies ThemePalette
+    success: "#22c55e",
+    warning: "#facc15",
+    danger: "#ff4d6d",
+  } satisfies ThemePalette,
 };

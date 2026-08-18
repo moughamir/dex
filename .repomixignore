@@ -1,4 +1,23 @@
-# Add patterns to ignore here, one per line
-# Example:
-# *.log
-# tmp/
+# Repomix ignore patterns for DEX project
+# Excludes inert scaffolding, build artifacts, and empty stubs
+
+# Git patch files (historical artifacts, use git log instead)
+patch/
+
+# Rust build artifacts
+src-tauri/target/
+src-tauri/gen/
+
+# Previous output
+repomix-output.xml
+
+# Binary files
+database/dex.db
+
+# Empty/inert directories
+assets/
+tests/
+.github/
+AGENTS.md
+bun.lock
+node_modules

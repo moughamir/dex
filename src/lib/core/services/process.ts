@@ -14,7 +14,9 @@ export interface ProcessListArgs {
   filter?: "all" | "running" | "sleeping" | "zombie" | null;
 }
 
-export async function processList(args: ProcessListArgs = {}): Promise<ProcessListResult> {
+export async function processList(
+  args: ProcessListArgs = {},
+): Promise<ProcessListResult> {
   return invoke(COMMANDS.processList, args);
 }
 
@@ -41,7 +43,9 @@ export interface ProcessSpawnResult {
   task_id: string;
 }
 
-export async function processSpawn(options: ProcessSpawnOptions): Promise<ProcessSpawnResult> {
+export async function processSpawn(
+  options: ProcessSpawnOptions,
+): Promise<ProcessSpawnResult> {
   return invoke(COMMANDS.processSpawn, {
     command: options.command,
     args: options.args,

@@ -298,7 +298,10 @@ const ProcessListArgsSchema = z.object({
   search: z.string().nullable().optional(),
   sort_by: z.enum(["cpu", "memory", "name", "pid"]).nullable().optional(),
   sort_dir: z.enum(["asc", "desc"]).nullable().optional(),
-  filter: z.enum(["all", "running", "sleeping", "zombie"]).nullable().optional(),
+  filter: z
+    .enum(["all", "running", "sleeping", "zombie"])
+    .nullable()
+    .optional(),
 });
 
 const ProcessListResultSchema = z.object({
@@ -381,36 +384,89 @@ const HistoryListResultSchema = z.object({
  *   3. TS:   expose a typed function in core/services/<domain>.ts
  */
 export const COMMANDS = {
-  systemSnapshot: defineCommand("system_snapshot", z.object({}), SystemSnapshotSchema),
-  processList: defineCommand("process_list", ProcessListArgsSchema, ProcessListResultSchema),
-  processDetails: defineCommand("process_details", z.object({ pid: z.number() }), ProcessInfoSchema),
+  systemSnapshot: defineCommand(
+    "system_snapshot",
+    z.object({}),
+    SystemSnapshotSchema,
+  ),
+  processList: defineCommand(
+    "process_list",
+    ProcessListArgsSchema,
+    ProcessListResultSchema,
+  ),
+  processDetails: defineCommand(
+    "process_details",
+    z.object({ pid: z.number() }),
+    ProcessInfoSchema,
+  ),
   processTerminate: defineCommand(
     "process_terminate",
     z.object({ pid: z.number(), signal: z.enum(["terminate", "kill"]) }),
     z.null(),
   ),
-  processSpawn: defineCommand("process_spawn", ProcessSpawnArgsSchema, z.object({ pid: z.number(), task_id: z.string() })),
-  networkAdapters: defineCommand("network_adapters", z.object({}), NetworkAdaptersResultSchema),
-  networkConnections: defineCommand("network_connections", z.object({}), NetworkConnectionsResultSchema),
-  networkStatistics: defineCommand("network_statistics", z.object({}), NetworkStatisticsSchema),
+  processSpawn: defineCommand(
+    "process_spawn",
+    ProcessSpawnArgsSchema,
+    z.object({ pid: z.number(), task_id: z.string() }),
+  ),
+  networkAdapters: defineCommand(
+    "network_adapters",
+    z.object({}),
+    NetworkAdaptersResultSchema,
+  ),
+  networkConnections: defineCommand(
+    "network_connections",
+    z.object({}),
+    NetworkConnectionsResultSchema,
+  ),
+  networkStatistics: defineCommand(
+    "network_statistics",
+    z.object({}),
+    NetworkStatisticsSchema,
+  ),
   networkSetEnabled: defineCommand(
     "network_set_enabled",
     z.object({ interface: z.string(), enabled: z.boolean() }),
     z.null(),
   ),
   modemList: defineCommand("modem_list", z.object({}), ModemListResultSchema),
-  modemDetails: defineCommand("modem_details", z.object({ id: z.string() }), ModemInfoSchema),
+  modemDetails: defineCommand(
+    "modem_details",
+    z.object({ id: z.string() }),
+    ModemInfoSchema,
+  ),
+  setComplete: defineCommand(
+    "set_complete",
+    z.object({ task: z.string() }),
+    z.null(),
+  ),
   settingsGet: defineCommand("settings_get", z.object({}), SettingsSchema),
-  settingsSet: defineCommand("settings_set", z.object({ settings: SettingsSchema }), SettingsSchema),
+  settingsSet: defineCommand(
+    "settings_set",
+    z.object({ settings: SettingsSchema }),
+    SettingsSchema,
+  ),
   settingsReset: defineCommand("settings_reset", z.object({}), SettingsSchema),
-  widgetsAvailable: defineCommand("widgets_available", z.object({}), WidgetsAvailableResultSchema),
-  widgetsLayoutGet: defineCommand("widgets_layout_get", z.object({}), WidgetLayoutSchema),
+  widgetsAvailable: defineCommand(
+    "widgets_available",
+    z.object({}),
+    WidgetsAvailableResultSchema,
+  ),
+  widgetsLayoutGet: defineCommand(
+    "widgets_layout_get",
+    z.object({}),
+    WidgetLayoutSchema,
+  ),
   widgetsLayoutSet: defineCommand(
     "widgets_layout_set",
     z.object({ layout: WidgetLayoutSchema }),
     z.null(),
   ),
-  terminalSpawn: defineCommand("terminal_spawn", TerminalSpawnArgsSchema, z.object({ id: z.string(), pid: z.number() })),
+  terminalSpawn: defineCommand(
+    "terminal_spawn",
+    TerminalSpawnArgsSchema,
+    z.object({ id: z.string(), pid: z.number() }),
+  ),
   terminalInput: defineCommand(
     "terminal_input",
     z.object({ id: z.string(), data: z.string() }),
@@ -421,12 +477,24 @@ export const COMMANDS = {
     z.object({ id: z.string(), cols: z.number(), rows: z.number() }),
     z.null(),
   ),
-  terminalKill: defineCommand("terminal_kill", z.object({ id: z.string() }), z.null()),
-  pluginsList: defineCommand("plugins_list", z.object({}), PluginsListResultSchema),
+  terminalKill: defineCommand(
+    "terminal_kill",
+    z.object({ id: z.string() }),
+    z.null(),
+  ),
+  pluginsList: defineCommand(
+    "plugins_list",
+    z.object({}),
+    PluginsListResultSchema,
+  ),
   pluginsSetEnabled: defineCommand(
     "plugins_set_enabled",
     z.object({ id: z.string(), enabled: z.boolean() }),
     z.null(),
   ),
-  historyList: defineCommand("history_list", HistoryListArgsSchema, HistoryListResultSchema),
+  historyList: defineCommand(
+    "history_list",
+    HistoryListArgsSchema,
+    HistoryListResultSchema,
+  ),
 } as const;

@@ -1,28 +1,24 @@
 <script lang="ts">
-	import { onMount } from "svelte";
+  import { onMount } from "svelte";
+  import { motionManager } from "$lib/ui/motion";
 
-	let x = $state(window.innerWidth / 2);
-	let y = $state(window.innerHeight / 2);
+  onMount(() => {
+    // Seed the glow to the viewport center until the first real pointermove.
+    // The manager writes --cursor-x/--cursor-y and no-ops under reduced motion.
+    motionManager.pointer.update(window.innerWidth / 2, window.innerHeight / 2);
 
-	function update(event: PointerEvent) {
-		x = event.clientX;
-		y = event.clientY;
-	}
+    function update(event: PointerEvent) {
+      motionManager.pointer.update(event.clientX, event.clientY);
+    }
 
-	$effect(() => {
-		document.documentElement.style.setProperty("--cursor-x", `${x}px`);
-		document.documentElement.style.setProperty("--cursor-y", `${y}px`);
-	});
+    window.addEventListener("pointermove", update, { passive: true });
 
-	onMount(() => {
-		window.addEventListener("pointermove", update);
-
-		return () => {
-			window.removeEventListener("pointermove", update);
-		};
-	});
+    return () => {
+      window.removeEventListener("pointermove", update);
+    };
+  });
 </script>
 
 <div class="dex-effect">
-	<div class="dex-cursor-glow"></div>
+  <div class="dex-cursor-glow"></div>
 </div>

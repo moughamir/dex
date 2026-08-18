@@ -16,12 +16,7 @@ export type ProcessState =
   | "dead";
 
 export type ProcessPriority =
-  | "idle"
-  | "below_normal"
-  | "normal"
-  | "above_normal"
-  | "high"
-  | "realtime";
+  "idle" | "below_normal" | "normal" | "above_normal" | "high" | "realtime";
 
 export type NetworkAdapterKind =
   | "unknown"

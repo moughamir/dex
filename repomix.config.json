@@ -4,7 +4,7 @@
     "maxFileSize": 52428800
   },
   "output": {
-    "filePath": "repomix-output.xml",
+    "filePath": "dex.context.xml",
     "style": "xml",
     "filePathStyle": "target-relative",
     "parsableStyle": false,
@@ -13,13 +13,13 @@
     "files": true,
     "removeComments": false,
     "removeEmptyLines": false,
-    "compress": false,
-    "topFilesLength": 5,
+    "compress": true,
+    "topFilesLength": 10,
     "showLineNumbers": false,
     "truncateBase64": false,
     "copyToClipboard": false,
-    "includeFullDirectoryStructure": false,
-    "tokenCountTree": false,
+    "includeFullDirectoryStructure": true,
+    "tokenCountTree": true,
     "git": {
       "sortByChanges": true,
       "sortByChangesMaxCommits": 100,

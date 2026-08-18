@@ -74,8 +74,8 @@ governed by a named constant or token. DEX forbids them in both languages.
 ### Rust
 
 - The crate compiles under the default `cargo check` with no warnings treated
-  as acceptable. Clippy is not yet wired into CI (roadmap M0.4); until then,
-  `cargo check` is the gate and reviewers watch for the obvious lints.
+  as acceptable. Clippy runs as step 5 of `bun run verify`
+  (`cargo:clippy --all-targets --all-features -D warnings`).
 - Serde wire models use serde defaults (snake_case). No
   `#[serde(rename_all = ...)]` on command args or results — ADR-0002.
 - `AppError` is the only error type surfaced across IPC; its `Serialize` impl
@@ -173,9 +173,11 @@ New dependencies require justification. Every dependency is carried in every
 build, on every user, forever (Lightweight Core, Principle 7).
 
 - **Prefer platform features and existing dependencies.** The approved set is
-  `zod` (schema validation), `cva` + `clsx` (variant styling), and the Tauri
-  plugins already granted. Do not add icon libraries, `floating-ui`, or
-  utility frameworks.
+  `zod` (schema validation), `cva` + `clsx` (variant styling), the Tauri
+  plugins already granted, and `@floating-ui/dom` — approved **for popover
+  positioning only** (ContextMenu, Dropdown; D1, ADR-0007). Do not add icon
+  libraries, other positioning libraries or floating-ui alternatives (e.g.
+  `bits-ui`), utility frameworks, or any new npm dependency.
 - **A new dependency must be justified in the PR** with the problem it solves
   and why the existing set cannot solve it. A dependency added "because it is
   convenient" is rejected.
@@ -202,18 +204,21 @@ workflow — branch model, commit hygiene, review — is in `GitWorkflow.md`.
   commit (`001_init.sql`, `002_settings.sql`). Each schema change is a new
   migration + Rust model + zod schema in one slice (ADR-0001).
 
-## Verification
+## Verification (the gate)
 
-The verification order is fixed and is the gate for every change:
+Run `bun run verify` (`scripts/verify.ts`) from any cwd before merging. It runs nine gates in order, fail-fast:
 
-1. `bun run check` — frontend types (`svelte-kit sync && svelte-check`).
-2. `cargo check` — Rust, inside `src-tauri/`.
-3. `bun run tauri dev` — desktop, manual, requires Wayland/Hyprland.
+1. `format:check` — frontend formatting (`prettier --check src/`)
+2. `cargo:fmt:check` — backend formatting (`cargo fmt --check`, `--manifest-path`)
+3. `lint` — frontend lint (`eslint src/`)
+4. `check` — frontend types (`svelte-kit sync && svelte-check`)
+5. `cargo:clippy` — backend lint (`clippy --all-targets --all-features -D warnings`)
+6. `cargo:check` — backend types
+7. `test` — frontend tests (`vitest run`)
+8. `build` — frontend production build (`vite build`)
+9. `cargo:test` — backend tests
 
-A change that fails `bun run check` or `cargo check` is not ready for review.
-The manual desktop check is required for any change that touches the shell
-surface, because transparent-window and compositor behavior cannot be verified
-in a browser tab (ADR-0004).
+CI runs exactly this gate on push/PR to `develop`/`main`. The individual `bun run check` and `bun run cargo:check` remain valid single-gate checks during development; `bun run tauri:dev` stays a manual desktop gate (transparent/compositor behavior cannot be tested headless, ADR-0004). A change failing any gate is not ready for review.
 
 ## Related Documents
 
@@ -222,6 +227,8 @@ in a browser tab (ADR-0004).
 - Layer model and folder ownership: [`../50-adr/0001-layer-ownership.md`](../50-adr/0001-layer-ownership.md)
 - Typed IPC contract: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
 - Design tokens: [`../50-adr/0003-design-tokens.md`](../50-adr/0003-design-tokens.md)
+- Overlay primitives (portals, floating positioning, translucent backdrops):
+  [`../50-adr/0007-overlay-primitives.md`](../50-adr/0007-overlay-primitives.md)
 - System architecture: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
 - Design system (tokens, motion, primitives): [`DesignSystem.md`](DesignSystem.md)
 - Git workflow: [`GitWorkflow.md`](GitWorkflow.md)

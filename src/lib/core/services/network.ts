@@ -26,5 +26,8 @@ export async function networkSetEnabled(
   interfaceName: string,
   enabled: boolean,
 ): Promise<null> {
-  return invoke(COMMANDS.networkSetEnabled, { interface: interfaceName, enabled });
+  return invoke(COMMANDS.networkSetEnabled, {
+    interface: interfaceName,
+    enabled,
+  });
 }

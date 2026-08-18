@@ -1,11 +1,11 @@
 /**
  * Rendering engine contracts — Phase 0 (ADR-0001 §6, ADR-0004 §4).
  *
- * Engine-agnostic on purpose: Three.js is not yet a dependency. Phase 1+
- * implements these contracts inside `graphics/`; consumers (ui/, features/)
- * depend on the contracts, never on WebGL/Three.js directly. The renderer
- * owns its frame loop, resources, and lifecycle — nothing outside this
- * module may touch the canvas context.
+ * Engine-agnostic on purpose: Three.js (M2.1, ADR-0008) implements these
+ * contracts inside `graphics/`; consumers (ui/, features/) depend on the
+ * contracts, never on WebGL/Three.js directly. The renderer owns its frame
+ * loop, resources, and lifecycle — nothing outside this module may touch
+ * the canvas context.
  */
 
 /** RGBA color in 0..1 space, as used by GPU code. */
