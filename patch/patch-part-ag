@@ -1,0 +1,2462 @@
+sWidgets.md)
++- Sibling guides: [`CreatingPlugin.md`](CreatingPlugin.md), [`CreatingWorkspace.md`](CreatingWorkspace.md), [`CreatingTheme.md`](CreatingTheme.md)
+\ No newline at end of file
+diff --git a/docs/80-guides/CreatingWorkspace.md b/docs/80-guides/CreatingWorkspace.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..f7a1ea73094425881999be61c01b656afbccb8ad
+--- /dev/null
++++ b/docs/80-guides/CreatingWorkspace.md
+@@ -0,0 +1,291 @@
++# Creating and Activating a Workspace
++
++## Purpose
++
++A Workspace is the atomic unit of a developer's work. It is declared by a
++Workspace Manifest, brought to life by Workspace Activation, made recoverable
++by a Workspace Snapshot, and kept dependable by supervised Workspace Services.
++This guide walks one Workspace through the complete lifecycle: author the
++Manifest, validate it, activate it, add a Workspace Service, capture a
++Snapshot, and restore it.
++
++The contracts are authoritative; this guide references them rather than
++redefining them. Field names and semantics: [`Manifest.md`](../30-specs/Manifest.md).
++Lifecycle and service supervision: [`Workspace.md`](../30-specs/Workspace.md).
++Snapshot capture and restore: [`Snapshot.md`](../30-specs/Snapshot.md).
++Command surface: [`CLI.md`](../30-specs/CLI.md) and
++[`../70-api/CLI.md`](../70-api/CLI.md).
++
++## Capability gates
++
++The `dex` CLI is planned, not shipped. Phase 0 is the current phase (M0.4
++open) and no CLI binary exists. Per the roadmap and the CLI reference, the
++command domains this guide uses — `dex workspace`, `dex manifest`,
++`dex snapshot`, `dex service` — are delivered by the Phase 5 Workspace Manager
++milestone (**M5.5**), which also delivers the Workspace Service supervisor
++that backs the `service` domain. The CLI binary's first command domains are
++expected at Phase 4 **M4.1** (Rust Core). Until a milestone lands, the
++commands below are the intended surface, and the same commands are driven by
++the graphical shell when they ship (CLI First, principle 3), so the steps
++transfer unchanged.
++
++## Prerequisites
++
++- DEX built and running. Verification order: `bun run check`, `cargo check`
++  in `src-tauri/`, then `bun run tauri dev` on a Wayland/Hyprland session.
++- The `dex` CLI on `PATH` (after M5.5; see Capability gates).
++- A project directory that will become the Workspace root; the Manifest lives
++  there as a file.
++- For Step 4: the executable the declared service runs (here `bun`) installed.
++
++## Step 1 — Author the Workspace Manifest
++
++**Why.** The Manifest is the contract between a Workspace and the Workspace
++Runtime: the same declaration activates the Workspace on any machine. A file
++is diffable, reviewable, and scriptable — the CLI First surface for declaring
++a Workspace. Authoring by hand is the canonical path; `dex init` scaffolds the
++same file at a target path.
++
++1. Create `dex.workspace.yaml` at the project root:
++
++```yaml
++manifest: dex.workspace
++version: 1.0.0
++
++id: arcade-engine
++name: Arcade Engine
++description: Core development workspace for the arcade engine project.
++
++sessions:
++  - id: terminal-main
++    kind: terminal
++    command: [fish]
++    cwd: .
++    workspace_dir: true
++
++snapshot_policy:
++  enabled: true
++  periodic:
++    interval: 30m
++  on_leave: true
++  retention: 12
++```
++
++2. Check the declared fields against the schema
++   ([`Manifest.md`](../30-specs/Manifest.md)): `manifest` is the literal marker
++   `dex.workspace`; `version` is the schema version `1.0.0`; `id` is a stable
++   slug `[a-z0-9-]`; `name` is required. `description`, `sessions`, and
++   `snapshot_policy` are optional. The `snapshot_policy` here is internally
++   consistent: `periodic` is present because `enabled` is true, and `on_leave`
++   is also true.
++
++Expected: the file exists with exactly these top-level fields. The Runtime
++accepts only fields it knows — unknown fields are rejected, never ignored.
++
++## Step 2 — Validate the Manifest
++
++**Why.** Validation runs before acceptance, at declaration and at every
++resolution. A Manifest that fails validation is rejected with an `AppError` of
++type `validation`; the Runtime never partially applies a Manifest. Validating
++before declaring turns a typo into a typed error instead of a broken
++Workspace.
++
++1. Run `dex manifest validate ./dex.workspace.yaml`.
++
++Expected: exit code `0`; with `--json`, stdout is
++`{ "ok": true, "data": { } }`.
++
++2. Confirm the rejection path. Add an unknown top-level field — a typo is the
++   realistic case:
++
++```yaml
++service:
++  - id: dev-server
++    kind: process
++```
++
++3. Re-run `dex manifest validate ./dex.workspace.yaml`.
++
++Expected: exit code `3`; the error envelope is
++`{ "ok": false, "error": { "type": "validation", "message": "..." } }` and the
++message names the unknown field. This is the documented contract: unknown
++fields are rejected, never ignored — silent tolerance hides typos and version
++drift. The same rule applies to unknown fields inside a known object.
++
++4. Remove the unknown field, then break a rule — for example set
++   `id: Arcade Engine` (uppercase, space).
++
++Expected: exit code `3`; `validation`; the message names the slug rule
++(`[a-z0-9-]`). Restore `id: arcade-engine` before continuing.
++
++The enforced rules, in full, live in
++[`Manifest.md`](../30-specs/Manifest.md): required fields (`manifest`,
++`version`, `id`, `name`); `id` is a `[a-z0-9-]` slug; `version` is a supported
++schema semver; `services[].id` and `sessions[].id` are unique; `snapshot_policy`
++is internally consistent; hooks and commands are well-formed argv when present.
++
++## Step 3 — Activate the Workspace
++
++**Why.** Workspace Activation is the central act of DEX — the transition from
++"declared" to "live". The Runtime resolves the Manifest first, starts declared
++Workspace Services before sessions, launches sessions and apps, restores
++window layout, and only then re-establishes Context.
++
++1. Run `dex workspace activate arcade-engine`.
++
++Expected: exit code `0`; the lifecycle moves `declared → activating → active`;
++the terminal session launches; window layout is restored; Context is
++re-established. `dex workspace list` reports state `active`.
++
++2. Re-run `dex workspace activate arcade-engine`.
++
++Expected: exit code `6` (`conflict`); the Runtime rejects re-activating an
++`active` Workspace. Activation is idempotent in effect: activating a `paused`
++Workspace resumes rather than relaunches.
++
++Note: if a step of Activation fails, the Workspace moves to `failed` — the
++Runtime never leaves a Workspace in a transient state. Recovery is explicit
++(`recover()`, per [`Workspace.md`](../30-specs/Workspace.md)); see
++Troubleshooting.
++
++## Step 4 — Add a Workspace Service
++
++**Why.** A Workspace Service is a managed subsystem the Workspace declares and
++depends on — a database, a build daemon, a development server. Declared in the
++Manifest, its lifecycle is owned by the Runtime: started during Activation,
++supervised while the Workspace is `active`, stopped on leave. The state of a
++project's supporting processes becomes part of the Workspace, not an accident
++of what happened to be running.
++
++1. Edit `dex.workspace.yaml` and add a `services:` section:
++
++```yaml
++services:
++  - id: dev-server
++    name: Vite Dev Server
++    kind: process
++    command: [bun, run, dev]
++    cwd: .
++    health_check:
++      type: tcp
++      probe: 127.0.0.1:1420
++      interval_ms: 2000
++      timeout_ms: 500
++      grace_period_ms: 10000
++    restart_policy:
++      mode: on_failure
++      max_restarts: 3
++      backoff_ms: 1500
++```
++
++Field semantics are in [`Manifest.md`](../30-specs/Manifest.md): `kind` is the
++service backend (`process`); `command` is the argv; `health_check` declares the
++probe and its timings; `restart_policy.mode` is one of `always` | `on_failure` |
++`never`.
++
++2. Validate the edited Manifest: `dex manifest validate ./dex.workspace.yaml`.
++
++Expected: exit code `0`.
++
++3. Apply the new declaration. Leave the Workspace, then activate it again:
++   `dex workspace deactivate` followed by `dex workspace activate arcade-engine`.
++
++Expected: the service starts during Activation, before sessions; `dex service
++status` reports the service `running`; the health check passes.
++
++4. Confirm supervision. Stop the service process out of band (or run
++   `dex service stop dev-server`), then observe.
++
++Expected: the Runtime applies `restart_policy` (`on_failure`, `max_restarts`
++3, `backoff_ms` 1500); a successful health check resets the restart count;
++`dex service status` always reflects the supervised state. Stopping services on
++`leave` happens in reverse declaration order (dependents before dependencies).
++
++## Step 5 — Capture a Snapshot
++
++**Why.** The Manifest is the reproducible floor; the Snapshot is the
++recoverable ceiling. The declaration does not capture where work actually left
++off — which files are open, what the sessions hold, what Context is active. A
++Workspace Snapshot does.
++
++1. Run `dex snapshot create before-refactor`.
++
++Expected: exit code `0`. The capture protocol runs in order: Workspace Services
++quiesce, service state and window layout are captured, sessions and open files
++are captured, Context is read from the Knowledge Vault, the immutable Snapshot
++object is written and checksum-verified, and services resume. The capture is
++journaled.
++
++2. Confirm: `dex snapshot list`.
++
++Expected: the Snapshot appears with its `snapshot_id`, `workspace_id`,
++`manifest_ref`, and `captured_at`.
++
++3. Take a second Snapshot: `dex snapshot create after-setup`.
++
++Expected: two Snapshot records exist. Snapshots are immutable and never
++overwritten; retention prunes whole Snapshots oldest-first (here, keeping 12,
++per `snapshot_policy.retention`).
++
++Note: a Snapshot never captures filesystem or working-tree contents — code is
++versioned by the developer's own tools. Files are captured by reference (paths
++and open states), never by content.
++
++## Step 6 — Restore a Snapshot
++
++**Why.** Restore is the recovery path: after a failed experiment, a reboot, or
++a broken change, a Snapshot returns the Workspace to exactly where work left
++off — not to a clean slate.
++
++1. Disrupt the Workspace, for example close the session and leave:
++   `dex workspace deactivate`.
++
++2. Run `dex snapshot restore before-refactor`.
++
++Expected: exit code `0`; the Workspace returns to `active`. Restore validates
++the Snapshot (`schema_version`, checksum, `manifest_ref`), resolves the
++declaring Manifest, starts declared services fresh and health-checks them,
++restores session state, window layout, and Context. Restore is atomic in
++effect: it completes and leaves the Workspace `active`, or it fails and leaves
++it `failed` — there is no partially-restored Workspace.
++
++Restore semantics, in full, live in [`Snapshot.md`](../30-specs/Snapshot.md):
++session state, window layout, and Context are restored exactly; Workspace
++Service *processes* are re-derived (restarted fresh from the Manifest, then
++health-checked) so Snapshots stay portable across machines and architectures;
++open files are restored as references, with contents coming from the filesystem
++and the developer's VCS.
++
++## Troubleshooting
++
++| Symptom | Cause | Resolution |
++|---|---|---|
++| Validation exits `3`, `error.type` is `validation`, message names a field | A top-level or nested field outside the schema — a typo or version drift | Remove the unknown field and re-validate. Unknown fields are rejected by contract. |
++| Validation names `id` or `version` | `id` is not a `[a-z0-9-]` slug, or `version` is not a supported schema version | Fix the slug, or pin a supported schema version; an unsupported-version error names the supported range. |
++| Activation fails at a service; the Workspace is `failed` | A declared service could not start: bad command path, missing executable, or an unreachable health-check probe | Fix the service declaration (`command`, `health_check` probe/timeouts, `grace_period_ms`), run `recover()` (or redeclare) to return the Workspace to `declared`, then activate again. |
++| A service is marked `failed` while the Workspace is `active` | Restart budget exhausted (`max_restarts`) or health checks keep failing | Inspect with `dex service status`; fix the service declaration, then recover and reactivate. |
++| Restore refuses with `validation` | The Snapshot's `schema_version` is not supported by the current Runtime | The error names the supported range; capture a fresh Snapshot on the current Runtime. |
++| `dex workspace activate` exits `6` (`conflict`) | The Workspace is already `active` | Deactivate first, or activate a `paused` Workspace to resume. |
++
++Every lifecycle transition is recorded in the Journal
++([`Journal.md`](../30-specs/Journal.md)); `dex journal show` reports the prior
++and new state for any failure, including aborted Activations and refused
++restores.
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Workspace First, CLI First principles: [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- The Workspace Runtime narrative: [`../10-product/15_Workspace_Runtime.md`](../10-product/15_Workspace_Runtime.md)
++- Roadmap and milestone gates (M5.5): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- System architecture and layer model: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Layer ownership (frontend never touches SQLite or the shell): [`../50-adr/0001-layer-ownership.md`](../50-adr/0001-layer-ownership.md)
++- Typed IPC contract: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Workspace Manifest contract: [`../30-specs/Manifest.md`](../30-specs/Manifest.md)
++- Workspace contract (lifecycle, services): [`../30-specs/Workspace.md`](../30-specs/Workspace.md)
++- Snapshot contract: [`../30-specs/Snapshot.md`](../30-specs/Snapshot.md)
++- Journal contract: [`../30-specs/Journal.md`](../30-specs/Journal.md)
++- CLI contract: [`../30-specs/CLI.md`](../30-specs/CLI.md)
++- CLI reference: [`../70-api/CLI.md`](../70-api/CLI.md)
++- Command catalog: [`../70-api/Commands.md`](../70-api/Commands.md)
++- Sibling guides: [`CreatingPlugin.md`](CreatingPlugin.md), [`CreatingWidget.md`](CreatingWidget.md), [`CreatingTheme.md`](CreatingTheme.md)
+diff --git a/docs/80-guides/UsingAI.md b/docs/80-guides/UsingAI.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..d6805fe8bdc5cda0e6aafc7d6c683a5e5186882b
+--- /dev/null
++++ b/docs/80-guides/UsingAI.md
+@@ -0,0 +1,302 @@
++# Using AI Capabilities in DEX
++
++## Purpose
++
++This guide walks the AI capability surface of the Workspace Runtime end to
++end: confirm the Runtime is complete with no AI configured, enable a local
++model Provider, connect a Memory Provider to the Knowledge Vault, use the
++intent surface and AI Widgets, and then disable everything and confirm the
++Runtime remains complete. The through-line is principle 12 — **AI is
++Optional**: every AI capability degrades gracefully to a fully manual
++workflow, and no core capability requires a model, an API key, or a network.
++
++The contracts are authoritative; this guide references them rather than
++redefining them. AI architecture and the Provider model:
++[`26_AI.md`](../20-architecture/26_AI.md). Knowledge Vault and Memory Provider
++contract: [`Knowledge.md`](../30-specs/Knowledge.md). Widget contract:
++[`WidgetAPI.md`](../30-specs/WidgetAPI.md). Command surface:
++[`CLI.md`](../30-specs/CLI.md).
++
++## Why AI is optional
++
++DEX is not an AI application (Manifesto; Non-Goals). Intelligence is a
++feature, not an identity. Two consequences govern everything in this guide:
++
++1. **Local-first.** Offline First (principle 2) applies to AI as to everything
++   else: the machine works fully with no network, and anything that leaves the
++   machine does so by explicit request. Local models are the default posture.
++2. **Never on the critical path.** AI capabilities sit behind Providers and
++   are never on the critical path of the Workspace Runtime. The Knowledge
++   Vault works without intelligence; intelligence is a *consumer* of the
++   Vault, never a precondition.
++
++The fallback to the manual path is not an error path; it is the primary path.
++AI is a shortcut over a fully functional manual surface, and the manual
++surface is always present.
++
++```mermaid
++flowchart TD
++    REQ["user request"]
++    CAP["AI capability surface"]
++    PRV{"Provider available?"}
++    AI["AI resolves and executes"]
++    MAN["manual path — same command surface"]
++    RESULT["result"]
++
++    REQ --> CAP
++    CAP --> PRV
++    PRV -->|yes| AI
++    PRV -->|"no — no provider, offline, or failure"| MAN
++    AI --> RESULT
++    MAN --> RESULT
++```
++
++## Capability gates
++
++The AI subsystem ships in Phase 6 (roadmap M6.1–M6.5). Until those milestones
++land, everything past Step 1 in this guide is the intended surface: the
++commands and settings it describes are what the milestones deliver, and the
++manual path is the entire product. AI configuration is hosted in the Settings
++surface (**M5.6 Settings** — theme, plugins, AI, system).
++
++| Milestone | Deliverable |
++|---|---|
++| M6.1 | LLM Provider: Ollama, OpenAI, Anthropic |
++| M6.2 | Memory: conversations, desktop state, context |
++| M6.3 | Intent Engine: intent → command → Rust → Hyprland |
++| M6.4 | AI Widgets: chat, search, assistant |
++| M6.5 | Voice: STT, TTS, wake word |
++
++## Prerequisites
++
++- DEX built and running. Verification order: `bun run check`, `cargo check` in
++  `src-tauri/`, then `bun run tauri dev` on a Wayland/Hyprland session.
++- For Step 2: the local model runtime of the chosen Provider (Ollama here)
++  installed and a model pulled.
++- For Step 3: a Memory Provider backend (a local database or an embedding
++  store) available on the machine.
++- A declared Workspace to operate on; authoring and activating one is covered
++  by the sibling guide [`CreatingWorkspace.md`](CreatingWorkspace.md).
++
++## Step 1 — Confirm the Runtime is complete without AI
++
++**Why.** Principle 12 states the rule; this step proves it. Before any
++Provider is configured — no model, no API key, no network — every core
++capability must be reachable through the command surface and the shell. This
++is not a diminished mode of DEX; it is DEX.
++
++1. Activate a Workspace and exercise its lifecycle:
++   `dex workspace activate` (declaration and activation are covered in
++   [`CreatingWorkspace.md`](CreatingWorkspace.md)).
++
++Expected: the Workspace transitions `declared → activating → active`; sessions
++launch, window layout restores, Context is re-established. No AI component is
++involved at any point.
++
++2. Write to and read from the Knowledge Vault through the CLI:
++   `dex vault add "note: verify vault works without a model"` followed by
++   `dex vault search verify`.
++
++Expected: the entry is stored with its provenance (`workspace_id`,
++`created_at`) and returned by full-text search. The Vault is a local SQLite
++database owned by Rust; it requires no model, no API key, and no network
++([`Knowledge.md`](../30-specs/Knowledge.md)).
++
++3. Capture and restore a Workspace Snapshot (see
++   [`CreatingWorkspace.md`](CreatingWorkspace.md)).
++
++Expected: the capture and restore complete. Snapshot capture reads the active
++Context from the Vault — a plain read of a `context` entry, not an AI
++operation.
++
++4. Confirm the privacy posture: with no Provider configured, nothing has left
++   the machine. The Vault database lives under the local data directory; there
++   is no account, no telemetry, and no background network activity.
++
++Expected: the manual workflow — Workspace lifecycle, Vault, Snapshots — is
++complete and self-contained. This is the baseline every later step must leave
++untouched.
++
++## Step 2 — Enable a local model Provider (M6.1)
++
++**Why.** AI capabilities are reached through Providers — adapters that
++implement a fixed backend interface, so swapping the backend never changes the
++capability surface. The model Provider surface ships with three backends:
++Ollama (local), OpenAI, and Anthropic. Local is the default posture: a local
++model keeps the model weights and every request on the machine (Offline
++First, privacy). A remote Provider is an explicit opt-in to egress; nothing
++leaves the machine as a matter of course.
++
++1. Choose the Ollama Provider — local, offline-first, no network dependency.
++
++2. Install and run the model runtime, and pull a model, on the machine.
++
++Expected: the model runtime serves a local endpoint; the model is available
++with the network cable pulled.
++
++3. Register the Provider through the Settings surface (M5.6) and set it active.
++
++Expected: the AI capability surface reports the Provider available; the core
++Workspace Runtime path is unchanged — the Provider sits behind the capability
++surface, never on it.
++
++4. Confirm the degradation contract. Stop the local model runtime and issue an
++   AI request.
++
++Expected: the Provider reports unavailability and the capability degrades to
++the manual path — the same command surface, the same result
++([`26_AI.md`](../20-architecture/26_AI.md)). No request hangs waiting for a
++model; the fallback is automatic.
++
++Privacy note: with Ollama, the model and all requests stay local. If you later
++register the OpenAI or Anthropic Provider, every request is an explicit egress
++to a remote model endpoint, and any API key is governed by the Secrets
++subsystem ([`Secrets.md`](../30-specs/Secrets.md)) — never stored in the
++Knowledge Vault.
++
++## Step 3 — Connect a Memory Provider to the Knowledge Vault
++
++**Why.** AI is a consumer of the Vault, not its owner. The Memory Provider is
++the adapter that connects the Vault to a storage or model backend — a local
++database, an embedding store, a model endpoint. The interface is fixed; the
++Vault core owns query semantics and validation, and a Provider never sees
++unvalidated input. The essential property of the interface is that `embed` is
++optional: a Provider without an embedding backend returns a structured
++`unsupported`, and the Vault core degrades to full-text search.
++
++1. Choose a Memory Provider backend. For the offline-first posture, prefer a
++   local database or a local embedding store; both keep vectors and entries on
++   the machine.
++
++2. Register the Memory Provider and confirm the Vault operations from Step 1
++   still work unchanged.
++
++Expected: `vault.entry.*` create, get, update, delete and `vault.entry.search`
++behave exactly as before. Swapping the backend never changes the Vault's
++contract.
++
++3. Confirm the degradation path. With a storage-only Provider (no embedding
++   backend), search a Vault that holds a phrase you wrote in Step 1.
++
++Expected: `vault.entry.search` with a `query` runs full-text search over
++`title` and `body` and returns the entry. Embeddings are an enhancement, never
++a precondition: a Provider whose `embed()` returns `unsupported` does not
++disable search — it selects full-text search (principle 12).
++
++4. If the Provider has an embedding backend, confirm vectors are stored in the
++   provider-owned store, not inside the core Vault schema.
++
++Expected: the Vault schema is unchanged by the presence of embeddings; the
++core remains usable without them.
++
++Privacy note: the Vault is local by construction, and embedding stores
++registered through a Memory Provider are local by default. Any model endpoint,
++sync target, or backup is an explicit, user-facing action — there is no
++implicit synchronization and no telemetry ([`Knowledge.md`](../30-specs/Knowledge.md)).
++
++## Step 4 — Use the intent surface and AI Widgets (M6.3, M6.4)
++
++**Why.** The intent engine translates a natural-language request into a
++command the Runtime can execute: intent → command → Rust → Hyprland. It is a
++consumer of the command surface and never bypasses it; a request that cannot
++be resolved to a command degrades to the manual path. AI Widgets — chat,
++search, assistant — are Widgets: sandboxed UI extensions with no IPC access of
++their own, whose every effect is mediated by the Runtime.
++
++1. Install and enable an AI Widget through the Widget surface
++   (`dex widget install`, `dex widget enable`; see
++   [`WidgetAPI.md`](../30-specs/WidgetAPI.md)).
++
++Expected: the widget renders in its isolated context. It never imports
++`@tauri-apps/api`; every effect it triggers is a shell-mediated command.
++
++2. Issue a request the intent engine can resolve, for example "open the
++   project dashboard".
++
++Expected: intent → command → Rust → Hyprland completes; the Runtime executes
++the command exactly as if it had been invoked manually.
++
++3. Issue a request the intent engine cannot resolve to a command.
++
++Expected: the engine degrades to the manual path — it surfaces the fallback,
++and you reach the same result through the command surface. The intent engine
++never attempts a bypass; when no Provider is available it is absent entirely,
++and the command surface stands alone.
++
++4. Use the search widget against the Vault.
++
++Expected: results come from the Vault through the Memory Provider — full-text
++at minimum, vector-ranked when an embedding backend is present. Both paths
++return the same typed page shape (`{ entries, total, offset }`).
++
++## Step 5 — Disable everything and confirm the Runtime is complete
++
++**Why.** The defining property of the AI subsystem is that its absence costs
++nothing. Disabling every Provider and every AI Widget must return the shell to
++the exact state verified in Step 1 — not a reduced shell, the same shell.
++
++1. Disable and remove the AI Widgets: `dex widget disable` and
++   `dex widget uninstall` for each installed AI Widget.
++
++Expected: the widget surfaces disappear; the Workspace and the HUD are
++unaffected.
++
++2. Disconnect the Memory Provider, leaving the Vault in place.
++
++Expected: Vault reads and writes continue through the core repository. The
++data written while the Provider was connected remains readable; the Vault
++never depended on a Provider for its existence.
++
++3. Remove the model Provider configuration.
++
++Expected: the AI capability surface reports no Provider available; the manual
++path from Step 1 is reachable and unchanged.
++
++4. Re-run the Step 1 checks: activate a Workspace, write and search the Vault,
++   capture and restore a Snapshot.
++
++Expected: all operations complete with no model, no API key, and no network.
++The Workspace Runtime is complete without AI — the manual workflow was the
++primary path all along.
++
++## Privacy notes
++
++| Capability | Default posture | What leaves the machine |
++|---|---|---|
++| Knowledge Vault | Always local | Nothing; egress is an explicit, user-facing action |
++| Memory Provider (local database / local embedding store) | Local | Nothing |
++| Ollama Provider | Local | Nothing — model weights and requests stay on the machine |
++| OpenAI / Anthropic Provider | Remote — explicit opt-in | Every request, to the remote model endpoint |
++| Secrets | Governed by the Secrets subsystem | Never stored in the Vault |
++
++- No account, no telemetry, and no background network activity at any point.
++  Offline First is not a mode of DEX; it is DEX.
++- A request that cannot be resolved by AI reaches the same result manually. The
++  fallback is the product, not a failure mode.
++
++## Troubleshooting
++
++| Symptom | Cause | Resolution |
++|---|---|---|
++| AI Widgets render but do nothing | A widget effect was not mediated by the Runtime | Widgets have no IPC of their own; trigger the effect through a shell-mediated command (Widget contract). |
++| An AI request hangs | A remote Provider is configured and unreachable | Unavailability must degrade, not block: remove the remote Provider or use the Ollama Provider; the manual path is unaffected. |
++| Search returns fewer results after disconnecting an embedding backend | Vector search was the only path in use; full-text is the degradation path | Full-text search over `title` and `body` remains available through `vault.entry.search`; embed absence never disables the Vault. |
++| Vault writes fail after a Provider change | The Provider rejected unvalidated input | Validation belongs to the Vault core, not the Provider; route writes through the contract clients in `core/services/knowledge.ts`. |
++| The intent engine cannot resolve a request | The request has no command form | Drive the command surface directly — the same commands, the same result. |
++
++## Related Documents
++
++- Canonical terminology (Knowledge Vault, Memory Provider, Provider, Widget): [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Offline First and AI is Optional (principles 2 and 12): [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- "DEX is not an AI application": [`../00-vision/04_NonGoals.md`](../00-vision/04_NonGoals.md)
++- Roadmap and milestone gates (Phase 6): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- AI architecture, Provider model, intent engine: [`../20-architecture/26_AI.md`](../20-architecture/26_AI.md)
++- System architecture and layer model: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Knowledge Vault and Memory Provider contract: [`../30-specs/Knowledge.md`](../30-specs/Knowledge.md)
++- Widget contract: [`../30-specs/WidgetAPI.md`](../30-specs/WidgetAPI.md)
++- Secrets subsystem (credentials, never knowledge): [`../30-specs/Secrets.md`](../30-specs/Secrets.md)
++- Command surface (vault, theme domains): [`../30-specs/CLI.md`](../30-specs/CLI.md) and [`../70-api/CLI.md`](../70-api/CLI.md)
++- Voice proposal: [`../60-rfc/Voice.md`](../60-rfc/Voice.md)
++- Typed IPC contract: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Plugin boundary (Widgets in isolated contexts): [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++- Sibling guides: [`CreatingTheme.md`](CreatingTheme.md), [`CreatingWorkspace.md`](CreatingWorkspace.md), [`CreatingPlugin.md`](CreatingPlugin.md), [`CreatingWidget.md`](CreatingWidget.md)
+diff --git a/docs/90-dev/Build.md b/docs/90-dev/Build.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..eb32053d0be755309366288d2e1d3b2f681a155a
+--- /dev/null
++++ b/docs/90-dev/Build.md
+@@ -0,0 +1,232 @@
++# Build from Source
++
++## Purpose
++
++This document is the canonical build guide for the DEX repository. It covers
++the prerequisites, the exact build commands, the expected outcome of each
++step, and the common failure modes with their fixes. Read it before your first
++build; the verification order at the end is the gate for every change.
++
++DEX is a Tauri 2 desktop shell: a SvelteKit (SPA) frontend in `src/` and a Rust
++crate (`omnizya-dex`) in `src-tauri/`. Building it means building both halves.
++The frontend is managed by **Bun** — never `npm`. The Rust crate is built with
++`cargo` inside `src-tauri/`.
++
++## Why these prerequisites exist
++
++DEX targets Hyprland/Wayland on Arch Linux. The desktop window is a native
++Tauri window backed by the system WebKit engine, so the build needs the
++WebKitGTK development libraries and a working Rust toolchain. The frontend is
++bundled by Vite, which is driven by Bun. Each prerequisite below maps to one
++part of that toolchain; missing one produces a specific, identifiable failure
++(see [Common failures](#common-failures-and-fixes)).
++
++## Prerequisites
++
++### 1. Operating system and display
++
++- **Arch Linux** with a working **Wayland** session and **Hyprland**.
++- A running display is required only for `bun run tauri dev` (the desktop
++  window). `bun run check`, `cargo check`, and `cargo test` do not need a
++  display.
++
++### 2. System libraries (Arch packages)
++
++These are the standard Tauri 2 Linux system dependencies. Install them with
++`pacman`:
++
++```sh
++sudo pacman -S --needed \
++  webkit2gtk-4.1 \
++  gtk3 \
++  libayatana-appindicator \
++  librsvg \
++  patchelf \
++  base-devel
++```
++
++- `webkit2gtk-4.1` — the WebKit engine the Tauri window renders into. Missing
++  it fails the Rust build with a `pkg-config` error for `webkit2gtk-4.1`.
++- `libayatana-appindicator` — required because the `tauri` crate is built with
++  the `tray-icon` feature (`src-tauri/Cargo.toml`). Missing it fails the Rust
++  build with a `pkg-config` error for `ayatana-appindicator3-0.1`.
++- `gtk3`, `librsvg`, `patchelf` — standard Tauri 2 build/runtime dependencies.
++- `base-devel` — `make`, `gcc`, and the other build tools `cargo` needs to
++  compile native crates.
++
++### 3. Rust toolchain
++
++Install via `rustup` (the crate uses edition 2021 and the stable toolchain):
++
++```sh
++curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
++rustup default stable
++```
++
++Verify with `rustc --version` and `cargo --version`. The crate name is
++`omnizya-dex`; the library target is `omnizya_dex_lib`
++(`src-tauri/Cargo.toml`).
++
++### 4. Bun
++
++Bun is the package manager and script runner. Install it (on Arch it is also
++available in the `extra` repository as `bun`):
++
++```sh
++curl -fsSL https://bun.sh/install | bash
++# or: sudo pacman -S bun
++```
++
++Verify with `bun --version`. Every frontend command in this repository runs
++through Bun. **Do not use `npm`** — the lockfile is `bun.lock`, and `npm`
++would produce a different, incompatible dependency tree.
++
++## Build steps
++
++Run these from the repository root unless a step says otherwise.
++
++### Step 1 — Install frontend dependencies
++
++```sh
++bun install
++```
++
++**Expected outcome:** `node_modules/` is populated and `bun.lock` is
++satisfied. The command resolves the dependencies declared in `package.json`
++(`@tauri-apps/api`, `@tauri-apps/plugin-log`, `@tauri-apps/plugin-opener`,
++`zod`, `class-variance-authority`, `clsx`, plus the SvelteKit/Vite dev
++toolchain).
++
++**Failure mode:** `bun: command not found` — Bun is not installed (see
++prerequisite 4). A `package-lock.json` appearing in the tree means someone ran
++`npm`; remove it and re-run `bun install`.
++
++### Step 2 — Type-check the frontend
++
++```sh
++bun run check
++```
++
++This runs `svelte-kit sync && svelte-check --tsconfig ./tsconfig.json`
++(`package.json`). `svelte-kit sync` generates the `.svelte-kit/` type
++definitions; `svelte-check` then type-checks the whole frontend against the
++strict `tsconfig.json`.
++
++**Expected outcome:** the command exits clean with no type errors. This is the
++frontend gate and must pass before any change is ready for review.
++
++**Failure mode:** type errors are reported with file and line. Fix them before
++proceeding. A missing `.svelte-kit/` directory is normal on a fresh checkout —
++`svelte-kit sync` regenerates it.
++
++### Step 3 — Check the Rust crate
++
++```sh
++cd src-tauri
++cargo check
++```
++
++`cargo check` compiles the crate without producing a binary — it is the fast
++Rust gate. The crate is `omnizya-dex`; its library target is
++`omnizya_dex_lib`, and `src-tauri/src/main.rs` calls `omnizya_dex_lib::run()`.
++
++**Expected outcome:** compilation succeeds with no errors. The first run
++downloads and compiles all dependencies (Tauri, Tokio, Serde, rusqlite with
++the `bundled` feature, and the rest of `src-tauri/Cargo.toml`), so it takes
++longer than subsequent runs.
++
++**Failure mode:** a `pkg-config` error for `webkit2gtk-4.1` or
++`ayatana-appindicator3-0.1` means a system library from prerequisite 2 is
++missing. Install it and re-run. An error about an undeclared module means a
++`mod` statement points at a file that is not compiled — see
++[Undeclared Rust modules](#undeclared-rust-modules-are-not-compiled).
++
++### Step 4 — Run the Rust tests
++
++```sh
++cargo test
++```
++
++**Expected outcome:** the test harness runs and reports a passing result. The
++repository currently ships no Rust tests (the `tests/` tree is empty
++scaffolding, roadmap M0.4), so the command compiles and reports zero tests
++run. It is still the correct command to run once tests land.
++
++### Step 5 — (Optional) Production frontend build
++
++```sh
++bun run build
++```
++
++This runs `vite build` and emits the static SPA into `build/` (the
++`frontendDist` referenced by `src-tauri/tauri.conf.json`). It is not required
++for local development — `bun run tauri dev` builds on demand — but it is the
++step `beforeBuildCommand` runs when packaging a release.
++
++## Common failures and fixes
++
++### Missing system libraries
++
++The Rust build fails with a `pkg-config` error naming a library. Install the
++matching package from prerequisite 2 and re-run `cargo check`. The two most
++common are `webkit2gtk-4.1` and `libayatana-appindicator` (the latter because
++of the `tray-icon` feature).
++
++### Port 1420 already in use
++
++`vite.config.js` sets `server.port: 1420` with `strictPort: true`. If another
++process holds the port, Vite refuses to start rather than picking a new one.
++Find and stop the process, or run the frontend on a different machine where
++the port is free. This is intentional: Tauri expects a fixed dev port.
++
++### CSP complaints in dev mode
++
++The strict Content-Security-Policy in `src-tauri/tauri.conf.json`
++(`default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;
++connect-src ipc: http://ipc.localhost`) can trip Vite's dev-mode HMR. If it
++does, loosen the policy **only for the dev configuration** — never ship the
++loosened policy. The shipped policy is the security baseline (ADR-0005).
++
++### Undeclared Rust modules are not compiled
++
++`src-tauri/src/` contains many 0-byte scaffolding files that mirror the PRD.
++A file is only compiled if its module is declared with `mod` in its parent
++`mod.rs` (or `lib.rs`). Do not add a `mod` for a 0-byte file — it will fail to
++compile. Only real, populated modules are declared today (`commands::core`,
++`utils::errors`).
++
++### Duplicate `invoke_handler`
++
++`src-tauri/src/lib.rs` must contain **exactly one** `invoke_handler` call. A
++second call silently shadows the first, so commands registered in the first
++call stop working with no error. Append new commands to the single
++`generate_handler![...]` (ADR-0002).
++
++## Verification order
++
++The fixed gate for every change, in order:
++
++1. `bun run check` — frontend types.
++2. `cargo check` in `src-tauri/` — Rust.
++3. `bun run tauri dev` — desktop, manual, requires Wayland/Hyprland and a
++   display (see [RunLocally.md](RunLocally.md)).
++
++A change that fails step 1 or 2 is not ready for review. Step 3 is required
++for any change that touches the shell surface, because transparent-window and
++compositor behavior cannot be verified in a browser tab (ADR-0004).
++
++## Related Documents
++
++- Run the built shell: [`RunLocally.md`](RunLocally.md)
++- Debugging the frontend, Rust, and IPC: [`Debug.md`](Debug.md)
++- Performance budgets and measurement: [`Profiling.md`](Profiling.md)
++- Repository map and wiring rules: [`ProjectStructure.md`](ProjectStructure.md)
++- Coding standards (language, dependency, and verification rules):
++  [`../40-engineering/CodingStandards.md`](../40-engineering/CodingStandards.md)
++- Design system (tokens, motion, primitives):
++  [`../40-engineering/DesignSystem.md`](../40-engineering/DesignSystem.md)
++- System architecture: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Typed IPC contract: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Transparent compositing: [`../50-adr/0004-transparent-compositing.md`](../50-adr/0004-transparent-compositing.md)
++- Roadmap (M0.4 tooling milestone): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
+\ No newline at end of file
+diff --git a/docs/90-dev/Debug.md b/docs/90-dev/Debug.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..5151a152068ba39d38f773219a630fdd0012ad5b
+--- /dev/null
++++ b/docs/90-dev/Debug.md
+@@ -0,0 +1,212 @@
++# Debugging DEX
++
++## Purpose
++
++This document is the debugging companion to the build and run guides. It maps
++every layer of the stack — frontend (Svelte), IPC boundary (zod-validated
++invoke), and Rust (`src-tauri/`) — to its debugging tools, explains how the
++error envelope and the logging rules shape what you see, and lists the common
++failure modes with their fixes. Read it when something does not work; the
++[Verification order](#verification-order) at the end is the gate for every
++change.
++
++## The three layers and where failures surface
++
++DEX is a Tauri 2 shell with a SvelteKit frontend and a Rust backend. A bug
++lives in exactly one of three layers, and each layer has its own tools:
++
++```mermaid
++flowchart TD
++    FE["Frontend — Svelte 5, src/"]
++    IPC["IPC boundary — core/api (zod)"]
++    RS["Rust — src-tauri/"]
++    DB["SQLite — database/ (Rust only)"]
++
++    FE -->|invoke, validated args| IPC
++    IPC -->|validated| RS
++    RS --> DB
++
++    FE -->|"bun run dev + DevTools"| FE_DBG["console, HMR, DOM"]
++    IPC -->|"logger.ts, IpcError"| IPC_DBG["typed errors, log-and-drop"]
++    RS -->|"cargo check/test, log plugin"| RS_DBG["stdout, app log dir"]
++```
++
++The first debugging question is always *which layer*: a failure that appears
++in the shell but works in `bun run dev` is an IPC or Rust problem; a type
++error is a frontend problem; a `pkg-config` failure is a Rust/toolchain
++problem. The sections below are ordered by the layers they debug.
++
++## Debugging the frontend
++
++### `bun run check` — types first
++
++The fastest frontend gate is the type checker:
++
++```sh
++bun run check
++```
++
++This runs `svelte-kit sync && svelte-check` against the strict
++`tsconfig.json`. Type errors are reported with file and line; fix them before
++anything else, because a type error often *is* the bug (wrong shape returned
++from a contract client, a `null` where a value is required).
++
++### `bun run dev` — iterate in a browser tab
++
++```sh
++bun run dev
++```
++
++Vite serves the SPA on port **1420** (`strictPort: true`; if the port is
++busy, Vite refuses to start). In this mode the logger facade in
++`src/lib/core/utils/logger.ts` detects it is not inside Tauri (`isTauri()` is
++false) and falls back to the browser console, so frontend `logger` output
++appears in DevTools.
++
++What `bun run dev` exercises: layout, tokens, primitives, and theme switching.
++What it does **not** exercise: Rust, IPC, plugins, or the window. A feature
++that calls a contract client in `core/services/` fails in a browser tab,
++because there is no Tauri runtime to answer `invoke`. Do not debug IPC in
++this mode — debug IPC in the desktop window.
++
++### Frontend console discipline
++
++The frontend logs only through `core/utils/logger.ts` — never `console.*` in
++new code. When you need to trace a frontend value:
++
++1. Add `logger.debug(...)` at the point of interest (see
++   [Logging](#logging-discipline) for levels).
++2. Run `bun run tauri dev` and read the output where the log plugin writes it
++   (stdout and the app log directory).
++3. Remove or gate the debug line before committing — debug logging is not
++   shipping behavior.
++
++## Debugging the IPC boundary
++
++The IPC boundary is where a whole class of bugs is *caught*, not where it
++lives: zod validates every invocation and every result (ADR-0002). When a
++command misbehaves, the boundary tells you whether the failure is a shape
++mismatch or a logic error.
++
++### The error envelope
++
++Rust `AppError` serializes manually to exactly `{ "type", "message" }`; `type`
++is one of a closed set (`src-tauri/src/utils/errors.rs`). `core/api/tauri.ts`
++validates every rejection against that set and normalizes both the structured
++envelope and transport failures to `IpcError`. So in frontend code:
++
++- A `validation` error means the input failed schema or semantic validation —
++  the args were wrong, not the handler.
++- A `not_found` / `conflict` / `permission_denied` / `unsupported` error means
++  the Runtime applied a rule — inspect the message.
++- An `internal` error (or a transport failure normalized to `IpcError`) means
++  the Rust side failed — go debug Rust.
++
++UI code handles typed errors, never `unknown`; if you catch a bare string or
++`unknown`, that is itself a bug.
++
++### Events: log-and-drop
++
++Rust→UI events (`core/api/events.ts` `onEvent`) validate payloads against the
++declared schema. An invalid payload is logged and dropped — it never reaches
++your handler. If an event handler never fires, check the payload shape against
++the `EVENTS` registry entry first; the drop is visible in the log output.
++
++### The wire contract has two places
++
++A command is callable only if it exists in both:
++
++1. `src/lib/core/api/commands.ts` — the `defineCommand(...)` contract + schemas.
++2. `src-tauri/src/lib.rs` — the fn appended to the **single**
++   `generate_handler![...]`.
++
++A command registered in only one place is not callable. The most insidious
++variant: **two `invoke_handler` calls** in `lib.rs` — the second silently
++shadows the first, so commands from the first call stop working with no error.
++There must be exactly one.
++
++## Debugging Rust
++
++### `cargo check` and `cargo test`
++
++```sh
++cd src-tauri
++cargo check
++cargo test
++```
++
++`cargo check` is the fast gate: type and borrow errors surface here. `cargo
++test` runs the Rust tests; the repository currently ships no tests (empty
++`tests/` scaffolding, roadmap M0.4), so it compiles and reports zero — run it
++anyway once tests land.
++
++### Undeclared Rust modules are not compiled
++
++`src-tauri/src/` contains many 0-byte scaffolding files mirroring the PRD. A
++file is compiled only if its module is declared with `mod` in its parent
++`mod.rs` (or `lib.rs`). Do not add a `mod` for a 0-byte file — it fails to
++compile. Only real, populated modules are declared today (`commands::core`,
++`utils::errors`).
++
++### Rust logging
++
++The Rust side logs through the `log` crate; the `tauri-plugin-log` plugin
++writes to stdout and the app log directory. When a command fails with
++`internal`, the first place to look is that log output — the `AppError`
++message is deliberately short, and the underlying cause is logged at the
++source.
++
++## Logging discipline
++
++- The frontend imports `core/utils/logger.ts` only. No `console.*` in new
++  code.
++- The logger facade is a typed facade over `@tauri-apps/plugin-log`; levels
++  are used as intended — `debug` for tracing, `info` for lifecycle, `error`
++  for failures.
++- In `bun run dev` the facade falls back to the browser console; in
++  `bun run tauri dev` it writes through the plugin. One import, both modes.
++- Successful commands write nothing to stderr (CLI scripting contract), and
++  debug tracing is removed or gated before commit.
++
++## Common failures and fixes
++
++| Symptom | Layer | Cause | Resolution |
++|---|---|---|---|
++| `bun run check` reports type errors | Frontend | Strict TS violation, often a wrong return shape from a contract client | Fix at the reported file/line; re-run `bun run check`. |
++| Works in `bun run dev`, fails in the desktop window | IPC / Rust | No Tauri runtime in the browser tab, or a real IPC/Rust failure | Debug in `bun run tauri dev`; check the log output for the rejection envelope. |
++| Command "does nothing", no error | IPC | Registered in only one of `commands.ts` / `invoke_handler`, or a duplicate `invoke_handler` shadows the first | Check both sides of the wire contract; ensure exactly one `invoke_handler` in `lib.rs`. |
++| Event handler never fires | IPC | Payload failed schema validation and was dropped | Compare the emitted payload with the `EVENTS` registry schema; the drop is logged. |
++| `validation` error on a call you think is valid | IPC | Args failed zod schema — wrong field name, wrong type, unknown field | Validate against the `defineCommand` schemas in `core/api/commands.ts`; serde defaults (snake_case) are the wire authority. |
++| `cargo check` fails with `pkg-config` error | Rust | Missing system library (`webkit2gtk-4.1`, `ayatana-appindicator3-0.1`) | Install the package from Build.md prerequisites; re-run `cargo check`. |
++| Rust error about an undeclared module | Rust | `mod` points at a 0-byte scaffolding file | Remove the `mod`; do not declare 0-byte files. |
++| Frontend logging is missing in the desktop window | Frontend | Code used `console.*` or imported the plugin directly | Route through `core/utils/logger.ts`. |
++| CSP violations in the webview console (dev only) | Window | Strict CSP blocks Vite HMR in dev | Loosen the policy **only for the dev configuration** — never ship the loosened policy (ADR-0005). |
++| Port 1420 busy | Tooling | `strictPort: true` in `vite.config.js` | Free the port; Vite will not silently pick another. |
++
++## Verification order
++
++The fixed gate for every change, in order:
++
++1. `bun run check` — frontend types.
++2. `cargo check` in `src-tauri/` — Rust.
++3. `bun run tauri dev` — desktop, manual; required for any change that touches
++   the shell surface, because transparent-window and compositor behavior
++   cannot be verified in a browser tab (ADR-0004).
++
++A change that fails step 1 or 2 is not ready for review. If a bug passes all
++three but still misbehaves, the failure is environmental (compositor, display
++server) — reproduce on the desktop with the log output before filing it.
++
++## Related Documents
++
++- Build from source (prerequisites, common build failures):
++  [`Build.md`](Build.md)
++- Run locally (two run modes, window characteristics):
++  [`RunLocally.md`](RunLocally.md)
++- Performance budgets and measurement: [`Profiling.md`](Profiling.md)
++- Repository map and wiring rules: [`ProjectStructure.md`](ProjectStructure.md)
++- Typed IPC contract and error envelope: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Transparent compositing (desktop-only verification): [`../50-adr/0004-transparent-compositing.md`](../50-adr/0004-transparent-compositing.md)
++- Plugin boundary and CSP: [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++- System architecture (layers, wire contract): [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
+diff --git a/docs/90-dev/Profiling.md b/docs/90-dev/Profiling.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..b5bde478a5aafe6695f717076e66da0a0a74e8a6
+--- /dev/null
++++ b/docs/90-dev/Profiling.md
+@@ -0,0 +1,190 @@
++# Profiling DEX
++
++## Purpose
++
++This document is the performance-investigation guide: how to verify the
++budgets, where the motion contract lives, and which instrument to reach for
++when a budget is missed. The budgets themselves are owned by
++[`../40-engineering/Performance.md`](../40-engineering/Performance.md) and by
++the roadmap's success criteria; this document is the procedure, the tooling
++status, and the decision tree for choosing an instrument.
++
++DEX is a native layer over the operating system (Native First, Principle 5).
++The shell is transparent and GPU-composited (ADR-0004), so a frame the
++compositor cannot handle is a frame the user sees as lag. Measurement is a
++contract, not an afterthought — but the tooling to measure systematically
++lands with a named milestone (see [Tooling status](#tooling-status)).
++
++## The performance contract
++
++Three budgets and one motion contract, stated in full in
++[`../40-engineering/Performance.md`](../40-engineering/Performance.md):
++
++| Budget | Target |
++|---|---|
++| Cold start | < 500 ms from process launch to first interactive frame |
++| Frame rate | 60 FPS sustained during shell motion |
++| Idle RAM | < 200 MB resident with the shell idle and no features active |
++
++The motion contract is a performance rule first:
++
++- Animate **only `transform` and `opacity`**. Layout properties force reflow
++  and repaint per frame; the compositor handles transform/opacity on the GPU.
++- Durations **150–250 ms**, single easing
++  `cubic-bezier(.22,.61,.36,1)`.
++- `prefers-reduced-motion` disables non-essential motion entirely.
++- **Blur is not animated.** `backdrop-filter` is a compositor cost on every
++  repaint; blur radii stay within the token scale.
++
++The compositing constraints are non-negotiable (ADR-0004): the window
++background is transparent, the visual backdrop comes from glass panels over
++translucent `--dex-surface-*` tokens, and no layer ever paints an opaque
++window background. Every frame-rate check therefore happens on a Hyprland
++session — never in a browser tab.
++
++## Tooling status
++
++No profiler tooling is configured in the repository yet. The current
++performance gates are `bun run check`, `cargo check`, and the manual desktop
++check (`bun run tauri dev`); the roadmap milestone **M0.4 (Development
++Tooling)** — ESLint, Prettier, Rustfmt, Clippy, test runner, git hooks, CI
++skeleton — is open. Systematic measurement lands in two later milestones:
++
++- **M2.4 (Performance, Phase 2)** — the graphics FPS monitor: object pooling,
++  texture cache, and an FPS monitor that enforces the renderer's per-frame
++  allocation discipline.
++- **M9.1 (Performance, Phase 9)** — profiling, benchmarks, and memory tooling:
++  the permanent, repository-wide measurement harness.
++
++Until M9.1, the procedures below use tools that exist today (browser
++DevTools, the shell's `perf`, `samply`, and manual instrumentation) so a
++budget check is possible on the current tree.
++
++## Choosing the instrument
++
++The symptom determines the instrument. Start with the cheapest check that can
++localize the failure.
++
++```mermaid
++flowchart TD
++    A["Performance symptom"] --> B{"Slow boot to first interactive frame?"}
++    B -->|yes| C["Cold start: time process launch → first interactive frame on a representative Hyprland desktop"]
++    B -->|no| D{"Frame drops during motion?"}
++    D -->|yes| E["Split the share: DevTools Performance for JS/layout work; on-compositor check for window/GPU work"]
++    D -->|no| F{"Idle RAM above budget?"}
++    F -->|yes| G["Idle-resident measurement; audit lazy loading (features on demand, graphics on first need)"]
++    F -->|no| H["IPC latency: timed round trips at the invoke boundary in core/api/tauri.ts"]
++    C --> I["Fix, then re-run the desktop check on Hyprland"]
++    E --> I
++    G --> I
++    H --> I
++```
++
++## Procedure A — Cold start (< 500 ms)
++
++The budget is a release-build criterion; the dev window is slower and is used
++as a trend line.
++
++1. Prepare a representative Hyprland desktop with no other load.
++2. Launch the window and measure the time from process launch to the first
++   interactive frame (first accepted input on the HUD).
++3. Record the value and the machine it was measured on.
++
++**Expected outcome:** in release builds the value stays under 500 ms on the
++representative machine. In dev builds, watch the trend across changes rather
++than the absolute value; a regression in the trend is a regression in the
++budget. The permanent harness that automates this measurement lands with M9.1.
++
++## Procedure B — Frame rate during motion (60 FPS)
++
++1. Run `bun run tauri dev` on the Hyprland session.
++2. Trigger the shell's motion: panel transitions, dock hover, theme
++   switching.
++3. Verify sustained smoothness on the compositor. If your setup exposes a
++   frame meter, use it; the repository's own FPS monitor lands with M2.4.
++
++**Expected outcome:** no dropped frames during sustained motion. If frames
++drop, split the work:
++
++- **JS and layout share** — record the frontend slice in the browser DevTools
++  Performance panel under `bun run dev`. Long tasks, layout thrash, and
++  per-frame allocation show up there.
++- **Window and GPU share** — the DevTools panel cannot see compositor work.
++  Check the animation against the motion contract (transform/opacity only,
++  token durations), then check `backdrop-filter` cost and the graphics
++  render-loop (Procedure E).
++
++## Procedure C — Rust core profiling
++
++The Rust side owns command handlers, SQLite, and system access. The intended
++workflow — the tooling that makes it routine lands with M9.1 — uses native
++profilers:
++
++1. Reproduce the slow path with `bun run tauri dev`.
++2. Attach `perf` to the Rust process (`perf record -p <pid>`) or launch the
++   process under `samply record`, which opens the results in the Firefox
++   Profiler UI.
++3. Focus on the command handlers (`src-tauri/src/commands/`), the services
++   behind them, and SQLite queries.
++
++**Expected outcome:** a flamegraph showing where the Rust side spends time.
++Optimize the hot path, then re-run `cargo check` and the desktop check.
++
++## Procedure D — IPC latency
++
++Every round trip crosses five stages: args zod-parse → IPC → serde
++deserialize → Rust handler → serde serialize → result zod-parse
++(ADR-0002). The single choke point is `invoke` in
++`src/lib/core/api/tauri.ts`.
++
++1. Measure around a contract-client call in `src/lib/core/services/` using
++   the logger facade (`logDebug`) or `performance.now()` deltas — dev-only,
++   removed from the shipped path.
++2. Compare a hot command against a cold one. Watch for per-call schema
++   construction: schemas are module-level singletons built once by
++   `defineCommand` (`src/lib/core/api/commands.ts`); a schema constructed per
++   call is an allocation bug (Performance.md).
++
++**Expected outcome:** the timing isolates boundary cost from handler cost. A
++latency regression is either a schema problem (zod parse cost) or a Rust
++handler problem (work done per call).
++
++## Procedure E — Render-loop checks
++
++The graphics layer owns exactly one frame loop (`requestAnimationFrame`,
++driven by the renderer; `src/lib/graphics/README.md`). Nothing outside
++`graphics/` schedules frames, and the loop starts lazily on first visual need.
++
++1. Add a dev-only frame-delta log in the loop; at 60 FPS a frame completes in
++   about 16.6 ms.
++2. Check for per-frame allocations — steady state must be zero per the
++   graphics performance contract.
++
++**Expected outcome:** long frames correlate with UI work or GPU work performed
++inside the loop. The fix is to move that work out of the loop, not to skip the
++frame. The FPS monitor that makes this a standing check lands with M2.4.
++
++## Performance review gates
++
++Any change that touches the shell surface, motion, or IPC passes the ordered
++gates from Performance.md before it is ready for review:
++
++1. Review: transform/opacity only, token motion values.
++2. Review: no per-call schema construction, no hot-path allocation.
++3. Review: lazy-loaded where appropriate, no boot-time heavy work.
++4. Manual: 60 FPS sustained on Hyprland.
++
++## Related Documents
++
++- Performance standards and budgets:
++  [`../40-engineering/Performance.md`](../40-engineering/Performance.md)
++- Debugging the frontend, Rust, and IPC: [`Debug.md`](Debug.md)
++- Build from source: [`Build.md`](Build.md)
++- Repository map and wiring rules: [`ProjectStructure.md`](ProjectStructure.md)
++- Design system (motion values, tokens):
++  [`../40-engineering/DesignSystem.md`](../40-engineering/DesignSystem.md)
++- Transparent compositing: [`../50-adr/0004-transparent-compositing.md`](../50-adr/0004-transparent-compositing.md)
++- Design tokens (motion contract): [`../50-adr/0003-design-tokens.md`](../50-adr/0003-design-tokens.md)
++- Graphics subsystem: [`../20-architecture/25_Graphics.md`](../20-architecture/25_Graphics.md)
++- Roadmap (M0.4, M2.4, M9.1): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
+diff --git a/docs/90-dev/ProjectStructure.md b/docs/90-dev/ProjectStructure.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..5b8f59f4d6093bc71ef351aa6f2453af792586c7
+--- /dev/null
++++ b/docs/90-dev/ProjectStructure.md
+@@ -0,0 +1,278 @@
++# Project Structure
++
++## Purpose
++
++This document is the map of the DEX repository: what each top-level directory
++is for, the rules that keep the dependency graph acyclic, and where a new
++feature is wired in. Read [ADR-0001] and [ADR-0002] before touching
++cross-cutting code; AGENTS.md remains the operational ground truth for
++commands and repo mechanics.
++
++DEX is two codebases that meet at the IPC boundary:
++
++- `src/` — the SvelteKit 2 (Svelte 5 runes) SPA. `adapter-static` with an
++  `index.html` fallback and `ssr = false` (`src/routes/+layout.ts`); there is
++  no Node server.
++- `src-tauri/` — the Rust crate `omnizya-dex` (library target
++  `omnizya_dex_lib`). It owns every system access: filesystem, SQLite,
++  Hyprland, processes.
++
++The dependency direction is one-way and acyclic — each layer may depend only
++on the layers below it, never on the layers above (ADR-0001).
++
++## Top-level layout
++
++```
++assets/          — creative assets: fonts, icons, images, models, shaders,
++                   sounds, wallpapers (empty until their owners land)
++database/        — append-only SQL migrations, seeds, and the local dex.db
++docs/            — the ten-section documentation tree (see below)
++plugins/         — extension manifests for future Plugins (empty)
++scripts/         — automation scripts: build, clean, migrate, release, seed
++                   (empty scaffolding; land with M0.4)
++src/             — the Svelte frontend
++src-tauri/       — the Rust crate
++static/          — static web assets served by the SPA (favicon, manifest)
++tests/           — unit, integration, e2e, backend, frontend suites
++                   (empty scaffolding; land with M0.4)
++.github/         — CI workflows and the PR template (empty; M0.4)
++```
++
++## src/ — the frontend
++
++```
++src/
++├── routes/            — SvelteKit SPA routes
++│   ├── +layout.ts     — ssr = false (the SPA contract)
++│   ├── +layout.svelte — imports app.css, bootstraps the theme store
++│   └── +page.svelte   — renders the HUD (src/lib/ui/layout/)
++├── lib/
++│   ├── features/      — business vertical slices (feature-first)
++│   ├── core/          — shared infrastructure
++│   ├── ui/            — reusable visuals
++│   ├── graphics/      — engine-agnostic renderer contracts
++│   └── types/         — cross-cutting shared types
++```
++
++### features/
++
++`features/<feature>/{components,services,stores,types,utils}` — business
++logic only, one folder per product feature (Principle 10). Each feature owns
++its components, its services (which compose contract clients and feature
++state), its rune stores, types, and utilities.
++
++**Rule (ADR-0001):** features never import other features. Shared logic moves
++to `core/` or `ui/`; a cross-feature import couples two vertical slices and
++breaks the acyclic graph.
++
++### core/
++
++Shared infrastructure — product-independent, imported by features and `ui/`,
++never importing them.
++
++- `api/` — the IPC contract layer (ADR-0002): `commands.ts` registry
++  (rejects duplicate names), `tauri.ts` zod-validated invoke + the closed
++  error-code envelope, `events.ts` typed listen + the `EVENTS` registry.
++  **`core/api` is the only place `@tauri-apps/api` may be imported.**
++- `services/` — one typed contract client per command domain, mirroring
++  `src-tauri/src/commands/`. Features reach Rust exclusively through these
++  clients.
++- `stores/` — rune stores (`.svelte.ts` files); `theme.svelte.ts` is the
++  reference pattern.
++- `types/` — shared domain types.
++- `config/` — app constants, layout and theme defaults.
++- `utils/` — the logger facade (`logger.ts`, the only logging import the
++  frontend may use) and `storage.ts` (persistence).
++
++### ui/
++
++Reusable visuals, consumed by features.
++
++- `layout/` — the shell surface: `HUD.svelte`, `TopBar.svelte`,
++  `Dock.svelte`, `StatusBar.svelte`.
++- `primitives/` — `GlassPanel`, `Button`, `Icon`, `Tooltip`, `Divider`, and
++  the rest of the primitive set.
++- `styles/` — `tokens.css` (primitive → semantic token layers), plus effects
++  and utilities. Components consume `--dex-*` tokens only, never hardcoded
++  values.
++- `themes/` — TS palettes (`dark`, `light`, `cyber`) mirroring the CSS for
++  programmatic and GPU use (ADR-0003).
++
++### graphics/
++
++Engine-agnostic rendering contracts (`contracts.ts`): the `Renderer` and
++`RenderSurface` interfaces, the transparency rule (ADR-0004), and the
++frame-loop ownership. Nothing outside `graphics/` touches WebGL or `three`.
++Phase 0 ships only the contracts; implementations arrive with the first GPU
++feature (Phase 2).
++
++### routes/
++
++The SPA pages. `+page.svelte` renders the HUD; `dashboard`, `plugins`,
++`settings`, and `terminal` routes exist as feature entry points.
++
++## src-tauri/ — the Rust crate
++
++```
++src-tauri/
++├── src/
++│   ├── main.rs        — calls omnizya_dex_lib::run()
++│   ├── lib.rs         — the Tauri builder: plugins, the single
++│   │                    generate_handler!, capabilities
++│   ├── commands/      — #[tauri::command] handlers, one module per domain
++│   ├── events/        — Rust→UI emitters (names declared in the EVENTS registry)
++│   ├── services/      — native services behind the commands
++│   ├── system/        — system probes (cpu, memory, disk, network, …)
++│   ├── database/      — SQLite connection, migrations, queries
++│   ├── models/        — Rust models mirroring the schema
++│   ├── state/         — shared app state
++│   ├── plugins/       — Plugin loading and manifests (ADR-0005)
++│   ├── ai/            — AI providers (Phase 6)
++│   ├── ipc/           — IPC protocol helpers
++│   ├── config/        — app configuration
++│   └── utils/         — errors.rs (AppError) and module wiring
++├── capabilities/
++│   └── default.json   — ACL grants for the main window
++├── tauri.conf.json    — window config, CSP, build/dev wiring
++└── Cargo.toml         — crate `omnizya-dex`, lib `omnizya_dex_lib`
++```
++
++Commands take exactly one serde struct arg and return `Result<T, AppError>`
++(`src-tauri/src/utils/errors.rs`); the hand-written `Serialize` impl emits
++the `{type, message}` envelope and must never be replaced with a derived one
++(ADR-0002). Every command is registered in the **single** `invoke_handler` in
++`lib.rs` — a second call silently shadows the first.
++
++## docs/ — the ten-section documentation tree
++
++| Section | Purpose |
++|---|---|
++| `00-vision/` | Identity and scope: manifesto, vision, the twelve principles, glossary, non-goals |
++| `10-product/` | Product spec: master PRD, roadmap, personas, user stories, feature matrix, Workspace Runtime, user flows, UX principles |
++| `20-architecture/` | System architecture and subsystem designs: frontend, backend, database, event bus, graphics, AI, plugins, search, security |
++| `30-specs/` | Formal contracts: Workspace, Manifest, Snapshot, Knowledge, PluginAPI, WidgetAPI, Theme, and the rest |
++| `40-engineering/` | Engineering standards and workflow: coding standards, design system, git workflow, performance, testing, CI, accessibility, release |
++| `50-adr/` | Architecture decision records, numbered and dated |
++| `60-rfc/` | Requests for comment — proposals under discussion |
++| `70-api/` | Public API reference: CLI, commands, events, plugins and widgets |
++| `80-guides/` | How-to guides: creating a Workspace, Plugin, Widget, Theme; using AI |
++| `90-dev/` | Developer guides for this repository: build, run, debug, profile, structure |
++
++## database/ — append-only migrations
++
++`database/migrations/` holds zero-padded SQL migrations (`001_init.sql`
++through `005_history.sql`). Migrations are **append-only** (ADR-0001): a
++committed migration is never edited; every schema change is a new migration
++plus a Rust model plus a zod schema in one slice. `database/seeds/default.sql`
++seeds local state; `database/dex.db` is the local database file.
++
++## tests/, scripts/, .github/
++
++All three are empty scaffolding today. The roadmap milestone **M0.4
++(Development Tooling)** lands the test runner, linting, formatting, git
++hooks, and the CI skeleton; the empty files exist so the layout is fixed in
++advance. Nothing in these trees is imported or executed yet.
++
++## Layer ownership
++
++```mermaid
++flowchart TB
++    subgraph F["Frontend — src/ (Svelte 5 SPA)"]
++        FEAT["features/ — business vertical slices"]
++        UI["ui/ — layout · primitives · styles · themes"]
++        GFX["graphics/ — renderer contracts"]
++        CORE["core/ — api · services · stores · types · config · utils"]
++        API["core/api/ — commands registry · typed invoke · events"]
++    end
++    subgraph R["Rust core — src-tauri/ (crate omnizya-dex)"]
++        CMD["commands/ — tauri command handlers"]
++        EVT["events/ — Rust→UI emitters"]
++        SVC["services · system · database — filesystem, SQLite, Hyprland, shell"]
++    end
++    OS["Hyprland · filesystem · SQLite · processes"]
++
++    FEAT --> UI
++    FEAT --> CORE
++    FEAT --> GFX
++    UI --> CORE
++    UI --> GFX
++    CORE --> API
++    API -->|"IPC invoke — the only @tauri-apps/api importer"| CMD
++    CORE -->|"onEvent subscription"| EVT
++    CMD --> SVC
++    EVT --> SVC
++    SVC --> OS
++    GFX -.->|"palette bridge (ui/themes, ADR-0003)"| UI
++```
++
++Solid arrows mean "depends on": features depend on `ui`, `core`, and
++`graphics`; `ui` depends on `core` and consumes the `graphics` contracts;
++`core/api` is the only importer of `@tauri-apps/api`; the Rust layers own all
++system access. The single dashed edge is the palette bridge: `graphics` reads
++scene colors from `ui/themes/*.ts` and never imports business logic.
++
++## Wiring a new command — the ADR-0002 five-step checklist
++
++1. **Rust:** `src-tauri/src/commands/<domain>.rs` — `#[tauri::command]`,
++   `Result<T, AppError>`, exactly one serde struct arg, no
++   `#[serde(rename_all = ...)]` (snake_case serde defaults are the wire
++   authority).
++2. **Rust:** declare the module and append the fn to the single
++   `generate_handler![...]` in `src-tauri/src/lib.rs`. Exactly one
++   `invoke_handler` call may exist; a second silently shadows the first.
++3. **TS:** add a `defineCommand(...)` contract with schemas to
++   `src/lib/core/api/commands.ts` (duplicate names are rejected). Infallible
++   commands use `z.null()`.
++4. **TS:** expose a typed async function in
++   `src/lib/core/services/<domain>.ts` that returns the domain's typed result
++   and surfaces `IpcError` on failure.
++5. **Capability:** grant any plugin surface the command needs in
++   `src-tauri/capabilities/default.json` (`log:default` and `opener:default`
++   are already granted).
++
++The wire contract for a command lives in exactly two places — the registry in
++`core/api/commands.ts` and the handler list in `src-tauri/src/lib.rs`. A
++command not in both is not callable.
++
++## Wiring an event — Rust → UI
++
++Emit from `src-tauri/src/events/`, declare the name in the `EVENTS` registry
++(`dex.<domain>.<event>` naming) in `src/lib/core/api/events.ts`, and subscribe
++with `onEvent(name, schema, handler)`. Payloads that fail the schema are
++logged and dropped, never thrown into the handler (ADR-0002).
++
++## Current state of the tree
++
++Phase 0 (M0.1–M0.3) is done; business features are not built yet. The
++populated surface today is:
++
++- `core/api/` fully populated; `core/services/` currently ships one contract
++  client (`greet.ts`); `core/stores/` ships the theme store plus shell and
++  notification stores; `core/utils/` ships `logger.ts` and `storage.ts`.
++- `src-tauri/` ships `commands::core` (the `greet` command) and
++  `utils::errors` (`AppError`); `lib.rs` wires the `opener` and `log` plugins.
++- Most of `features/**`, the remaining `core/**` modules, and the rest of
++  `src-tauri/**` are empty scaffolding that lands with its owning milestone.
++  Undeclared Rust modules are not compiled — do not `mod` an empty file.
++- `database/`, `tests/`, `scripts/`, `.github/` are empty as described above.
++
++Do not assume an empty file works or import it. A command is only callable
++once it exists in both contract files; a Rust module is only compiled once
++its `mod` declaration exists.
++
++## Related Documents
++
++- Build from source: [`Build.md`](Build.md)
++- Run the two run modes: [`RunLocally.md`](RunLocally.md)
++- Debugging the frontend, Rust, and IPC: [`Debug.md`](Debug.md)
++- Performance budgets and measurement: [`Profiling.md`](Profiling.md)
++- Layer model and folder ownership:
++  [`../50-adr/0001-layer-ownership.md`](../50-adr/0001-layer-ownership.md)
++- Typed IPC contract: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Design tokens: [`../50-adr/0003-design-tokens.md`](../50-adr/0003-design-tokens.md)
++- Plugin boundary (capabilities): [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++- Coding standards: [`../40-engineering/CodingStandards.md`](../40-engineering/CodingStandards.md)
++- System architecture: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Feature-first architecture (Principle 10):
++  [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
+diff --git a/docs/90-dev/RunLocally.md b/docs/90-dev/RunLocally.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..d248c3b3e940ddc2f2928bb1c71d3e849de635a6
+--- /dev/null
++++ b/docs/90-dev/RunLocally.md
+@@ -0,0 +1,145 @@
++# Run Locally
++
++## Purpose
++
++This document explains the two ways to run DEX during development — `bun run
++dev` (frontend only) and `bun run tauri dev` (full desktop window) — what each
++one exercises, and the runtime characteristics of the desktop window. Read it
++before your first run so the difference is clear and the transparent-window
++rules are understood.
++
++## The two run modes and why both exist
++
++DEX has a frontend half and a backend half. The two run commands give you two
++different levels of the stack:
++
++| Command | What runs | Needs a display? | What you can do |
++|---|---|---|---|
++| `bun run dev` | Vite dev server only (frontend in a browser tab) | no | Iterate on UI layout, tokens, primitives, and theme switching |
++| `bun run tauri dev` | Vite dev server **plus** the Tauri window (Rust process + WebKit) | yes (Wayland/Hyprland) | Exercise the real window, IPC, logging plugin, and compositor behavior |
++
++`bun run tauri dev` always boots the frontend through the same Vite dev server
++(`beforeDevCommand` in `src-tauri/tauri.conf.json` runs `bun run dev`), so
++HMR works in both modes. The difference is what surrounds the frontend: a
++browser tab versus the native Tauri window.
++
++## Frontend only — `bun run dev`
++
++```sh
++bun run dev
++```
++
++**What happens:** Vite starts on port **1420** with `strictPort: true`
++(`vite.config.js`). If the port is busy, Vite refuses to start rather than
++silently moving — free the port or nothing runs.
++
++**What it exercises:** the SvelteKit SPA (`src/routes/+page.svelte` renders
++the HUD from `src/lib/ui/layout/`). Design tokens, primitives, layout, and
++theme switching (`data-theme` on `<html>`) are all visible in the browser tab.
++The logger facade in `src/lib/core/utils/logger.ts` detects that it is not
++inside Tauri (`isTauri()` is false) and falls back to the browser console, so
++frontend log output appears in DevTools.
++
++**What it does NOT exercise:** Rust, IPC, plugins, the filesystem, or the
++window itself. A feature that calls a contract client in `core/services/`
++will fail inside a plain browser tab, because there is no Tauri runtime to
++answer `invoke`. Use this mode for visual iteration, not for IPC work.
++
++## Full desktop window — `bun run tauri dev`
++
++```sh
++bun run tauri dev
++```
++
++**What happens:** Tauri runs `bun run dev` as `beforeDevCommand`, waits for
++`devUrl` (`http://localhost:1420`) to come up, then opens a native window and
++loads the SPA into it. The Rust process runs the full shell: the two plugins
++(`opener`, `log`), the single `invoke_handler`, and the registered commands
++(currently `commands::core::greet`). Logs flow through the log plugin to
++stdout and the app log directory.
++
++**Requirements:**
++
++- A running **Wayland** session with **Hyprland** — the window is created
++  against the compositor.
++- **webkit2gtk-4.1** installed (see [Build.md](Build.md)) — the WebKit engine
++  the window renders into.
++- A display. `bun run tauri dev` cannot run over a headless SSH session.
++
++**What it exercises:** everything. IPC round trips (zod-validated invoke),
++the Rust error envelope, the log plugin, window transparency against the
++compositor, and the shell layout at fullscreen resolution. This is the mode
++the verification order requires for any change that touches the shell surface
++(ADR-0004: transparent behavior cannot be checked in a browser tab).
++
++## Window characteristics
++
++The window is configured in `src-tauri/tauri.conf.json`:
++
++| Setting | Value | Consequence |
++|---|---|---|
++| `fullscreen` | `true` | The shell fills the monitor |
++| `transparent` | `true` | The window has no background; the desktop composites through it |
++| `decorations` | `false` | No title bar or window frame — Hyprland rules/gestures replace them |
++| `shadow` | `false` | No client-side shadow |
++| `hiddenTitle` | `true` | Title hidden on macOS-style title bars |
++| `resizable` | `true` | Window can be resized (relevant outside fullscreen) |
++
++### The transparency contract (ADR-0004)
++
++The window is **transparent**, and the shell must stay that way:
++
++- `html` and `body` keep `background: transparent` (`src/app.css`). The
++  visual backdrop comes from glass panels — `backdrop-filter: blur(...)` over
++  translucent surface tokens (`--dex-surface-*`) — never from an opaque
++  body/window paint.
++- **Never paint an opaque window background.** An opaque layer would hide the
++  desktop and break the shell's whole visual identity. If you need a
++  backdrop, use the glass tokens from `src/lib/ui/styles/tokens.css`.
++- The graphics layer renders into a WebGL canvas created with `alpha: true`,
++  composited **under** the DOM chrome, and also never paints an opaque
++  backdrop (`src/lib/graphics/README.md`).
++
++## Dev-mode CSP notes
++
++`src-tauri/tauri.conf.json` sets a strict Content-Security-Policy:
++
++```
++default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost
++```
++
++This is the shipped security baseline (ADR-0005): no remote scripts, no
++remote connects, only the IPC channel and local resources.
++
++In dev mode, Vite's HMR injects scripts and websocket connections that the
++strict policy may block. If you see CSP violations in the webview console
++while running `bun run tauri dev`:
++
++1. Loosen the policy **only in the dev configuration** — a per-environment
++   dev override.
++2. Re-run and confirm HMR works.
++3. Never let the loosened policy reach a shipped build. The committed policy
++   in `tauri.conf.json` is the release policy and must stay strict.
++
++## Expected outcomes
++
++- `bun run dev` prints the Vite dev-server banner with
++  `http://localhost:1420` and keeps running. Opening it shows the HUD shell
++  (top bar, viewport with grid, dock, status bar) with the default dark theme.
++- `bun run tauri dev` opens a borderless fullscreen window on the Hyprland
++  session. The shell renders with glass panels over the desktop; the HMR
++  overlay, if any, is the only visible Vite artifact.
++- Ctrl-C stops either process. Stopping `bun run tauri dev` also stops the
++  Vite child process it started.
++
++## Related Documents
++
++- Build from source: [`Build.md`](Build.md)
++- Debugging the frontend, Rust, and IPC: [`Debug.md`](Debug.md)
++- Performance budgets and measurement: [`Profiling.md`](Profiling.md)
++- Repository map and wiring rules: [`ProjectStructure.md`](ProjectStructure.md)
++- Transparent compositing decision: [`../50-adr/0004-transparent-compositing.md`](../50-adr/0004-transparent-compositing.md)
++- Security baseline (CSP, capabilities): [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++- Design system (glass tokens, motion): [`../40-engineering/DesignSystem.md`](../40-engineering/DesignSystem.md)
++- System architecture: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
+\ No newline at end of file
+diff --git a/package.json b/package.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..4f11eced4b318f240e6321f1f295d2aa63b0316e
+--- /dev/null
++++ b/package.json
+@@ -0,0 +1,49 @@
++{
++  "name": "omnizya-dex",
++  "version": "0.1.0",
++  "description": "",
++  "type": "module",
++  "scripts": {
++    "dev": "vite dev",
++    "build": "vite build",
++    "preview": "vite preview",
++    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
++    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
++    "tauri": "tauri"
++  },
++  "license": "MIT",
++  "dependencies": {
++    "@floating-ui/core": "^1.8.0",
++    "@floating-ui/dom": "^1.8.0",
++    "@tauri-apps/api": "^2.11.1",
++    "@tauri-apps/plugin-log": "^2.9.0",
++    "@tauri-apps/plugin-opener": "^2",
++    "@types/three": "^0.185.3",
++    "bits-ui": "^2.18.1",
++    "class-variance-authority": "^0.7.1",
++    "clsx": "^2.1.1",
++    "formsnap": "^2.0.1",
++    "fuse.js": "^7.5.0",
++    "lucide-svelte": "^1.0.1",
++    "mode-watcher": "^1.1.0",
++    "motion": "^12.43.0",
++    "nanoid": "^6.0.1",
++    "svelte-sonner": "^1.1.1",
++    "tailwind-merge": "^3.6.0",
++    "three": "^0.185.1",
++    "tw-animate-css": "^1.4.0",
++    "zod": "^4.4.3"
++  },
++  "devDependencies": {
++    "@sveltejs/adapter-static": "^3.0.6",
++    "@sveltejs/kit": "^2.9.0",
++    "@sveltejs/vite-plugin-svelte": "^5.0.0",
++    "@tailwindcss/vite": "^4.3.3",
++    "@tauri-apps/cli": "^2",
++    "svelte": "^5.0.0",
++    "svelte-check": "^4.0.0",
++    "tailwindcss": "^4.3.3",
++    "typescript": "~5.6.2",
++    "vite": "^6.0.3"
++  }
++}
+diff --git a/plugins/docker/.gitkeep b/plugins/docker/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/plugins/examples/.gitkeep b/plugins/examples/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/plugins/github/.gitkeep b/plugins/github/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/plugins/obsidian/.gitkeep b/plugins/obsidian/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/plugins/spotify/.gitkeep b/plugins/spotify/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/plugins/weather/.gitkeep b/plugins/weather/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/scripts/build.ts b/scripts/build.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/scripts/clean.ts b/scripts/clean.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/scripts/migrate.ts b/scripts/migrate.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/scripts/release.ts b/scripts/release.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/scripts/seed.ts b/scripts/seed.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/.gitignore b/src-tauri/.gitignore
+new file mode 100644
+index 0000000000000000000000000000000000000000..b21bd681d99748c046b14202ab79bd8da0143302
+--- /dev/null
++++ b/src-tauri/.gitignore
+@@ -0,0 +1,7 @@
++# Generated by Cargo
++# will have compiled files and executables
++/target/
++
++# Generated by Tauri
++# will have schema files for capabilities auto-completion
++/gen/schemas
+diff --git a/src-tauri/Cargo.lock b/src-tauri/Cargo.lock
+new file mode 100644
+index 0000000000000000000000000000000000000000..d1fd6d85afcf33ecde0aceb79b319768a4677839
+--- /dev/null
++++ b/src-tauri/Cargo.lock
+@@ -0,0 +1,5160 @@
++# This file is automatically @generated by Cargo.
++# It is not intended for manual editing.
++version = 4
++
++[[package]]
++name = "adler2"
++version = "2.0.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
++
++[[package]]
++name = "aho-corasick"
++version = "1.1.5"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "c982642fa9e8606056828ee9a8505737230110bb1099153c79efe865c59d12ba"
++dependencies = [
++ "memchr",
++]
++
++[[package]]
++name = "alloc-no-stdlib"
++version = "2.0.4"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "cc7bb162ec39d46ab1ca8c77bf72e890535becd1751bb45f64c597edb4c8c6b3"
++
++[[package]]
++name = "alloc-stdlib"
++version = "0.2.4"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "0e76a019e91224d279006ff972f1e984179a6e9feb050adba6ce8274aef23195"
++dependencies = [
++ "alloc-no-stdlib",
++]
++
++[[package]]
++name = "android_log-sys"
++version = "0.3.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "84521a3cf562bc62942e294181d9eef17eb38ceb8c68677bc49f144e4c3d4f8d"
++
++[[package]]
++name = "android_logger"
++version = "0.15.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "dbb4e440d04be07da1f1bf44fb4495ebd58669372fe0cffa6e48595ac5bd88a3"
++dependencies = [
++ "android_log-sys",
++ "env_filter",
++ "log",
++]
++
++[[package]]
++name = "android_system_properties"
++version = "0.1.5"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "819e7219dbd41043ac279b19830f2efc897156490d7fd6ea916720117ee66311"
++dependencies = [
++ "libc",
++]
++
++[[package]]
++name = "anyhow"
++version = "1.0.104"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
++
++[[package]]
++name = "async-broadcast"
++version = "0.7.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "435a87a52755b8f27fcf321ac4f04b2802e337c8c4872923137471ec39c37532"
++dependencies = [
++ "event-listener",
++ "event-listener-strategy",
++ "futures-core",
++ "pin-project-lite",
++]
++
++[[package]]
++name = "async-channel"
++version = "2.5.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "924ed96dd52d1b75e9c1a3e6275715fd320f5f9439fb5a4a11fa51f4221158d2"
++dependencies = [
++ "concurrent-queue",
++ "event-listener-strategy",
++ "futures-core",
++ "pin-project-lite",
++]
++
++[[package]]
++name = "async-executor"
++version = "1.14.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "c96bf972d85afc50bf5ab8fe2d54d1586b4e0b46c97c50a0c9e71e2f7bcd812a"
++dependencies = [
++ "async-task",
++ "concurrent-queue",
++ "fastrand",
++ "futures-lite",
++ "pin-project-lite",
++ "slab",
++]
++
++[[package]]
++name = "async-io"
++version = "2.6.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "456b8a8feb6f42d237746d4b3e9a178494627745c3c56c6ea55d92ba50d026fc"
++dependencies = [
++ "autocfg",
++ "cfg-if",
++ "concurrent-queue",
++ "futures-io",
++ "futures-lite",
++ "parking",
++ "polling",
++ "rustix",
++ "slab",
++ "windows-sys 0.61.2",
++]
++
++[[package]]
++name = "async-lock"
++version = "3.4.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "290f7f2596bd5b78a9fec8088ccd89180d7f9f55b94b0576823bbbdc72ee8311"
++dependencies = [
++ "event-listener",
++ "event-listener-strategy",
++ "pin-project-lite",
++]
++
++[[package]]
++name = "async-process"
++version = "2.5.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "fc50921ec0055cdd8a16de48773bfeec5c972598674347252c0399676be7da75"
++dependencies = [
++ "async-channel",
++ "async-io",
++ "async-lock",
++ "async-signal",
++ "async-task",
++ "blocking",
++ "cfg-if",
++ "event-listener",
++ "futures-lite",
++ "rustix",
++]
++
++[[package]]
++name = "async-recursion"
++version = "1.1.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "3b43422f69d8ff38f95f1b2bb76517c91589a924d1559a0e935d7c8ce0274c11"
++dependencies = [
++ "proc-macro2",
++ "quote",
++ "syn 2.0.119",
++]
++
++[[package]]
++name = "async-signal"
++version = "0.2.14"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "52b5aaafa020cf5053a01f2a60e8ff5dccf550f0f77ec54a4e47285ac2bab485"
++dependencies = [
++ "async-io",
++ "async-lock",
++ "atomic-waker",
++ "cfg-if",
++ "futures-core",
++ "futures-io",
++ "rustix",
++ "signal-hook-registry",
++ "slab",
++ "windows-sys 0.61.2",
++]
++
++[[package]]
++name = "async-task"
++version = "4.7.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "8b75356056920673b02621b35afd0f7dda9306d03c79a30f5c56c44cf256e3de"
++
++[[package]]
++name = "async-trait"
++version = "0.1.91"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "ae36dc4177970ef04fde5178d3e2429882def40e57a451f919c098f72baa6cec"
++dependencies = [
++ "proc-macro2",
++ "quote",
++ "syn 3.0.3",
++]
++
++[[package]]
++name = "atk"
++version = "0.18.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "241b621213072e993be4f6f3a9e4b45f65b7e6faad43001be957184b7bb1824b"
++dependencies = [
++ "atk-sys",
++ "glib",
++ "libc",
++]
++
++[[package]]
++name = "atk-sys"
++version = "0.18.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "c5e48b684b0ca77d2bbadeef17424c2ea3c897d44d566a1617e7e8f30614d086"
++dependencies = [
++ "glib-sys",
++ "gobject-sys",
++ "libc",
++ "system-deps",
++]
++
++[[package]]
++name = "atomic-waker"
++version = "1.1.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
++
++[[package]]
++name = "autocfg"
++version = "1.5.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
++
++[[package]]
++name = "base64"
++version = "0.21.7"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
++
++[[package]]
++name = "base64"
++version = "0.22.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
++
++[[package]]
++name = "bit-set"
++version = "0.8.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "08807e080ed7f9d5433fa9b275196cfc35414f66a0c79d864dc51a0d825231a3"
++dependencies = [
++ "bit-vec",
++]
++
++[[package]]
++name = "bit-vec"
++version = "0.8.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "5e764a1d40d510daf35e07be9eb06e75770908c27d411ee6c92109c9840eaaf7"
++
++[[package]]
++name = "bitflags"
++version = "1.3.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
++
++[[package]]
++name = "bitflags"
++version = "2.13.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
++dependencies = [
++ "serde_core",
++]
++
++[[package]]
++name = "block-buffer"
++version = "0.10.4"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71"
++dependencies = [
++ "generic-array",
++]
++
++[[package]]
++name = "block2"
++version = "0.6.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "cdeb9d870516001442e364c5220d3574d2da8dc765554b4a617230d33fa58ef5"
++dependencies = [
++ "objc2",
++]
++
++[[package]]
++name = "blocking"
++version = "1.6.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "e83f8d02be6967315521be875afa792a316e28d57b5a2d401897e2a7921b7f21"
++dependencies = [
++ "async-channel",
++ "async-task",
++ "futures-io",
++ "futures-lite",
++ "piper",
++]
++
++[[package]]
++name = "brotli"
++version = "8.0.4"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "5cc91aac060a7a1e25823bdccbfb6af1875b88f17c6daac97894eed8207166b3"
++dependencies = [
++ "alloc-no-stdlib",
++ "alloc-stdlib",
++ "brotli-decompressor",
++]
++
++[[package]]
++name = "brotli-decompressor"
++version = "5.0.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "3a32acac15fe1967bc3986b2a6347dffc965602354ea6f450ad07e8bfd253583"
++dependencies = [
++ "alloc-no-stdlib",
++ "alloc-stdlib",
++]
++
++[[package]]
++name = "bs58"
++version = "0.5.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "bf88ba1141d185c399bee5288d850d63b8369520c1eafc32a0430b5b6c287bf4"
++dependencies = [
++ "tinyvec",
++]
++
++[[package]]
++name = "bumpalo"
++version = "3.20.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649"
++
++[[package]]
++name = "bytemuck"
++version = "1.25.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "95832e849adfb21180ccb6826a99da14e5d266ae5c2e668e1602cf234f153797"
++
++[[package]]
++name = "byteorder"
++version = "1.5.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
++
++[[package]]
++name = "bytes"
++version = "1.12.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
++dependencies = [
++ "serde",
++]
++
++[[package]]
++name = "cairo-rs"
++version = "0.18.5"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "8ca26ef0159422fb77631dc9d17b102f253b876fe1586b03b803e63a309b4ee2"
++dependencies = [
++ "bitflags 2.13.1",
++ "cairo-sys-rs",
++ "glib",
++ "libc",
++ "once_cell",
++ "thiserror 1.0.69",
++]
++
++[[package]]
++name = "cairo-sys-rs"
++version = "0.18.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "685c9fa8e590b8b3d678873528d83411db17242a73fccaed827770ea0fedda51"
++dependencies = [
++ "glib-sys",
++ "libc",
++ "system-deps",
++]
++
++[[package]]
++name = "camino"
++version = "1.2.5"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "bb1307f12aa967b5a58416e87b3653360e0fd614a016b6e970db08fecbb1b80d"
++dependencies = [
++ "serde_core",
++]
++
++[[package]]
++name = "cargo-platform"
++version = "0.1.9"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "e35af189006b9c0f00a064685c727031e3ed2d8020f7ba284d78cc2671bd36ea"
++dependencies = [
++ "serde",
++]
++
++[[package]]
++name = "cargo_metadata"
++version = "0.19.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "dd5eb614ed4c27c5d706420e4320fbe3216ab31fa1c33cd8246ac36dae4479ba"
++dependencies = [
++ "camino",
++ "cargo-platform",
++ "semver",
++ "serde",
++ "serde_json",
++ "thiserror 2.0.19",
++]
++
++[[package]]
++name = "cargo_toml"
++version = "0.22.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "374b7c592d9c00c1f4972ea58390ac6b18cbb6ab79011f3bdc90a0b82ca06b77"
++dependencies = [
++ "serde",
++ "toml 0.9.12+spec-1.1.0",
++]
++
++[[package]]
++name = "cc"
++version = "1.4.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "5add81bb678e6cb321aff7fa0dc7689ad82b112dbc032cea19f91d6b8e3582b9"
++dependencies = [
++ "find-msvc-tools",
++ "shlex",
++]
++
++[[package]]
++name = "cesu8"
++version = "1.1.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "6d43a04d8753f35258c91f8ec639f792891f748a1edbd759cf1dcea3382ad83c"
++
++[[package]]
++name = "cfb"
++version = "0.7.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "d38f2da7a0a2c4ccf0065be06397cc26a81f4e528be095826eee9d4adbb8c60f"
++dependencies = [
++ "byteorder",
++ "fnv",
++ "uuid",
++]
++
++[[package]]
++name = "cfg-expr"
++version = "0.15.8"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "d067ad48b8650848b989a59a86c6c36a995d02d2bf778d45c3c5d57bc2718f02"
++dependencies = [
++ "smallvec",
++ "target-lexicon",
++]
++
++[[package]]
++name = "cfg-if"
++version = "1.0.4"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
++
++[[package]]
++name = "chrono"
++version = "0.4.45"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
++dependencies = [
++ "iana-time-zone",
++ "js-sys",
++ "num-traits",
++ "serde",
++ "wasm-bindgen",
++ "windows-link 0.2.1",
++]
++
++[[package]]
++name = "combine"
++version = "4.6.7"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "ba5a308b75df32fe02788e748662718f03fde005016435c444eea572398219fd"
++dependencies = [
++ "bytes",
++ "memchr",
++]
++
++[[package]]
++name = "concurrent-queue"
++version = "2.5.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
++dependencies = [
++ "crossbeam-utils",
++]
++
++[[package]]
++name = "cookie"
++version = "0.18.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "4ddef33a339a91ea89fb53151bd0a4689cfce27055c291dfa69945475d22c747"
++dependencies = [
++ "time",
++ "version_check",
++]
++
++[[package]]
++name = "core-foundation"
++version = "0.10.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "b2a6cd9ae233e7f62ba4e9353e81a88df7fc8a5987b8d445b4d90c879bd156f6"
++dependencies = [
++ "core-foundation-sys",
++ "libc",
++]
++
++[[package]]
++name = "core-foundation-sys"
++version = "0.8.7"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
++
++[[package]]
++name = "core-graphics"
++version = "0.25.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "064badf302c3194842cf2c5d61f56cc88e54a759313879cdf03abdd27d0c3b97"
++dependencies = [
++ "bitflags 2.13.1",
++ "core-foundation",
++ "core-graphics-types",
++ "foreign-types",
++ "libc",
++]
++
++[[package]]
++name = "core-graphics-types"
++version = "0.2.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "3d44a101f213f6c4cdc1853d4b78aef6db6bdfa3468798cc1d9912f4735013eb"
++dependencies = [
++ "bitflags 2.13.1",
++ "core-foundation",
++ "libc",
++]
++
++[[package]]
++name = "cpufeatures"
++version = "0.2.17"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "59ed5838eebb26a2bb2e58f6d5b5316989ae9d08bab10e0e6d103e656d1b0280"
++dependencies = [
++ "libc",
++]
++
++[[package]]
++name = "crc32fast"
++version = "1.5.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "9481c1c90cbf2ac953f07c8d4a58aa3945c425b7185c9154d67a65e4230da511"
++dependencies = [
++ "cfg-if",
++]
++
++[[package]]
++name = "crossbeam-channel"
++version = "0.5.16"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "d85363c37faeca707aef026efa9f3b34d077bce547e48f770770625c6013679e"
++dependencies = [
++ "crossbeam-utils",
++]
++
++[[package]]
++name = "crossbeam-utils"
++version = "0.8.22"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "61803da095bee82a81bb1a452ecc25d3b2f1416d1897eb86430c6159ef717c17"
++
++[[package]]
++name = "crypto-common"
++version = "0.1.7"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "78c8292055d1c1df0cce5d180393dc8cce0abec0a7102adb6c7b1eef6016d60a"
++dependencies = [
++ "generic-array",
++ "typenum",
++]
++
++[[package]]
++name = "cssparser"
++version = "0.36.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "dae61cf9c0abb83bd659dab65b7e4e38d8236824c85f0f804f173567bda257d2"
++dependencies = [
++ "cssparser-macros",
++ "dtoa-short",
++ "itoa",
++ "phf",
++ "smallvec",
++]
++
++[[package]]
++name = "cssparser-macros"
++version = "0.6.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "13b588ba4ac1a99f7f2964d24b3d896ddc6bf847ee3855dbd4366f058cfcd331"
++dependencies = [
++ "quote",
++ "syn 2.0.119",
++]
++
++[[package]]
++name = "ctor"
++version = "0.8.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "352d39c2f7bef1d6ad73db6f5160efcaed66d94ef8c6c573a8410c00bf909a98"
++dependencies = [
++ "ctor-proc-macro",
++ "dtor",
++]
++
++[[package]]
++name = "ctor-proc-macro"
++version = "0.0.7"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "52560adf09603e58c9a7ee1fe1dcb95a16927b17c127f0ac02d6e768a0e25bc1"
++
++[[package]]
++name = "darling"
++version = "0.23.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "25ae13da2f202d56bd7f91c25fba009e7717a1e4a1cc98a76d844b65ae912e9d"
++dependencies = [
++ "darling_core",
++ "darling_macro",
++]
++
++[[package]]
++name = "darling_core"
++version = "0.23.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "9865a50f7c335f53564bb694ef660825eb8610e0a53d3e11bf1b0d3df31e03b0"
++dependencies = [
++ "ident_case",
++ "proc-macro2",
++ "quote",
++ "strsim",
++ "syn 2.0.119",

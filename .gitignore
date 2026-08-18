@@ -1,20 +1,67 @@
+# Temporary files and logs
+*.tmp
+*.log
+
+# Patch and diff files
+*.patch
+
+# Archive files
+*.zip
+*.z
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+
+# Base64 encoded files
+*.b64
+
+# Build artifacts
+build/
+dist/
+.svelte-kit/
+# Dependencies
+node_modules/
+venv/
+.venv/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+target/
+.gradle/
+
+# Editors
+.vscode/
+.idea/
+
+# System files
 .DS_Store
-node_modules
-/build
-/.svelte-kit
-/package
+Thumbs.db
 .env
-.env.*
-!.env.example
-vite.config.js.timestamp-*
-vite.config.ts.timestamp-*
+.env.local
+*.env.*
 
-# Deepwork session state (git-local, OpenCode-readable)
-.slim/deepwork/
-.ignore
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+.svelte-kit/
 .obsidian/
-patch/
-
-# IDE state (regenerates on open)
-dex.context.xml
-.opencode/
+.slim/

@@ -1,0 +1,3662 @@
+m 0.52.6",
++ "windows_x86_64_msvc 0.52.6",
++]
++
++[[package]]
++name = "windows-threading"
++version = "0.1.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "b66463ad2e0ea3bbf808b7f1d371311c80e115c0b71d60efc142cafbcfb057a6"
++dependencies = [
++ "windows-link 0.1.3",
++]
++
++[[package]]
++name = "windows-version"
++version = "0.1.7"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "e4060a1da109b9d0326b7262c8e12c84df67cc0dbc9e33cf49e01ccc2eb63631"
++dependencies = [
++ "windows-link 0.2.1",
++]
++
++[[package]]
++name = "windows_aarch64_gnullvm"
++version = "0.42.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "597a5118570b68bc08d8d59125332c54f1ba9d9adeedeef5b99b02ba2b0698f8"
++
++[[package]]
++name = "windows_aarch64_gnullvm"
++version = "0.52.6"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "32a4622180e7a0ec044bb555404c800bc9fd9ec262ec147edd5989ccd0c02cd3"
++
++[[package]]
++name = "windows_aarch64_msvc"
++version = "0.42.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "e08e8864a60f06ef0d0ff4ba04124db8b0fb3be5776a5cd47641e942e58c4d43"
++
++[[package]]
++name = "windows_aarch64_msvc"
++version = "0.52.6"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "09ec2a7bb152e2252b53fa7803150007879548bc709c039df7627cabbd05d469"
++
++[[package]]
++name = "windows_i686_gnu"
++version = "0.42.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "c61d927d8da41da96a81f029489353e68739737d3beca43145c8afec9a31a84f"
++
++[[package]]
++name = "windows_i686_gnu"
++version = "0.52.6"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "8e9b5ad5ab802e97eb8e295ac6720e509ee4c243f69d781394014ebfe8bbfa0b"
++
++[[package]]
++name = "windows_i686_gnullvm"
++version = "0.52.6"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "0eee52d38c090b3caa76c563b86c3a4bd71ef1a819287c19d586d7334ae8ed66"
++
++[[package]]
++name = "windows_i686_msvc"
++version = "0.42.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "44d840b6ec649f480a41c8d80f9c65108b92d89345dd94027bfe06ac444d1060"
++
++[[package]]
++name = "windows_i686_msvc"
++version = "0.52.6"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "240948bc05c5e7c6dabba28bf89d89ffce3e303022809e73deaefe4f6ec56c66"
++
++[[package]]
++name = "windows_x86_64_gnu"
++version = "0.42.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "8de912b8b8feb55c064867cf047dda097f92d51efad5b491dfb98f6bbb70cb36"
++
++[[package]]
++name = "windows_x86_64_gnu"
++version = "0.52.6"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "147a5c80aabfbf0c7d901cb5895d1de30ef2907eb21fbbab29ca94c5b08b1a78"
++
++[[package]]
++name = "windows_x86_64_gnullvm"
++version = "0.42.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "26d41b46a36d453748aedef1486d5c7a85db22e56aff34643984ea85514e94a3"
++
++[[package]]
++name = "windows_x86_64_gnullvm"
++version = "0.52.6"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "24d5b23dc417412679681396f2b49f3de8c1473deb516bd34410872eff51ed0d"
++
++[[package]]
++name = "windows_x86_64_msvc"
++version = "0.42.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "9aec5da331524158c6d1a4ac0ab1541149c0b9505fde06423b02f5ef0106b9f0"
++
++[[package]]
++name = "windows_x86_64_msvc"
++version = "0.52.6"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
++
++[[package]]
++name = "winnow"
++version = "0.5.40"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "f593a95398737aeed53e489c785df13f3618e41dbcd6718c6addbf1395aa6876"
++dependencies = [
++ "memchr",
++]
++
++[[package]]
++name = "winnow"
++version = "0.7.15"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
++
++[[package]]
++name = "winnow"
++version = "1.0.4"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "23b97319f7b8343df12cc98938e5c3eb436064524c8d2b4e30a1d3a36eecdf81"
++dependencies = [
++ "memchr",
++]
++
++[[package]]
++name = "winreg"
++version = "0.55.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "cb5a765337c50e9ec252c2069be9bf91c7df47afb103b642ba3a53bf8101be97"
++dependencies = [
++ "cfg-if",
++ "windows-sys 0.59.0",
++]
++
++[[package]]
++name = "wit-bindgen"
++version = "0.57.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
++
++[[package]]
++name = "writeable"
++version = "0.6.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
++
++[[package]]
++name = "wry"
++version = "0.55.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "186f9871daa55fd9c016578b810d149de58367113db7fb72b462d2323ce19514"
++dependencies = [
++ "base64 0.22.1",
++ "block2",
++ "cookie",
++ "crossbeam-channel",
++ "dirs",
++ "dom_query",
++ "dpi",
++ "dunce",
++ "gdkx11",
++ "gtk",
++ "http",
++ "javascriptcore-rs",
++ "jni",
++ "libc",
++ "ndk",
++ "objc2",
++ "objc2-app-kit",
++ "objc2-core-foundation",
++ "objc2-foundation",
++ "objc2-ui-kit",
++ "objc2-web-kit",
++ "once_cell",
++ "percent-encoding",
++ "raw-window-handle",
++ "sha2",
++ "soup3",
++ "tao-macros",
++ "thiserror 2.0.19",
++ "url",
++ "webkit2gtk",
++ "webkit2gtk-sys",
++ "webview2-com",
++ "windows",
++ "windows-core 0.61.2",
++ "windows-version",
++ "x11-dl",
++]
++
++[[package]]
++name = "x11"
++version = "2.21.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "502da5464ccd04011667b11c435cb992822c2c0dbde1770c988480d312a0db2e"
++dependencies = [
++ "libc",
++ "pkg-config",
++]
++
++[[package]]
++name = "x11-dl"
++version = "2.21.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "38735924fedd5314a6e548792904ed8c6de6636285cb9fec04d5b1db85c1516f"
++dependencies = [
++ "libc",
++ "once_cell",
++ "pkg-config",
++]
++
++[[package]]
++name = "yoke"
++version = "0.8.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "709fe23a0424b6a435d82152b1bd3fdfb0833487d5fa90d05d42762a9891fef5"
++dependencies = [
++ "stable_deref_trait",
++ "yoke-derive",
++ "zerofrom",
++]
++
++[[package]]
++name = "yoke-derive"
++version = "0.8.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "de844c262c8848816172cef550288e7dc6c7b7814b4ee56b3e1553f275f1858e"
++dependencies = [
++ "proc-macro2",
++ "quote",
++ "syn 2.0.119",
++ "synstructure",
++]
++
++[[package]]
++name = "zbus"
++version = "5.18.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "fe18fb60dc696039e738717b76eaea21e7a4489bbb1885020b43c94236d7e98a"
++dependencies = [
++ "async-broadcast",
++ "async-executor",
++ "async-io",
++ "async-lock",
++ "async-process",
++ "async-recursion",
++ "async-task",
++ "async-trait",
++ "blocking",
++ "enumflags2",
++ "event-listener",
++ "futures-core",
++ "futures-lite",
++ "hex",
++ "libc",
++ "ordered-stream",
++ "rustix",
++ "serde",
++ "serde_repr",
++ "tokio",
++ "tracing",
++ "uds_windows",
++ "uuid",
++ "windows-sys 0.61.2",
++ "winnow 1.0.4",
++ "zbus_macros",
++ "zbus_names",
++ "zvariant",
++]
++
++[[package]]
++name = "zbus_macros"
++version = "5.18.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "fe96480bed92df2b442a1a30df364e12d08eed03aeb061f2b8dc6afb2be91119"
++dependencies = [
++ "proc-macro-crate 3.5.0",
++ "proc-macro2",
++ "quote",
++ "syn 2.0.119",
++ "zbus_names",
++ "zvariant",
++ "zvariant_utils",
++]
++
++[[package]]
++name = "zbus_names"
++version = "4.3.4"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "d8bf88b4a3ff53e883001e0e0115b297a9d53c31b9c1edd2bfdd853e3428624e"
++dependencies = [
++ "serde",
++ "winnow 1.0.4",
++ "zvariant",
++]
++
++[[package]]
++name = "zerofrom"
++version = "0.1.8"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "0ec05a11813ea801ff6d75110ad09cd0824ddba17dfe17128ea0d5f68e6c5272"
++dependencies = [
++ "zerofrom-derive",
++]
++
++[[package]]
++name = "zerofrom-derive"
++version = "0.1.7"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "11532158c46691caf0f2593ea8358fed6bbf68a0315e80aae9bd41fbade684a1"
++dependencies = [
++ "proc-macro2",
++ "quote",
++ "syn 2.0.119",
++ "synstructure",
++]
++
++[[package]]
++name = "zerotrie"
++version = "0.2.4"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "0f9152d31db0792fa83f70fb2f83148effb5c1f5b8c7686c3459e361d9bc20bf"
++dependencies = [
++ "displaydoc",
++ "yoke",
++ "zerofrom",
++]
++
++[[package]]
++name = "zerovec"
++version = "0.11.6"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "90f911cbc359ab6af17377d242225f4d75119aec87ea711a880987b18cd7b239"
++dependencies = [
++ "yoke",
++ "zerofrom",
++ "zerovec-derive",
++]
++
++[[package]]
++name = "zerovec-derive"
++version = "0.11.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "625dc425cab0dca6dc3c3319506e6593dcb08a9f387ea3b284dbd52a92c40555"
++dependencies = [
++ "proc-macro2",
++ "quote",
++ "syn 2.0.119",
++]
++
++[[package]]
++name = "zmij"
++version = "1.0.23"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
++
++[[package]]
++name = "zvariant"
++version = "5.13.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "bee2a0bcd2a907786a456fff45aaaaf54c9ba5f50b71ae9ec1a4edd200c94911"
++dependencies = [
++ "endi",
++ "enumflags2",
++ "serde",
++ "winnow 1.0.4",
++ "zvariant_derive",
++ "zvariant_utils",
++]
++
++[[package]]
++name = "zvariant_derive"
++version = "5.13.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "38a708216a18780796770bfe3f4739c7c83a3e8f789b755534bbbc06e4e23e12"
++dependencies = [
++ "proc-macro-crate 3.5.0",
++ "proc-macro2",
++ "quote",
++ "syn 2.0.119",
++ "zvariant_utils",
++]
++
++[[package]]
++name = "zvariant_utils"
++version = "3.5.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "90cb9383f9b45290407a1258b202d3f8f01db719eb60b4e4055c6375af4fc7c7"
++dependencies = [
++ "proc-macro2",
++ "quote",
++ "serde",
++ "syn 2.0.119",
++ "winnow 1.0.4",
++]
+diff --git a/src-tauri/Cargo.toml b/src-tauri/Cargo.toml
+new file mode 100644
+index 0000000000000000000000000000000000000000..6d277c815323f656f6cc3cc535a1e7d381aed9e1
+--- /dev/null
++++ b/src-tauri/Cargo.toml
+@@ -0,0 +1,35 @@
++[package]
++name = "omnizya-dex"
++version = "0.1.0"
++description = "OmniZya DEX: A Desktop experience"
++authors = ["Mohamed Moughamir"]
++edition = "2021"
++
++# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
++
++[lib]
++# The `_lib` suffix may seem redundant but it is necessary
++# to make the lib name unique and wouldn't conflict with the bin name.
++# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
++name = "omnizya_dex_lib"
++crate-type = ["staticlib", "cdylib", "rlib"]
++
++[build-dependencies]
++tauri-build = { version = "2.6.3", features = [] }
++
++[dependencies]
++tauri = { version = "2.11.5", features = ["tray-icon"] }
++tauri-plugin-opener = "2.5.4"
++tauri-plugin-log = "2"
++serde = { version = "1.0.229", features = ["derive"] }
++serde_json = "1.0.151"
++tokio = { version = "1.53.1", features = ["full"] }
++rusqlite = { version = "0.40.1", features = ["bundled"] }
++anyhow = "1.0.104"
++thiserror = "2.0.19"
++trace = "0.1.7"
++tracing-subscriber = "0.3.23"
++uuid = { version = "1.24.0", features = ["v4"] }
++chrono = { version = "0.4.45", features = ["serde"] }
++zbus = { version = "5.18.0", features = ["tokio"] }
++zvariant = "5.13.1"
+diff --git a/src-tauri/build.rs b/src-tauri/build.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..d860e1e6a7cac333c3cc0bc9cb67faf286b07d69
+--- /dev/null
++++ b/src-tauri/build.rs
+@@ -0,0 +1,3 @@
++fn main() {
++    tauri_build::build()
++}
+diff --git a/src-tauri/capabilities/default.json b/src-tauri/capabilities/default.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..ff274e3f5527ba4d4a4979691cbb061a8f683d1b
+--- /dev/null
++++ b/src-tauri/capabilities/default.json
+@@ -0,0 +1,16 @@
++{
++  "$schema": "../gen/schemas/desktop-schema.json",
++  "identifier": "default",
++  "description": "Capability for the main window",
++  "windows": ["main"],
++  "permissions": [
++    "core:default",
++    "opener:default",
++    "log:default",
++    "core:window:allow-set-decorations",
++    "core:window:allow-set-shadow",
++    "core:window:allow-set-effects",
++    "core:window:allow-set-background-color",
++    "core:window:allow-set-title-bar-style"
++  ]
++}
+diff --git a/src-tauri/icons/128x128.png b/src-tauri/icons/128x128.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..6be5e50e9b9ae84d9e2ee433f32ef446495eaf3b
+Binary files /dev/null and b/src-tauri/icons/128x128.png differ
+diff --git a/src-tauri/icons/128x128@2x.png b/src-tauri/icons/128x128@2x.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..e81becee571e96f76aa5667f9324c05e5e7a4479
+Binary files /dev/null and b/src-tauri/icons/128x128@2x.png differ
+diff --git a/src-tauri/icons/32x32.png b/src-tauri/icons/32x32.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..a437dd51741e9e56e14b5d6024493cb2abfd5259
+Binary files /dev/null and b/src-tauri/icons/32x32.png differ
+diff --git a/src-tauri/icons/Square107x107Logo.png b/src-tauri/icons/Square107x107Logo.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..0ca4f27198838968bd60ed7d371bfa23496b7fe5
+Binary files /dev/null and b/src-tauri/icons/Square107x107Logo.png differ
+diff --git a/src-tauri/icons/Square142x142Logo.png b/src-tauri/icons/Square142x142Logo.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..b81f820394d1504ff4b4091473a8263542c9edc4
+Binary files /dev/null and b/src-tauri/icons/Square142x142Logo.png differ
+diff --git a/src-tauri/icons/Square150x150Logo.png b/src-tauri/icons/Square150x150Logo.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..624c7bfba0498dcebbc8a020fe06f08cfff2384a
+Binary files /dev/null and b/src-tauri/icons/Square150x150Logo.png differ
+diff --git a/src-tauri/icons/Square284x284Logo.png b/src-tauri/icons/Square284x284Logo.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..c021d2ba76619c08969ab688db3b27f29257aa6f
+Binary files /dev/null and b/src-tauri/icons/Square284x284Logo.png differ
+diff --git a/src-tauri/icons/Square30x30Logo.png b/src-tauri/icons/Square30x30Logo.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..621970023096ed9f494ba18ace15421a45cd65fa
+Binary files /dev/null and b/src-tauri/icons/Square30x30Logo.png differ
+diff --git a/src-tauri/icons/Square310x310Logo.png b/src-tauri/icons/Square310x310Logo.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..f9bc04839491e66c07b16ab03743c0c53b4109cc
+Binary files /dev/null and b/src-tauri/icons/Square310x310Logo.png differ
+diff --git a/src-tauri/icons/Square44x44Logo.png b/src-tauri/icons/Square44x44Logo.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..d5fbfb2ab4e57e8a75620cded43bddc1a15daa99
+Binary files /dev/null and b/src-tauri/icons/Square44x44Logo.png differ
+diff --git a/src-tauri/icons/Square71x71Logo.png b/src-tauri/icons/Square71x71Logo.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..63440d7984936a9caa89275928d8dce97e4d033b
+Binary files /dev/null and b/src-tauri/icons/Square71x71Logo.png differ
+diff --git a/src-tauri/icons/Square89x89Logo.png b/src-tauri/icons/Square89x89Logo.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..f3f705af2f2e044682ac042b37dba6682a0c8a6b
+Binary files /dev/null and b/src-tauri/icons/Square89x89Logo.png differ
+diff --git a/src-tauri/icons/StoreLogo.png b/src-tauri/icons/StoreLogo.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..455638826192851ad1ae604d66f2ca352979442c
+Binary files /dev/null and b/src-tauri/icons/StoreLogo.png differ
+diff --git a/src-tauri/icons/icon.icns b/src-tauri/icons/icon.icns
+new file mode 100644
+index 0000000000000000000000000000000000000000..12a5bcee268851fdab744ec4a31f75d3d008e031
+Binary files /dev/null and b/src-tauri/icons/icon.icns differ
+diff --git a/src-tauri/icons/icon.ico b/src-tauri/icons/icon.ico
+new file mode 100644
+index 0000000000000000000000000000000000000000..b3636e4b22ba65db9061cd60a77b02c92022dfd6
+Binary files /dev/null and b/src-tauri/icons/icon.ico differ
+diff --git a/src-tauri/icons/icon.png b/src-tauri/icons/icon.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..e1cd2619e0b5ec089cbba5ec7b03ddf2b1dfceb6
+Binary files /dev/null and b/src-tauri/icons/icon.png differ
+diff --git a/src-tauri/src/ai/chat.rs b/src-tauri/src/ai/chat.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/ai/embeddings.rs b/src-tauri/src/ai/embeddings.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/ai/memory.rs b/src-tauri/src/ai/memory.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/ai/mod.rs b/src-tauri/src/ai/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/ai/tools.rs b/src-tauri/src/ai/tools.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/commands/ai.rs b/src-tauri/src/commands/ai.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/commands/core.rs b/src-tauri/src/commands/core.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..784f0d4cfb6ebebe8e3622598bb854ec13c82420
+--- /dev/null
++++ b/src-tauri/src/commands/core.rs
+@@ -0,0 +1,25 @@
++//! Core command domain — canonical `greet` per ADR-0002.
++//!
++//! Commands take exactly one serde struct arg; no `#[serde(rename_all)]` —
++//! serde defaults (snake_case field names) are the wire authority.
++
++use serde::{Deserialize, Serialize};
++
++use crate::utils::errors::AppError;
++
++#[derive(Debug, Deserialize)]
++pub struct GreetArgs {
++    pub name: String,
++}
++
++#[derive(Debug, Serialize)]
++pub struct GreetOutput {
++    pub message: String,
++}
++
++#[tauri::command]
++pub fn greet(args: GreetArgs) -> Result<GreetOutput, AppError> {
++    Ok(GreetOutput {
++        message: format!("Hello, {}! You've been greeted from Rust!", args.name),
++    })
++}
+diff --git a/src-tauri/src/commands/database.rs b/src-tauri/src/commands/database.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/commands/hyprland.rs b/src-tauri/src/commands/hyprland.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/commands/mod.rs b/src-tauri/src/commands/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..62d47aed92d632faa94323ceaea4d0d0059370ef
+--- /dev/null
++++ b/src-tauri/src/commands/mod.rs
+@@ -0,0 +1,6 @@
++//! Tauri command handlers — thin, typed, delegate to services.
++//!
++//! One module per command domain (ADR-0002). Placeholder domains are not
++//! declared until their owning phase fills them.
++
++pub mod core;
+diff --git a/src-tauri/src/commands/plugins.rs b/src-tauri/src/commands/plugins.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/commands/settings.rs b/src-tauri/src/commands/settings.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/commands/system.rs b/src-tauri/src/commands/system.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/commands/terminal.rs b/src-tauri/src/commands/terminal.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/commands/widgets.rs b/src-tauri/src/commands/widgets.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/config/mod.rs b/src-tauri/src/config/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/database/connection.rs b/src-tauri/src/database/connection.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/database/migrations.rs b/src-tauri/src/database/migrations.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/database/mod.rs b/src-tauri/src/database/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/database/queries.rs b/src-tauri/src/database/queries.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/database/repository.rs b/src-tauri/src/database/repository.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/database/schema.rs b/src-tauri/src/database/schema.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/events/emitter.rs b/src-tauri/src/events/emitter.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/events/mod.rs b/src-tauri/src/events/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/ipc/mod.rs b/src-tauri/src/ipc/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/ipc/protocol.rs b/src-tauri/src/ipc/protocol.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/lib.rs b/src-tauri/src/lib.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e8201a14fd6a40dd823684d3dcb5def0575b8b87
+--- /dev/null
++++ b/src-tauri/src/lib.rs
+@@ -0,0 +1,26 @@
++mod commands;
++mod utils;
++
++use tauri_plugin_log::{log::LevelFilter, Target, TargetKind};
++
++#[cfg_attr(mobile, tauri::mobile_entry_point)]
++pub fn run() {
++    tauri::Builder::default()
++        .plugin(tauri_plugin_opener::init())
++        .plugin(
++            tauri_plugin_log::Builder::new()
++                .level(LevelFilter::Trace)
++                .targets([
++                    Target::new(TargetKind::Stdout),
++                    Target::new(TargetKind::LogDir {
++                        file_name: Some("dex".into()),
++                    }),
++                ])
++                .build(),
++        )
++        // Exactly one invoke_handler — append commands to the single
++        // generate_handler!, never add a second call (ADR-0002).
++        .invoke_handler(tauri::generate_handler![commands::core::greet])
++        .run(tauri::generate_context!())
++        .expect("error while running tauri application");
++}
+diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..6b25ce1397aabbb517f6cc09bb6835e34e12571d
+--- /dev/null
++++ b/src-tauri/src/main.rs
+@@ -0,0 +1,6 @@
++// Prevents additional console window on Windows in release, DO NOT REMOVE!!
++#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
++
++fn main() {
++    omnizya_dex_lib::run()
++}
+diff --git a/src-tauri/src/models/mod.rs b/src-tauri/src/models/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/models/plugin.rs b/src-tauri/src/models/plugin.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/models/settings.rs b/src-tauri/src/models/settings.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/models/system.rs b/src-tauri/src/models/system.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/models/widget.rs b/src-tauri/src/models/widget.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/plugins/loader.rs b/src-tauri/src/plugins/loader.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/plugins/manifest.rs b/src-tauri/src/plugins/manifest.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/plugins/mod.rs b/src-tauri/src/plugins/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/plugins/registry.rs b/src-tauri/src/plugins/registry.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/capabilities.rs b/src-tauri/src/providers/capabilities.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..89babaec002474d24c5d741f3201c6a32e6a530c
+--- /dev/null
++++ b/src-tauri/src/providers/capabilities.rs
+@@ -0,0 +1,44 @@
++use serde::{Deserialize, Serialize};
++
++/// Capabilities exposed by providers.
++///
++/// Modules request capabilities from the ProviderRegistry rather than
++/// depending on concrete provider implementations.
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
++pub enum Capability {
++    DBus,
++    Network,
++    Modem,
++    Filesystem,
++    Terminal,
++    Process,
++    Git,
++    SSH,
++    GPG,
++    Notifications,
++    Secrets,
++    Wayland,
++    Hyprland,
++}
++
++impl Capability {
++    /// Stable identifier for serialization, logging and diagnostics.
++    #[must_use]
++    pub const fn as_str(self) -> &'static str {
++        match self {
++            Self::DBus => "dbus",
++            Self::Network => "network",
++            Self::Modem => "modem",
++            Self::Filesystem => "filesystem",
++            Self::Terminal => "terminal",
++            Self::Process => "process",
++            Self::Git => "git",
++            Self::SSH => "ssh",
++            Self::GPG => "gpg",
++            Self::Notifications => "notifications",
++            Self::Secrets => "secrets",
++            Self::Wayland => "wayland",
++            Self::Hyprland => "hyprland",
++        }
++    }
++}
+diff --git a/src-tauri/src/providers/dbus/connection.rs b/src-tauri/src/providers/dbus/connection.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..041518dc0dbb1f44ddfed025001c11219ff221fd
+--- /dev/null
++++ b/src-tauri/src/providers/dbus/connection.rs
+@@ -0,0 +1,57 @@
++use zbus::Connection;
++
++use super::error::DbusError;
++
++/// Owns the connection to the system D-Bus.
++///
++/// This is the transport layer used by all D-Bus based providers
++/// (NetworkManager, ModemManager, UPower, BlueZ, Secret Service, etc.).
++pub struct DbusConnection {
++    connection: Connection,
++}
++
++impl DbusConnection {
++    /// Connect to the system bus.
++    pub async fn system() -> Result<Self, DbusError> {
++        let connection = Connection::system()
++            .await
++            .map_err(|error| DbusError::ConnectionFailed {
++                reason: error.to_string(),
++            })?;
++
++        Ok(Self { connection })
++    }
++
++    /// Connect to the session bus.
++    pub async fn session() -> Result<Self, DbusError> {
++        let connection = Connection::session()
++            .await
++            .map_err(|error| DbusError::ConnectionFailed {
++                reason: error.to_string(),
++            })?;
++
++        Ok(Self { connection })
++    }
++
++    /// Returns the underlying zbus connection.
++    #[must_use]
++    pub fn inner(&self) -> &Connection {
++        &self.connection
++    }
++
++    /// Returns true if the connection is alive.
++    #[must_use]
++    pub fn is_connected(&self) -> bool {
++        !self.connection.executor().is_finished()
++    }
++
++    /// Returns the unique bus name assigned by D-Bus.
++    pub async fn unique_name(&self) -> Result<String, DbusError> {
++        let name = self
++            .connection
++            .unique_name()
++            .ok_or(DbusError::ConnectionClosed)?;
++
++        Ok(name.to_string())
++    }
++}
+diff --git a/src-tauri/src/providers/dbus/error.rs b/src-tauri/src/providers/dbus/error.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..8cbd6eede17596a4f4551eeab83207e4e352de51
+--- /dev/null
++++ b/src-tauri/src/providers/dbus/error.rs
+@@ -0,0 +1,148 @@
++use std::fmt;
++
++/// Errors returned by the D-Bus provider.
++///
++/// These errors represent communication and protocol failures between
++/// DEX and the system D-Bus.
++#[derive(Debug)]
++pub enum DbusError {
++    /// Failed to establish a connection to the bus.
++    ConnectionFailed {
++        reason: String,
++    },
++
++    /// The connection has been closed.
++    ConnectionClosed,
++
++    /// Failed to send a message.
++    SendFailed {
++        reason: String,
++    },
++
++    /// Failed to receive a message.
++    ReceiveFailed {
++        reason: String,
++    },
++
++    /// Failed to create a proxy.
++    ProxyCreationFailed {
++        service: String,
++        path: String,
++        interface: String,
++    },
++
++    /// Method invocation failed.
++    MethodCallFailed {
++        method: String,
++        reason: String,
++    },
++
++    /// Failed to subscribe to a signal.
++    SignalSubscriptionFailed {
++        signal: String,
++    },
++
++    /// Requested service is unavailable.
++    ServiceUnavailable {
++        service: String,
++    },
++
++    /// Invalid D-Bus object path.
++    InvalidObjectPath {
++        path: String,
++    },
++
++    /// Invalid interface name.
++    InvalidInterface {
++        interface: String,
++    },
++
++    /// Invalid member.
++    InvalidMember {
++        member: String,
++    },
++
++    /// Operation timed out.
++    Timeout,
++
++    /// Internal D-Bus error.
++    Internal {
++        reason: String,
++    },
++}
++
++impl fmt::Display for DbusError {
++    fn fmt(
++        &self,
++        f: &mut fmt::Formatter<'_>,
++    ) -> fmt::Result {
++        match self {
++            Self::ConnectionFailed { reason } => {
++                write!(f, "failed to connect to D-Bus: {reason}")
++            }
++
++            Self::ConnectionClosed => {
++                write!(f, "D-Bus connection is closed")
++            }
++
++            Self::SendFailed { reason } => {
++                write!(f, "failed to send D-Bus message: {reason}")
++            }
++
++            Self::ReceiveFailed { reason } => {
++                write!(f, "failed to receive D-Bus message: {reason}")
++            }
++
++            Self::ProxyCreationFailed {
++                service,
++                path,
++                interface,
++            } => {
++                write!(
++                    f,
++                    "failed to create proxy ({service}, {path}, {interface})"
++                )
++            }
++
++            Self::MethodCallFailed {
++                method,
++                reason,
++            } => {
++                write!(f, "D-Bus method '{method}' failed: {reason}")
++            }
++
++            Self::SignalSubscriptionFailed { signal } => {
++                write!(
++                    f,
++                    "failed to subscribe to signal '{signal}'"
++                )
++            }
++
++            Self::ServiceUnavailable { service } => {
++                write!(f, "service '{service}' is unavailable")
++            }
++
++            Self::InvalidObjectPath { path } => {
++                write!(f, "invalid object path '{path}'")
++            }
++
++            Self::InvalidInterface { interface } => {
++                write!(f, "invalid interface '{interface}'")
++            }
++
++            Self::InvalidMember { member } => {
++                write!(f, "invalid member '{member}'")
++            }
++
++            Self::Timeout => {
++                write!(f, "D-Bus operation timed out")
++            }
++
++            Self::Internal { reason } => {
++                write!(f, "internal D-Bus error: {reason}")
++            }
++        }
++    }
++}
++
++impl std::error::Error for DbusError {}
+diff --git a/src-tauri/src/providers/dbus/message.rs b/src-tauri/src/providers/dbus/message.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..93e7ba2d24eb7c93427f2371df85c896ea77cc7c
+--- /dev/null
++++ b/src-tauri/src/providers/dbus/message.rs
+@@ -0,0 +1,83 @@
++use std::collections::HashMap;
++
++use zvariant::OwnedValue;
++
++/// Generic D-Bus message.
++///
++/// This is a transport-independent representation used internally by DEX.
++/// It is intentionally decoupled from `zbus::Message` so providers are not
++/// tightly coupled to the underlying D-Bus library.
++#[derive(Debug, Clone)]
++pub struct DbusMessage {
++    /// Destination service.
++    pub destination: String,
++
++    /// Object path.
++    pub path: String,
++
++    /// Interface name.
++    pub interface: String,
++
++    /// Method or signal member.
++    pub member: String,
++
++    /// Named arguments.
++    pub body: HashMap<String, OwnedValue>,
++}
++
++impl DbusMessage {
++    /// Creates a new D-Bus message.
++    #[must_use]
++    pub fn new(
++        destination: impl Into<String>,
++        path: impl Into<String>,
++        interface: impl Into<String>,
++        member: impl Into<String>,
++    ) -> Self {
++        Self {
++            destination: destination.into(),
++            path: path.into(),
++            interface: interface.into(),
++            member: member.into(),
++            body: HashMap::new(),
++        }
++    }
++
++    /// Adds an argument to the message body.
++    #[must_use]
++    pub fn with_argument(
++        mut self,
++        name: impl Into<String>,
++        value: OwnedValue,
++    ) -> Self {
++        self.body.insert(name.into(), value);
++        self
++    }
++
++    /// Returns true if the message has arguments.
++    #[must_use]
++    pub fn has_arguments(&self) -> bool {
++        !self.body.is_empty()
++    }
++
++    /// Returns an argument by name.
++    #[must_use]
++    pub fn argument(
++        &self,
++        name: &str,
++    ) -> Option<&OwnedValue> {
++        self.body.get(name)
++    }
++}
++
++impl Default for DbusMessage {
++    fn default() -> Self {
++        Self {
++            destination: String::new(),
++            path: String::new(),
++            interface: String::new(),
++            member: String::new(),
++            body: HashMap::new(),
++        }
++    }
++}
+diff --git a/src-tauri/src/providers/dbus/mod.rs b/src-tauri/src/providers/dbus/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..a44ecefcb213f062a90da62d74e52aab3eafd2a2
+--- /dev/null
++++ b/src-tauri/src/providers/dbus/mod.rs
+@@ -0,0 +1,13 @@
++pub mod connection;
++pub mod error;
++pub mod message;
++pub mod provider;
++pub mod proxy;
++pub mod signal;
++
++pub use connection::DbusConnection;
++pub use error::DbusError;
++pub use message::DbusMessage;
++pub use provider::DbusProvider;
++pub use proxy::DbusProxy;
++pub use signal::DbusSignal;
+diff --git a/src-tauri/src/providers/dbus/provider.rs b/src-tauri/src/providers/dbus/provider.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..d6aa8e093b21a36ab5f12d8a85197a874d523991
+--- /dev/null
++++ b/src-tauri/src/providers/dbus/provider.rs
+@@ -0,0 +1,86 @@
++use zbus::Proxy;
++
++use super::{
++    connection::DbusConnection,
++    error::DbusError,
++};
++
++/// Generic D-Bus proxy.
++///
++/// Wraps a `zbus::Proxy` and provides a stable abstraction for all
++/// DEX providers that communicate over D-Bus.
++///
++/// Specialized providers (NetworkManager, ModemManager, UPower,
++/// BlueZ, Secret Service, etc.) compose this type rather than
++/// interacting with `zbus::Proxy` directly.
++pub struct DbusProxy<'a> {
++    proxy: Proxy<'a>,
++}
++
++impl<'a> DbusProxy<'a> {
++    /// Creates a new D-Bus proxy.
++    pub async fn new(
++        connection: &'a DbusConnection,
++        destination: &str,
++        path: &str,
++        interface: &str,
++    ) -> Result<Self, DbusError> {
++        let proxy = Proxy::new(
++            connection.inner(),
++            destination,
++            path,
++            interface,
++        )
++        .await
++        .map_err(|_| DbusError::ProxyCreationFailed {
++            service: destination.to_owned(),
++            path: path.to_owned(),
++            interface: interface.to_owned(),
++        })?;
++
++        Ok(Self { proxy })
++    }
++
++    /// Returns the underlying zbus proxy.
++    #[must_use]
++    pub fn inner(&self) -> &Proxy<'a> {
++        &self.proxy
++    }
++
++    /// Returns the destination service.
++    #[must_use]
++    pub fn destination(&self) -> &str {
++        self.proxy.destination()
++    }
++
++    /// Returns the object path.
++    #[must_use]
++    pub fn path(&self) -> &str {
++        self.proxy.path()
++    }
++
++    /// Returns the interface name.
++    #[must_use]
++    pub fn interface(&self) -> &str {
++        self.proxy.interface()
++    }
++
++    /// Calls a D-Bus method.
++    pub async fn call<R, B>(
++        &self,
++        method: &str,
++        body: &B,
++    ) -> Result<R, DbusError>
++    where
++        R: zvariant::Type + serde::de::DeserializeOwned,
++        B: serde::ser::Serialize + zvariant::DynamicType,
++    {
++        self.proxy
++            .call(method, body)
++            .await
++            .map_err(|error| DbusError::MethodCallFailed {
++                method: method.to_owned(),
++                reason: error.to_string(),
++            })
++    }
++}
+diff --git a/src-tauri/src/providers/dbus/proxy.rs b/src-tauri/src/providers/dbus/proxy.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..d6aa8e093b21a36ab5f12d8a85197a874d523991
+--- /dev/null
++++ b/src-tauri/src/providers/dbus/proxy.rs
+@@ -0,0 +1,86 @@
++use zbus::Proxy;
++
++use super::{
++    connection::DbusConnection,
++    error::DbusError,
++};
++
++/// Generic D-Bus proxy.
++///
++/// Wraps a `zbus::Proxy` and provides a stable abstraction for all
++/// DEX providers that communicate over D-Bus.
++///
++/// Specialized providers (NetworkManager, ModemManager, UPower,
++/// BlueZ, Secret Service, etc.) compose this type rather than
++/// interacting with `zbus::Proxy` directly.
++pub struct DbusProxy<'a> {
++    proxy: Proxy<'a>,
++}
++
++impl<'a> DbusProxy<'a> {
++    /// Creates a new D-Bus proxy.
++    pub async fn new(
++        connection: &'a DbusConnection,
++        destination: &str,
++        path: &str,
++        interface: &str,
++    ) -> Result<Self, DbusError> {
++        let proxy = Proxy::new(
++            connection.inner(),
++            destination,
++            path,
++            interface,
++        )
++        .await
++        .map_err(|_| DbusError::ProxyCreationFailed {
++            service: destination.to_owned(),
++            path: path.to_owned(),
++            interface: interface.to_owned(),
++        })?;
++
++        Ok(Self { proxy })
++    }
++
++    /// Returns the underlying zbus proxy.
++    #[must_use]
++    pub fn inner(&self) -> &Proxy<'a> {
++        &self.proxy
++    }
++
++    /// Returns the destination service.
++    #[must_use]
++    pub fn destination(&self) -> &str {
++        self.proxy.destination()
++    }
++
++    /// Returns the object path.
++    #[must_use]
++    pub fn path(&self) -> &str {
++        self.proxy.path()
++    }
++
++    /// Returns the interface name.
++    #[must_use]
++    pub fn interface(&self) -> &str {
++        self.proxy.interface()
++    }
++
++    /// Calls a D-Bus method.
++    pub async fn call<R, B>(
++        &self,
++        method: &str,
++        body: &B,
++    ) -> Result<R, DbusError>
++    where
++        R: zvariant::Type + serde::de::DeserializeOwned,
++        B: serde::ser::Serialize + zvariant::DynamicType,
++    {
++        self.proxy
++            .call(method, body)
++            .await
++            .map_err(|error| DbusError::MethodCallFailed {
++                method: method.to_owned(),
++                reason: error.to_string(),
++            })
++    }
++}
+diff --git a/src-tauri/src/providers/dbus/signal.rs b/src-tauri/src/providers/dbus/signal.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..44a38efaafb2230a5a4204307d9d2810698483cd
+--- /dev/null
++++ b/src-tauri/src/providers/dbus/signal.rs
+@@ -0,0 +1,95 @@
++use std::collections::HashMap;
++
++use zvariant::OwnedValue;
++
++/// A D-Bus signal emitted by a remote service.
++///
++/// Signals are asynchronous events published by services such as:
++/// - NetworkManager
++/// - ModemManager
++/// - UPower
++/// - BlueZ
++/// - Secret Service
++#[derive(Debug, Clone)]
++pub struct DbusSignal {
++    /// Sender's unique bus name.
++    pub sender: Option<String>,
++
++    /// Object path that emitted the signal.
++    pub path: String,
++
++    /// Interface that defines the signal.
++    pub interface: String,
++
++    /// Signal name.
++    pub member: String,
++
++    /// Signal payload.
++    pub body: HashMap<String, OwnedValue>,
++}
++
++impl DbusSignal {
++    /// Creates a new signal.
++    #[must_use]
++    pub fn new(
++        path: impl Into<String>,
++        interface: impl Into<String>,
++        member: impl Into<String>,
++    ) -> Self {
++        Self {
++            sender: None,
++            path: path.into(),
++            interface: interface.into(),
++            member: member.into(),
++            body: HashMap::new(),
++        }
++    }
++
++    /// Sets the sender.
++    #[must_use]
++    pub fn with_sender(
++        mut self,
++        sender: impl Into<String>,
++    ) -> Self {
++        self.sender = Some(sender.into());
++        self
++    }
++
++    /// Adds a payload field.
++    #[must_use]
++    pub fn with_argument(
++        mut self,
++        name: impl Into<String>,
++        value: OwnedValue,
++    ) -> Self {
++        self.body.insert(name.into(), value);
++        self
++    }
++
++    /// Returns an argument by name.
++    #[must_use]
++    pub fn argument(
++        &self,
++        name: &str,
++    ) -> Option<&OwnedValue> {
++        self.body.get(name)
++    }
++
++    /// Returns true if the signal has a payload.
++    #[must_use]
++    pub fn has_arguments(&self) -> bool {
++        !self.body.is_empty()
++    }
++}
++
++impl Default for DbusSignal {
++    fn default() -> Self {
++        Self {
++            sender: None,
++            path: String::new(),
++            interface: String::new(),
++            member: String::new(),
++            body: HashMap::new(),
++        }
++    }
++}
+diff --git a/src-tauri/src/providers/error.rs b/src-tauri/src/providers/error.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..86bcf4a9b5178b6740df469f94b9629bdc508eb6
+--- /dev/null
++++ b/src-tauri/src/providers/error.rs
+@@ -0,0 +1,88 @@
++use std::fmt;
++
++/// Common error type returned by all DEX providers.
++#[derive(Debug)]
++pub enum ProviderError {
++    /// A provider with the given identifier already exists.
++    AlreadyRegistered {
++        id: String,
++    },
++
++    /// Requested provider could not be found.
++    NotFound {
++        id: String,
++    },
++
++    /// Provider does not expose the requested capability.
++    CapabilityUnavailable,
++
++    /// Provider failed to initialize.
++    InitializationFailed {
++        reason: String,
++    },
++
++    /// Provider failed to shut down.
++    ShutdownFailed {
++        reason: String,
++    },
++
++    /// Provider lacks the required permissions.
++    PermissionDenied,
++
++    /// Communication with the underlying system failed.
++    CommunicationError {
++        reason: String,
++    },
++
++    /// Operation timed out.
++    Timeout,
++
++    /// Internal provider error.
++    Internal {
++        reason: String,
++    },
++}
++
++impl fmt::Display for ProviderError {
++    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++        match self {
++            Self::AlreadyRegistered { id } => {
++                write!(f, "provider '{}' is already registered", id)
++            }
++
++            Self::NotFound { id } => {
++                write!(f, "provider '{}' was not found", id)
++            }
++
++            Self::CapabilityUnavailable => {
++                write!(f, "requested capability is unavailable")
++            }
++
++            Self::InitializationFailed { reason } => {
++                write!(f, "provider initialization failed: {}", reason)
++            }
++
++            Self::ShutdownFailed { reason } => {
++                write!(f, "provider shutdown failed: {}", reason)
++            }
++
++            Self::PermissionDenied => {
++                write!(f, "permission denied")
++            }
++
++            Self::CommunicationError { reason } => {
++                write!(f, "communication error: {}", reason)
++            }
++
++            Self::Timeout => {
++                write!(f, "operation timed out")
++            }
++
++            Self::Internal { reason } => {
++                write!(f, "internal provider error: {}", reason)
++            }
++        }
++    }
++}
++
++impl std::error::Error for ProviderError {}
+diff --git a/src-tauri/src/providers/filesystem/mod.rs b/src-tauri/src/providers/filesystem/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/filesystem/paths.rs b/src-tauri/src/providers/filesystem/paths.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/filesystem/provider.rs b/src-tauri/src/providers/filesystem/provider.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/filesystem/watcher.rs b/src-tauri/src/providers/filesystem/watcher.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/git/branch.rs b/src-tauri/src/providers/git/branch.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/git/mod.rs b/src-tauri/src/providers/git/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/git/provider.rs b/src-tauri/src/providers/git/provider.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/git/repository.rs b/src-tauri/src/providers/git/repository.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/gpg/key.rs b/src-tauri/src/providers/gpg/key.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/gpg/mod.rs b/src-tauri/src/providers/gpg/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/gpg/provider.rs b/src-tauri/src/providers/gpg/provider.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/hardware/device.rs b/src-tauri/src/providers/hardware/device.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/hardware/errors.rs b/src-tauri/src/providers/hardware/errors.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/hardware/events.rs b/src-tauri/src/providers/hardware/events.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/hardware/mod.rs b/src-tauri/src/providers/hardware/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/hardware/provider.rs b/src-tauri/src/providers/hardware/provider.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/health.rs b/src-tauri/src/providers/health.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..839c9df7d8bb9a4d912583f31488eff35f99ac0a
+--- /dev/null
++++ b/src-tauri/src/providers/health.rs
+@@ -0,0 +1,53 @@
++use serde::{Deserialize, Serialize};
++
++/// Operational health of a provider.
++///
++/// Health indicates **how well** a provider is functioning.
++/// It is independent from the provider lifecycle state.
++///
++/// Examples:
++/// - Running + Ready
++/// - Running + Busy
++/// - Running + Degraded
++/// - Running + Failed
++/// - Stopped + Unknown
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
++pub enum ProviderHealth {
++    /// Health has not yet been determined.
++    Unknown,
++
++    /// Initializing dependencies or connections.
++    Initializing,
++
++    /// Fully operational.
++    Ready,
++
++    /// Operational but actively processing work.
++    Busy,
++
++    /// Operational with reduced functionality.
++    Degraded,
++
++    /// Temporarily unavailable.
++    Unavailable,
++
++    /// Fatal error preventing operation.
++    Failed,
++}
++
++impl ProviderHealth {
++    /// Returns true if the provider can currently serve requests.
++    #[must_use]
++    pub const fn is_available(self) -> bool {
++        matches!(
++            self,
++            Self::Ready | Self::Busy | Self::Degraded
++        )
++    }
++
++    /// Returns true if the provider has encountered a fatal error.
++    #[must_use]
++    pub const fn is_failed(self) -> bool {
++        matches!(self, Self::Failed)
++    }
++}
+diff --git a/src-tauri/src/providers/hyprland/ipc.rc b/src-tauri/src/providers/hyprland/ipc.rc
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/hyprland/mod.rs b/src-tauri/src/providers/hyprland/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/hyprland/provider.rs b/src-tauri/src/providers/hyprland/provider.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/hyprland/window.rs b/src-tauri/src/providers/hyprland/window.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/hyprland/workspace.rs b/src-tauri/src/providers/hyprland/workspace.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/mod.rs b/src-tauri/src/providers/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..be15c6276a134880fd98eb83791f6e436d3ee6a6
+--- /dev/null
++++ b/src-tauri/src/providers/mod.rs
+@@ -0,0 +1,13 @@
++pub mod capability;
++pub mod error;
++pub mod health;
++pub mod provider;
++pub mod registry;
++pub mod state;
++
++pub use capability::Capability;
++pub use error::ProviderError;
++pub use health::ProviderHealth;
++pub use provider::Provider;
++pub use registry::ProviderRegistry;
++pub use state::ProviderState;
+diff --git a/src-tauri/src/providers/modem/errors.rs b/src-tauri/src/providers/modem/errors.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..fdf5600d6f9601d97ebd7fd33776c35382a7dbc9
+--- /dev/null
++++ b/src-tauri/src/providers/modem/errors.rs
+@@ -0,0 +1,90 @@
++use std::fmt;
++
++/// Errors returned by the Modem provider.
++#[derive(Debug)]
++pub enum ModemError {
++    ModemNotFound {
++        id: String,
++    },
++
++    SimNotFound,
++
++    ManagerUnavailable,
++
++    ConnectFailed {
++        reason: String,
++    },
++
++    DisconnectFailed {
++        reason: String,
++    },
++
++    InvalidPin,
++
++    PinRequired,
++
++    PukRequired,
++
++    PermissionDenied,
++
++    Timeout,
++
++    Internal {
++        reason: String,
++    },
++}
++
++impl fmt::Display for ModemError {
++    fn fmt(
++        &self,
++        f: &mut fmt::Formatter<'_>,
++    ) -> fmt::Result {
++        match self {
++            Self::ModemNotFound { id } => {
++                write!(f, "modem '{}' not found", id)
++            }
++
++            Self::SimNotFound => {
++                write!(f, "SIM card not found")
++            }
++
++            Self::ManagerUnavailable => {
++                write!(f, "ModemManager is unavailable")
++            }
++
++            Self::ConnectFailed { reason } => {
++                write!(f, "failed to connect: {}", reason)
++            }
++
++            Self::DisconnectFailed { reason } => {
++                write!(f, "failed to disconnect: {}", reason)
++            }
++
++            Self::InvalidPin => {
++                write!(f, "invalid PIN")
++            }
++
++            Self::PinRequired => {
++                write!(f, "SIM PIN required")
++            }
++
++            Self::PukRequired => {
++                write!(f, "SIM PUK required")
++            }
++
++            Self::PermissionDenied => {
++                write!(f, "permission denied")
++            }
++
++            Self::Timeout => {
++                write!(f, "operation timed out")
++            }
++
++            Self::Internal { reason } => {
++                write!(f, "internal modem error: {}", reason)
++            }
++        }
++    }
++}
++
++impl std::error::Error for ModemError {}
+diff --git a/src-tauri/src/providers/modem/events.rs b/src-tauri/src/providers/modem/events.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..c7960d734ad7b238182f2a161fcdc443eef8daf3
+--- /dev/null
++++ b/src-tauri/src/providers/modem/events.rs
+@@ -0,0 +1,91 @@
++use serde::{Deserialize, Serialize};
++
++use super::{
++    modem::ModemState,
++    signal::SignalQuality,
++    sim::SimState,
++};
++
++/// Events emitted by the ModemProvider.
++///
++/// These events are published on the DEX event bus and consumed
++/// by widgets and application services.
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub enum ModemEvent {
++    ModemAdded(ModemAddedEvent),
++
++    ModemRemoved {
++        modem_id: String,
++    },
++
++    ModemStateChanged(ModemStateChangedEvent),
++
++    SignalChanged(SignalChangedEvent),
++
++    OperatorChanged(OperatorChangedEvent),
++
++    TechnologyChanged(TechnologyChangedEvent),
++
++    SimInserted(SimInsertedEvent),
++
++    SimRemoved {
++        modem_id: String,
++    },
++
++    SimStateChanged(SimStateChangedEvent),
++
++    Connected {
++        modem_id: String,
++    },
++
++    Disconnected {
++        modem_id: String,
++    },
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct ModemAddedEvent {
++    pub modem_id: String,
++    pub manufacturer: String,
++    pub model: String,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct ModemStateChangedEvent {
++    pub modem_id: String,
++    pub previous: ModemState,
++    pub current: ModemState,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct SignalChangedEvent {
++    pub modem_id: String,
++    pub signal: SignalQuality,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct OperatorChangedEvent {
++    pub modem_id: String,
++    pub previous: Option<String>,
++    pub current: Option<String>,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct TechnologyChangedEvent {
++    pub modem_id: String,
++    pub previous: String,
++    pub current: String,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct SimInsertedEvent {
++    pub modem_id: String,
++    pub sim_id: String,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct SimStateChangedEvent {
++    pub modem_id: String,
++    pub previous: SimState,
++    pub current: SimState,
++}
+diff --git a/src-tauri/src/providers/modem/mod.rs b/src-tauri/src/providers/modem/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..125a82246b793aff4adc46acf7fb08ab4487965a
+--- /dev/null
++++ b/src-tauri/src/providers/modem/mod.rs
+@@ -0,0 +1,13 @@
++pub mod error;
++pub mod events;
++pub mod modem;
++pub mod provider;
++pub mod signal;
++pub mod sim;
++
++pub use error::ModemError;
++pub use events::ModemEvent;
++pub use modem::{AccessTechnology, Modem, ModemState};
++pub use provider::ModemProvider;
++pub use signal::SignalQuality;
++pub use sim::{SimCard, SimState};
+diff --git a/src-tauri/src/providers/modem/modem.rs b/src-tauri/src/providers/modem/modem.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..15460f1263566e2e913548f18b1add4d0b1d61be
+--- /dev/null
++++ b/src-tauri/src/providers/modem/modem.rs
+@@ -0,0 +1,101 @@
++use serde::{Deserialize, Serialize};
++
++use super::signal::SignalQuality;
++
++/// Physical cellular modem.
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct Modem {
++    /// Stable identifier (typically the ModemManager object path).
++    pub id: String,
++
++    /// Manufacturer.
++    pub manufacturer: String,
++
++    /// Model.
++    pub model: String,
++
++    /// Device name.
++    pub device: String,
++
++    /// IMEI.
++    pub imei: Option<String>,
++
++    /// Active operator.
++    pub operator: Option<String>,
++
++    /// Current access technology.
++    pub technology: AccessTechnology,
++
++    /// Registration state.
++    pub state: ModemState,
++
++    /// Signal quality.
++    pub signal: SignalQuality,
++
++    /// Whether a SIM is present.
++    pub sim_present: bool,
++}
++
++impl Modem {
++    #[must_use]
++    pub fn new(
++        id: impl Into<String>,
++    ) -> Self {
++        Self {
++            id: id.into(),
++            manufacturer: String::new(),
++            model: String::new(),
++            device: String::new(),
++            imei: None,
++            operator: None,
++            technology: AccessTechnology::Unknown,
++            state: ModemState::Unknown,
++            signal: SignalQuality::default(),
++            sim_present: false,
++        }
++    }
++
++    #[must_use]
++    pub fn is_connected(&self) -> bool {
++        self.state == ModemState::Connected
++    }
++
++    #[must_use]
++    pub fn is_registered(&self) -> bool {
++        matches!(
++            self.state,
++            ModemState::Registered | ModemState::Connected
++        )
++    }
++
++    #[must_use]
++    pub fn has_sim(&self) -> bool {
++        self.sim_present
++    }
++}
++
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
++pub enum ModemState {
++    Unknown,
++    Disabled,
++    Initializing,
++    Searching,
++    Registered,
++    Connecting,
++    Connected,
++    Disconnecting,
++    Failed,
++}
++
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
++pub enum AccessTechnology {
++    Unknown,
++    Gsm,
++    Gprs,
++    Edge,
++    Umts,
++    Hspa,
++    HspaPlus,
++    Lte,
++    Nr5g,
++}
+diff --git a/src-tauri/src/providers/modem/provider.rs b/src-tauri/src/providers/modem/provider.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..52a8a6e8408ed7b336273389474a8628b23aef31
+--- /dev/null
++++ b/src-tauri/src/providers/modem/provider.rs
+@@ -0,0 +1,173 @@
++use std::collections::HashMap;
++
++use crate::providers::{
++    Capability,
++    Provider,
++    ProviderError,
++    ProviderHealth,
++    ProviderState,
++};
++
++use super::{
++    events::ModemEvent,
++    modem::Modem,
++    sim::SimCard,
++};
++
++/// Cellular modem provider.
++///
++/// Owns the collection of detected modems and SIM cards.
++///
++/// The implementation is transport-independent; communication with
++/// ModemManager over D-Bus will be added in the integration layer.
++pub struct ModemProvider {
++    modems: HashMap<String, Modem>,
++    sims: HashMap<String, SimCard>,
++    events: Vec<ModemEvent>,
++    state: ProviderState,
++    health: ProviderHealth,
++}
++
++impl ModemProvider {
++    #[must_use]
++    pub fn new() -> Self {
++        Self {
++            modems: HashMap::new(),
++            sims: HashMap::new(),
++            events: Vec::new(),
++            state: ProviderState::Created,
++            health: ProviderHealth::Unknown,
++        }
++    }
++
++    #[must_use]
++    pub fn modems(&self) -> &HashMap<String, Modem> {
++        &self.modems
++    }
++
++    #[must_use]
++    pub fn sims(&self) -> &HashMap<String, SimCard> {
++        &self.sims
++    }
++
++    #[must_use]
++    pub fn modem(
++        &self,
++        id: &str,
++    ) -> Option<&Modem> {
++        self.modems.get(id)
++    }
++
++    #[must_use]
++    pub fn sim(
++        &self,
++        id: &str,
++    ) -> Option<&SimCard> {
++        self.sims.get(id)
++    }
++
++    pub fn add_modem(
++        &mut self,
++        modem: Modem,
++    ) {
++        self.modems
++            .insert(modem.id.clone(), modem);
++    }
++
++    pub fn remove_modem(
++        &mut self,
++        id: &str,
++    ) -> Option<Modem> {
++        self.modems.remove(id)
++    }
++
++    pub fn add_sim(
++        &mut self,
++        sim: SimCard,
++    ) {
++        self.sims
++            .insert(sim.id.clone(), sim);
++    }
++
++    pub fn remove_sim(
++        &mut self,
++        id: &str,
++    ) -> Option<SimCard> {
++        self.sims.remove(id)
++    }
++
++    pub fn emit(
++        &mut self,
++        event: ModemEvent,
++    ) {
++        self.events.push(event);
++    }
++
++    #[must_use]
++    pub fn events(&self) -> &[ModemEvent] {
++        &self.events
++    }
++
++    pub fn clear_events(&mut self) {
++        self.events.clear();
++    }
++}
++
++impl Default for ModemProvider {
++    fn default() -> Self {
++        Self::new()
++    }
++}
++
++impl Provider for ModemProvider {
++    fn id(&self) -> &'static str {
++        "modem"
++    }
++
++    fn name(&self) -> &'static str {
++        "Modem Provider"
++    }
++
++    fn version(&self) -> &'static str {
++        env!("CARGO_PKG_VERSION")
++    }
++
++    fn capabilities(&self) -> &'static [Capability] {
++        &[Capability::Modem]
++    }
++
++    fn initialize(
++        &mut self,
++    ) -> Result<(), ProviderError> {
++        self.state = ProviderState::Initializing;
++        self.health = ProviderHealth::Initializing;
++
++        self.state = ProviderState::Running;
++        self.health = ProviderHealth::Ready;
++
++        Ok(())
++    }
++
++    fn shutdown(
++        &mut self,
++    ) -> Result<(), ProviderError> {
++        self.state = ProviderState::Stopping;
++
++        self.modems.clear();
++        self.sims.clear();
++        self.events.clear();
++
++        self.state = ProviderState::Stopped;
++        self.health = ProviderHealth::Unknown;
++
++        Ok(())
++    }
++
++    fn state(&self) -> ProviderState {
++        self.state
++    }
++
++    fn health(&self) -> ProviderHealth {
++        self.health
++    }
++}
+diff --git a/src-tauri/src/providers/modem/signal.rs b/src-tauri/src/providers/modem/signal.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..b59b2399996b5b77ebb11aa954d1b0313bad74da
+--- /dev/null
++++ b/src-tauri/src/providers/modem/signal.rs
+@@ -0,0 +1,75 @@
++use serde::{Deserialize, Serialize};
++
++/// Cellular signal quality.
++///
++/// Values are normalized regardless of modem vendor.
++/// Raw values (RSSI, RSRP, RSRQ, SINR) are preserved when available.
++#[derive(Debug, Clone, Default, Serialize, Deserialize)]
++pub struct SignalQuality {
++    /// Percentage (0-100).
++    pub quality: u8,
++
++    /// RSSI (dBm).
++    pub rssi: Option<i32>,
++
++    /// RSRP (dBm).
++    pub rsrp: Option<i32>,
++
++    /// RSRQ (dB).
++    pub rsrq: Option<i32>,
++
++    /// SINR (dB).
++    pub sinr: Option<i32>,
++}
++
++impl SignalQuality {
++    #[must_use]
++    pub fn new(quality: u8) -> Self {
++        Self {
++            quality: quality.min(100),
++            rssi: None,
++            rsrp: None,
++            rsrq: None,
++            sinr: None,
++        }
++    }
++
++    #[must_use]
++    pub fn is_available(&self) -> bool {
++        self.quality > 0
++    }
++
++    #[must_use]
++    pub fn bars(&self) -> u8 {
++        match self.quality {
++            0..=5 => 0,
++            6..=25 => 1,
++            26..=50 => 2,
++            51..=75 => 3,
++            76..=90 => 4,
++            _ => 5,
++        }
++    }
++
++    #[must_use]
++    pub fn strength(&self) -> SignalStrength {
++        match self.quality {
++            0..=5 => SignalStrength::None,
++            6..=25 => SignalStrength::Poor,
++            26..=50 => SignalStrength::Fair,
++            51..=75 => SignalStrength::Good,
++            76..=90 => SignalStrength::Excellent,
++            _ => SignalStrength::Perfect,
++        }
++    }
++}
++
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
++pub enum SignalStrength {
++    None,
++    Poor,
++    Fair,
++    Good,
++    Excellent,
++    Perfect,
++}
+diff --git a/src-tauri/src/providers/modem/sim.rs b/src-tauri/src/providers/modem/sim.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..6908ba97dc5330bab3696c182f2680b66fc6ba06
+--- /dev/null
++++ b/src-tauri/src/providers/modem/sim.rs
+@@ -0,0 +1,78 @@
++use serde::{Deserialize, Serialize};
++
++/// SIM card information.
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct SimCard {
++    /// Stable identifier.
++    pub id: String,
++
++    /// ICCID.
++    pub iccid: Option<String>,
++
++    /// IMSI.
++    pub imsi: Option<String>,
++
++    /// Operator name.
++    pub operator: Option<String>,
++
++    /// Mobile Country Code.
++    pub mcc: Option<String>,
++
++    /// Mobile Network Code.
++    pub mnc: Option<String>,
++
++    /// Phone number (MSISDN).
++    pub number: Option<String>,
++
++    /// Current SIM state.
++    pub state: SimState,
++}
++
++impl SimCard {
++    #[must_use]
++    pub fn new(
++        id: impl Into<String>,
++    ) -> Self {
++        Self {
++            id: id.into(),
++            iccid: None,
++            imsi: None,
++            operator: None,
++            mcc: None,
++            mnc: None,
++            number: None,
++            state: SimState::Unknown,
++        }
++    }
++
++    #[must_use]
++    pub fn is_ready(&self) -> bool {
++        self.state == SimState::Ready
++    }
++
++    #[must_use]
++    pub fn requires_pin(&self) -> bool {
++        self.state == SimState::PinRequired
++    }
++
++    #[must_use]
++    pub fn requires_puk(&self) -> bool {
++        self.state == SimState::PukRequired
++    }
++
++    #[must_use]
++    pub fn is_present(&self) -> bool {
++        self.state != SimState::Absent
++    }
++}
++
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
++pub enum SimState {
++    Unknown,
++    Absent,
++    Locked,
++    PinRequired,
++    PukRequired,
++    Ready,
++    Error,
++}
+diff --git a/src-tauri/src/providers/network/adapter.rs b/src-tauri/src/providers/network/adapter.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..af2ad77e0ed62d38f13022a89fc16c1047ddd55a
+--- /dev/null
++++ b/src-tauri/src/providers/network/adapter.rs
+@@ -0,0 +1,91 @@
++use serde::{Deserialize, Serialize};
++
++/// Physical or virtual network interface.
++#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
++pub struct NetworkAdapter {
++    /// Stable identifier (NetworkManager object path, interface name, etc.)
++    pub id: String,
++
++    /// Linux interface name.
++    pub interface: String,
++
++    /// Human-readable name.
++    pub name: String,
++
++    /// Hardware MAC address.
++    pub mac_address: Option<String>,
++
++    /// Adapter type.
++    pub kind: NetworkAdapterKind,
++
++    /// Administrative state.
++    pub state: NetworkAdapterState,
++
++    /// Link speed (Mbps).
++    pub speed_mbps: Option<u32>,
++
++    /// Driver name.
++    pub driver: Option<String>,
++}
++
++impl NetworkAdapter {
++    #[must_use]
++    pub fn new(
++        id: impl Into<String>,
++        interface: impl Into<String>,
++        kind: NetworkAdapterKind,
++    ) -> Self {
++        Self {
++            id: id.into(),
++            interface: interface.into(),
++            name: String::new(),
++            mac_address: None,
++            kind,
++            state: NetworkAdapterState::Unknown,
++            speed_mbps: None,
++            driver: None,
++        }
++    }
++
++    #[must_use]
++    pub fn is_connected(&self) -> bool {
++        matches!(self.state, NetworkAdapterState::Connected)
++    }
++
++    #[must_use]
++    pub fn is_wireless(&self) -> bool {
++        matches!(self.kind, NetworkAdapterKind::Wireless)
++    }
++
++    #[must_use]
++    pub fn is_cellular(&self) -> bool {
++        matches!(self.kind, NetworkAdapterKind::Cellular)
++    }
++
++    #[must_use]
++    pub fn is_ethernet(&self) -> bool {
++        matches!(self.kind, NetworkAdapterKind::Ethernet)
++    }
++}
++
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
++pub enum NetworkAdapterKind {
++    Unknown,
++    Ethernet,
++    Wireless,
++    Cellular,
++    Bluetooth,
++    Loopback,
++    Virtual,
++}
++
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
++pub enum NetworkAdapterState {
++    Unknown,
++    Disabled,
++    Disconnected,
++    Connecting,
++    Connected,
++    Disconnecting,
++    Failed,
++}
+diff --git a/src-tauri/src/providers/network/connection.rs b/src-tauri/src/providers/network/connection.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..0b2856204c9d98741d0f321aa9bd70611edc440b
+--- /dev/null
++++ b/src-tauri/src/providers/network/connection.rs
+@@ -0,0 +1,86 @@
++use serde::{Deserialize, Serialize};
++
++/// Active network connection.
++#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
++pub struct NetworkConnection {
++    /// Stable identifier.
++    pub id: String,
++
++    /// Connection name.
++    pub name: String,
++
++    /// Associated adapter identifier.
++    pub adapter_id: String,
++
++    /// Current state.
++    pub state: ConnectionState,
++
++    /// IPv4 address.
++    pub ipv4: Option<String>,
++
++    /// IPv6 address.
++    pub ipv6: Option<String>,
++
++    /// Gateway.
++    pub gateway: Option<String>,
++
++    /// DNS servers.
++    pub dns: Vec<String>,
++
++    /// SSID (Wi-Fi only).
++    pub ssid: Option<String>,
++
++    /// Signal strength (0–100).
++    pub signal_strength: Option<u8>,
++}
++
++impl NetworkConnection {
++    #[must_use]
++    pub fn new(
++        id: impl Into<String>,
++        adapter_id: impl Into<String>,
++    ) -> Self {
++        Self {
++            id: id.into(),
++            name: String::new(),
++            adapter_id: adapter_id.into(),
++            state: ConnectionState::Disconnected,
++            ipv4: None,
++            ipv6: None,
++            gateway: None,
++            dns: Vec::new(),
++            ssid: None,
++            signal_strength: None,
++        }
++    }
++
++    #[must_use]
++    pub fn is_connected(&self) -> bool {
++        self.state == ConnectionState::Connected
++    }
++
++    #[must_use]
++    pub fn is_connecting(&self) -> bool {
++        self.state == ConnectionState::Connecting
++    }
++
++    #[must_use]
++    pub fn has_ipv4(&self) -> bool {
++        self.ipv4.is_some()
++    }
++
++    #[must_use]
++    pub fn has_ipv6(&self) -> bool {
++        self.ipv6.is_some()
++    }
++}
++
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
++pub enum ConnectionState {
++    Unknown,
++    Disconnected,
++    Connecting,
++    Connected,
++    Disconnecting,
++    Failed,
++}
+diff --git a/src-tauri/src/providers/network/errors.rs b/src-tauri/src/providers/network/errors.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..06dc5f3ba66f04d7d12145fc7b6dfd10862860ad
+--- /dev/null
++++ b/src-tauri/src/providers/network/errors.rs
+@@ -0,0 +1,90 @@
++use std::fmt;
++
++/// Errors returned by the Network provider.
++#[derive(Debug)]
++pub enum NetworkError {
++    AdapterNotFound {
++        id: String,
++    },
++
++    ConnectionNotFound {
++        id: String,
++    },
++
++    ManagerUnavailable,
++
++    ConnectionFailed {
++        reason: String,
++    },
++
++    DisconnectionFailed {
++        reason: String,
++    },
++
++    ScanFailed {
++        reason: String,
++    },
++
++    InvalidConfiguration {
++        reason: String,
++    },
++
++    PermissionDenied,
++
++    Timeout,
++
++    Internal {
++        reason: String,
++    },
++}
++
++impl fmt::Display for NetworkError {
++    fn fmt(
++        &self,
++        f: &mut fmt::Formatter<'_>,
++    ) -> fmt::Result {
++        match self {
++            Self::AdapterNotFound { id } => {
++                write!(f, "network adapter '{}' not found", id)
++            }
++
++            Self::ConnectionNotFound { id } => {
++                write!(f, "network connection '{}' not found", id)
++            }
++
++            Self::ManagerUnavailable => {
++                write!(f, "NetworkManager is unavailable")
++            }
++
++            Self::ConnectionFailed { reason } => {
++                write!(f, "connection failed: {}", reason)
++            }
++
++            Self::DisconnectionFailed { reason } => {
++                write!(f, "disconnection failed: {}", reason)
++            }
++
++            Self::ScanFailed { reason } => {
++                write!(f, "network scan failed: {}", reason)
++            }
++
++            Self::InvalidConfiguration { reason } => {
++                write!(f, "invalid configuration: {}", reason)
++            }
++
++            Self::PermissionDenied => {
++                write!(f, "permission denied")
++            }
++
++            Self::Timeout => {
++                write!(f, "operation timed out")
++            }
++
++            Self::Internal { reason } => {
++                write!(f, "internal network error: {}", reason)
++            }
++        }
++    }
++}
++
++impl std::error::Error for NetworkError {}
+diff --git a/src-tauri/src/providers/network/events.rs b/src-tauri/src/providers/network/events.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..8b88480044db174603b1c0e15576cc580ba7124b
+--- /dev/null
++++ b/src-tauri/src/providers/network/events.rs
+@@ -0,0 +1,62 @@
++use serde::{Deserialize, Serialize};
++
++/// Events emitted by the NetworkProvider.
++///
++/// These events are intended to be published on the DEX event bus
++/// and consumed by widgets and application services.
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub enum NetworkEvent {
++    AdapterAdded(NetworkAdapterEvent),
++
++    AdapterRemoved {
++        adapter_id: String,
++    },
++
++    AdapterStateChanged(NetworkAdapterStateChangedEvent),
++
++    ConnectionEstablished(NetworkConnectionEvent),
++
++    ConnectionLost {
++        connection_id: String,
++    },
++
++    ConnectionStateChanged(NetworkConnectionStateChangedEvent),
++
++    StatisticsUpdated(NetworkStatisticsEvent),
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct NetworkAdapterEvent {
++    pub adapter_id: String,
++    pub interface: String,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct NetworkAdapterStateChangedEvent {
++    pub adapter_id: String,
++    pub previous: String,
++    pub current: String,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct NetworkConnectionEvent {
++    pub connection_id: String,
++    pub adapter_id: String,
++    pub name: String,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct NetworkConnectionStateChangedEvent {
++    pub connection_id: String,
++    pub previous: String,
++    pub current: String,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct NetworkStatisticsEvent {
++    pub adapter_id: String,
++    pub rx_rate: u64,
++    pub tx_rate: u64,
++    pub rx_bytes: u64,
++    pub tx_bytes: u64,
++}
+diff --git a/src-tauri/src/providers/network/mod.rs b/src-tauri/src/providers/network/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..390ce825f1da9d8813effb7daf1ef0ca5e9b4603
+--- /dev/null
++++ b/src-tauri/src/providers/network/mod.rs
+@@ -0,0 +1,13 @@
++pub mod adapter;
++pub mod connection;
++pub mod error;
++pub mod events;
++pub mod provider;
++pub mod statistics;
++
++pub use adapter::NetworkAdapter;
++pub use connection::{ConnectionState, NetworkConnection};
++pub use error::NetworkError;
++pub use events::NetworkEvent;
++pub use provider::NetworkProvider;
++pub use statistics::NetworkStatistics;
+diff --git a/src-tauri/src/providers/network/provider.rs b/src-tauri/src/providers/network/provider.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..54c9d1383d1beceedb770b5ded822d1fb570c5ca
+--- /dev/null
++++ b/src-tauri/src/providers/network/provider.rs
+@@ -0,0 +1,156 @@
++use std::collections::HashMap;
++
++use crate::providers::{
++    Capability,
++    Provider,
++    ProviderError,
++    ProviderHealth,
++    ProviderState,
++};
++
++use super::{
++    adapter::NetworkAdapter,
++    connection::NetworkConnection,
++    events::NetworkEvent,
++};
++
++/// Network provider.
++///
++/// Responsible for managing network adapters and active
++/// connections. Platform-specific communication (NetworkManager)
++/// will be added later.
++pub struct NetworkProvider {
++    adapters: HashMap<String, NetworkAdapter>,
++    connections: HashMap<String, NetworkConnection>,
++    events: Vec<NetworkEvent>,
++    state: ProviderState,
++    health: ProviderHealth,
++}
++
++impl NetworkProvider {
++    #[must_use]
++    pub fn new() -> Self {
++        Self {
++            adapters: HashMap::new(),
++            connections: HashMap::new(),
++            events: Vec::new(),
++            state: ProviderState::Created,
++            health: ProviderHealth::Unknown,
++        }
++    }
++
++    #[must_use]
++    pub fn adapters(&self) -> &HashMap<String, NetworkAdapter> {
++        &self.adapters
++    }
++
++    #[must_use]
++    pub fn connections(&self) -> &HashMap<String, NetworkConnection> {
++        &self.connections
++    }
++
++    pub fn add_adapter(
++        &mut self,
++        adapter: NetworkAdapter,
++    ) {
++        self.adapters
++            .insert(adapter.id.clone(), adapter);
++    }
++
++    pub fn remove_adapter(
++        &mut self,
++        id: &str,
++    ) -> Option<NetworkAdapter> {
++        self.adapters.remove(id)
++    }
++
++    pub fn add_connection(
++        &mut self,
++        connection: NetworkConnection,
++    ) {
++        self.connections
++            .insert(connection.id.clone(), connection);
++    }
++
++    pub fn remove_connection(
++        &mut self,
++        id: &str,
++    ) -> Option<NetworkConnection> {
++        self.connections.remove(id)
++    }
++
++    pub fn emit(
++        &mut self,
++        event: NetworkEvent,
++    ) {
++        self.events.push(event);
++    }
++
++    #[must_use]
++    pub fn events(&self) -> &[NetworkEvent] {
++        &self.events
++    }
++
++    pub fn clear_events(&mut self) {
++        self.events.clear();
++    }
++}
++
++impl Default for NetworkProvider {
++    fn default() -> Self {
++        Self::new()
++    }
++}
++
++impl Provider for NetworkProvider {
++    fn id(&self) -> &'static str {
++        "network"
++    }
++
++    fn name(&self) -> &'static str {
++        "Network Provider"
++    }
++
++    fn version(&self) -> &'static str {
++        env!("CARGO_PKG_VERSION")
++    }
++
++    fn capabilities(&self) -> &'static [Capability] {
++        &[Capability::Network]
++    }
++
++    fn initialize(
++        &mut self,
++    ) -> Result<(), ProviderError> {
++        self.state = ProviderState::Initializing;
++        self.health = ProviderHealth::Initializing;
++
++        self.state = ProviderState::Running;
++        self.health = ProviderHealth::Ready;
++
++        Ok(())
++    }
++
++    fn shutdown(
++        &mut self,
++    ) -> Result<(), ProviderError> {
++        self.state = ProviderState::Stopping;
++
++        self.adapters.clear();
++        self.connections.clear();
++        self.events.clear();
++
++        self.state = ProviderState::Stopped;
++        self.health = ProviderHealth::Unknown;
++
++        Ok(())
++    }
++
++    fn state(&self) -> ProviderState {
++        self.state
++    }
++
++    fn health(&self) -> ProviderHealth {
++        self.health
++    }
++}
+diff --git a/src-tauri/src/providers/network/statistics.rs b/src-tauri/src/providers/network/statistics.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..3b5e982ecbd2f48e353565b0c8520c3257723ae3
+--- /dev/null
++++ b/src-tauri/src/providers/network/statistics.rs
+@@ -0,0 +1,60 @@
++use serde::{Deserialize, Serialize};
++use std::time::Duration;
++
++/// Runtime network statistics.
++#[derive(Debug, Clone, Default, Serialize, Deserialize)]
++pub struct NetworkStatistics {
++    /// Bytes received.
++    pub rx_bytes: u64,
++
++    /// Bytes transmitted.
++    pub tx_bytes: u64,
++
++    /// Packets received.
++    pub rx_packets: u64,
++
++    /// Packets transmitted.
++    pub tx_packets: u64,
++
++    /// Receive errors.
++    pub rx_errors: u64,
++
++    /// Transmit errors.
++    pub tx_errors: u64,
++
++    /// Receive throughput (bytes/sec).
++    pub rx_rate: u64,
++
++    /// Transmit throughput (bytes/sec).
++    pub tx_rate: u64,
++
++    /// Connection uptime.
++    pub uptime: Duration,
++}
++
++impl NetworkStatistics {
++    #[must_use]
++    pub fn total_bytes(&self) -> u64 {
++        self.rx_bytes + self.tx_bytes
++    }
++
++    #[must_use]
++    pub fn total_packets(&self) -> u64 {
++        self.rx_packets + self.tx_packets
++    }
++
++    #[must_use]
++    pub fn total_errors(&self) -> u64 {
++        self.rx_errors + self.tx_errors
++    }
++
++    #[must_use]
++    pub fn is_idle(&self) -> bool {
++        self.rx_rate == 0 && self.tx_rate == 0
++    }
++
++    #[must_use]
++    pub fn total_rate(&self) -> u64 {
++        self.rx_rate + self.tx_rate
++    }
++}
+diff --git a/src-tauri/src/providers/notification/mod.rs b/src-tauri/src/providers/notification/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/notification/provider.rs b/src-tauri/src/providers/notification/provider.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/process/error.rs b/src-tauri/src/providers/process/error.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..cbd93c4b4c35805f99b71feaf008537188af1dd8
+--- /dev/null
++++ b/src-tauri/src/providers/process/error.rs
+@@ -0,0 +1,67 @@
++use std::fmt;
++
++/// Errors returned by the Process provider.
++#[derive(Debug)]
++pub enum ProcessError {
++    ProcessNotFound {
++        pid: u32,
++    },
++
++    SpawnFailed {
++        reason: String,
++    },
++
++    KillFailed {
++        pid: u32,
++        reason: String,
++    },
++
++    PermissionDenied,
++
++    InvalidCommand,
++
++    Timeout,
++
++    Internal {
++        reason: String,
++    },
++}
++
++impl fmt::Display for ProcessError {
++    fn fmt(
++        &self,
++        f: &mut fmt::Formatter<'_>,
++    ) -> fmt::Result {
++        match self {
++            Self::ProcessNotFound { pid } => {
++                write!(f, "process {} not found", pid)
++            }
++
++            Self::SpawnFailed { reason } => {
++                write!(f, "failed to spawn process: {}", reason)
++            }
++
++            Self::KillFailed { pid, reason } => {
++                write!(f, "failed to terminate process {}: {}", pid, reason)
++            }
++
++            Self::PermissionDenied => {
++                write!(f, "permission denied")
++            }
++
++            Self::InvalidCommand => {
++                write!(f, "invalid command")
++            }
++
++            Self::Timeout => {
++                write!(f, "operation timed out")
++            }
++
++            Self::Internal { reason } => {
++                write!(f, "internal process error: {}", reason)
++            }
++        }
++    }
++}
++
++impl std::error::Error for ProcessError {}
+diff --git a/src-tauri/src/providers/process/events.rs b/src-tauri/src/providers/process/events.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..507ae7ec7fe5393ca671e668592068fe12d2b439
+--- /dev/null
++++ b/src-tauri/src/providers/process/events.rs
+@@ -0,0 +1,56 @@
++use serde::{Deserialize, Serialize};
++
++use super::{
++    process::ProcessState,
++    resource::ProcessResourceUsage,
++};
++
++/// Events emitted by the ProcessProvider.
++///
++/// These events are published on the DEX event bus and consumed
++/// by the Task Manager, Terminal, Widgets and Automations.
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub enum ProcessEvent {
++    Spawned(ProcessSpawnedEvent),
++
++    Exited(ProcessExitedEvent),
++
++    StateChanged(ProcessStateChangedEvent),
++
++    ResourceUpdated(ProcessResourceUpdatedEvent),
++
++    PriorityChanged(ProcessPriorityChangedEvent),
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct ProcessSpawnedEvent {
++    pub pid: u32,
++    pub parent_pid: Option<u32>,
++    pub name: String,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct ProcessExitedEvent {
++    pub pid: u32,
++    pub exit_code: Option<i32>,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct ProcessStateChangedEvent {
++    pub pid: u32,
++    pub previous: ProcessState,
++    pub current: ProcessState,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct ProcessResourceUpdatedEvent {
++    pub pid: u32,
++    pub resources: ProcessResourceUsage,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct ProcessPriorityChangedEvent {
++    pub pid: u32,
++    pub previous: i32,
++    pub current: i32,
++}
+diff --git a/src-tauri/src/providers/process/mod.rs b/src-tauri/src/providers/process/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..f3b2e28c42b34d7d1c36fcfe733826a484be107f
+--- /dev/null
++++ b/src-tauri/src/providers/process/mod.rs
+@@ -0,0 +1,13 @@
++pub mod error;
++pub mod events;
++pub mod process;
++pub mod provider;
++pub mod resource;
++pub mod task;
++
++pub use error::ProcessError;
++pub use events::ProcessEvent;
++pub use process::{Process, ProcessPriority, ProcessState};
++pub use provider::ProcessProvider;
++pub use resource::ProcessResourceUsage;
++pub use task::{Task, TaskState};
+diff --git a/src-tauri/src/providers/process/process.rs b/src-tauri/src/providers/process/process.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..a68b94c710f9aeecc75c594629ac2303560d1f52
+--- /dev/null
++++ b/src-tauri/src/providers/process/process.rs
+@@ -0,0 +1,99 @@
++use serde::{Deserialize, Serialize};
++
++use super::resource::ProcessResourceUsage;
++
++/// Runtime process information.
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct Process {
++    /// Operating system process identifier.
++    pub pid: u32,
++
++    /// Parent process identifier.
++    pub parent_pid: Option<u32>,
++
++    /// Process name.
++    pub name: String,
++
++    /// Executable path.
++    pub executable: Option<String>,
++
++    /// Command line.
++    pub command: Vec<String>,
++
++    /// Working directory.
++    pub cwd: Option<String>,
++
++    /// Owner username.
++    pub user: Option<String>,
++
++    /// Current state.
++    pub state: ProcessState,
++
++    /// Scheduling priority.
++    pub priority: ProcessPriority,
++
++    /// Resource usage.
++    pub resources: ProcessResourceUsage,
++}
++
++impl Process {
++    #[must_use]
++    pub fn new(
++        pid: u32,
++        name: impl Into<String>,
++    ) -> Self {
++        Self {
++            pid,
++            parent_pid: None,
++            name: name.into(),
++            executable: None,
++            command: Vec::new(),
++            cwd: None,
++            user: None,
++            state: ProcessState::Unknown,
++            priority: ProcessPriority::Normal,
++            resources: ProcessResourceUsage::default(),
++        }
++    }
++
++    #[must_use]
++    pub fn is_running(&self) -> bool {
++        self.state == ProcessState::Running
++    }
++
++    #[must_use]
++    pub fn is_sleeping(&self) -> bool {
++        self.state == ProcessState::Sleeping
++    }
++
++    #[must_use]
++    pub fn is_zombie(&self) -> bool {
++        self.state == ProcessState::Zombie
++    }
++
++    #[must_use]
++    pub fn command_line(&self) -> String {
++        self.command.join(" ")
++    }
++}
++
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
++pub enum ProcessState {
++    Unknown,
++    Running,
++    Sleeping,
++    Waiting,
++    Stopped,
++    Zombie,
++    Dead,
++}
++
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize,Deserialize)]
++pub enum ProcessPriority {
++    Idle,
++    BelowNormal,
++    Normal,
++    AboveNormal,
++    High,
++    Realtime,
++}
+diff --git a/src-tauri/src/providers/process/provider.rs b/src-tauri/src/providers/process/provider.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..eef96784cca047691a4ecdf610597533b0264cdd
+--- /dev/null
++++ b/src-tauri/src/providers/process/provider.rs
+@@ -0,0 +1,201 @@
++use std::collections::HashMap;
++
++use crate::providers::{
++    Capability,
++    Process,
++    ProcessEvent,
++    Provider,
++    ProviderError,
++    ProviderHealth,
++    ProviderState,
++    Task,
++};
++
++/// Process provider.
++///
++/// Responsible for:
++/// - Process discovery
++/// - Process lifecycle
++/// - Task lifecycle
++/// - Resource monitoring
++/// - Process spawning
++/// - Process termination
++///
++/// Platform-specific implementations use:
++/// - sysinfo
++/// - /proc
++/// - tokio::process
++/// - nix
++pub struct ProcessProvider {
++    processes: HashMap<u32, Process>,
++    tasks: HashMap<String, Task>,
++    events: Vec<ProcessEvent>,
++    state: ProviderState,
++    health: ProviderHealth,
++}
++
++impl ProcessProvider {
++    #[must_use]
++    pub fn new() -> Self {
++        Self {
++            processes: HashMap::new(),
++            tasks: HashMap::new(),
++            events: Vec::new(),
++            state: ProviderState::Created,
++            health: ProviderHealth::Unknown,
++        }
++    }
++
++    #[must_use]
++    pub fn processes(&self) -> &HashMap<u32, Process> {
++        &self.processes
++    }
++
++    #[must_use]
++    pub fn tasks(&self) -> &HashMap<String, Task> {
++        &self.tasks
++    }
++
++    #[must_use]
++    pub fn process(
++        &self,
++        pid: u32,
++    ) -> Option<&Process> {
++        self.processes.get(&pid)
++    }
++
++    #[must_use]
++    pub fn task(
++        &self,
++        id: &str,
++    ) -> Option<&Task> {
++        self.tasks.get(id)
++    }
++
++    pub fn add_process(
++        &mut self,
++        process: Process,
++    ) {
++        self.processes.insert(process.pid, process);
++    }
++
++    pub fn remove_process(
++        &mut self,
++        pid: u32,
++    ) -> Option<Process> {
++        self.processes.remove(&pid)
++    }
++
++    pub fn add_task(
++        &mut self,
++        task: Task,
++    ) {
++        self.tasks.insert(task.id.clone(), task);
++    }
++
++    pub fn remove_task(
++        &mut self,
++        id: &str,
++    ) -> Option<Task> {
++        self.tasks.remove(id)
++    }
++
++    pub fn emit(
++        &mut self,
++        event: ProcessEvent,
++    ) {
++        self.events.push(event);
++    }
++
++    #[must_use]
++    pub fn events(&self) -> &[ProcessEvent] {
++        &self.events
++    }
++
++    pub fn clear_events(&mut self) {
++        self.events.clear();
++    }
++
++    #[must_use]
++    pub fn process_count(&self) -> usize {
++        self.processes.len()
++    }
++
++    #[must_use]
++    pub fn task_count(&self) -> usize {
++        self.tasks.len()
++    }
++
++    pub fn clear(&mut self) {
++        self.processes.clear();
++        self.tasks.clear();
++        self.events.clear();
++    }
++}
++
++impl Default for ProcessProvider {
++    fn default() -> Self {
++        Self::new()
++    }
++}
++
++impl Provider for ProcessProvider {
++    fn id(&self) -> &'static str {
++        "process"
++    }
++
++    fn name(&self) -> &'static str {
++        "Process Provider"
++    }
++
++    fn version(&self) -> &'static str {
++        env!("CARGO_PKG_VERSION")
++    }
++
++    fn capabilities(&self) -> &'static [Capability] {
++        &[
++            Capability::Process,
++            Capability::SpawnProcess,
++            Capability::KillProcess,
++        ]
++    }
++
++    fn initialize(
++        &mut self,
++    ) -> Result<(), ProviderError> {
++        self.state = ProviderState::Initializing;
++        self.health = ProviderHealth::Initializing;
++
++        self.processes.clear();
++        self.tasks.clear();
++        self.events.clear();
++
++        self.state = ProviderState::Running;
++        self.health = ProviderHealth::Ready;
++
++        Ok(())
++    }
++
++    fn shutdown(
++        &mut self,
++    ) -> Result<(), ProviderError> {
++        self.state = ProviderState::Stopping;
++
++        self.processes.clear();
++        self.tasks.clear();
++        self.events.clear();
++
++        self.state = ProviderState::Stopped;
++        self.health = ProviderHealth::Unknown;
++
++        Ok(())
++    }
++
++    fn state(&self) -> ProviderState {
++        self.state
++    }
++
++    fn health(&self) -> ProviderHealth {
++        self.health
++    }
++}
+diff --git a/src-tauri/src/providers/process/resource.rs b/src-tauri/src/providers/process/resource.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e9f7f083369051be11e8c8f99cc7a46cd02bb5bd
+--- /dev/null
++++ b/src-tauri/src/providers/process/resource.rs
+@@ -0,0 +1,63 @@
++use serde::{Deserialize, Serialize};
++use std::time::Duration;
++
++/// Runtime resource usage for a process.
++#[derive(Debug, Clone, Default, Serialize, Deserialize)]
++pub struct ProcessResourceUsage {
++    /// CPU utilization (0.0 - 100.0 * cores).
++    pub cpu_percent: f32,
++
++    /// Resident memory (bytes).
++    pub memory_bytes: u64,
++
++    /// Virtual memory (bytes).
++    pub virtual_memory_bytes: u64,
++
++    /// Disk bytes read.
++    pub disk_read_bytes: u64,
++
++    /// Disk bytes written.
++    pub disk_write_bytes: u64,
++
++    /// Network bytes received.
++    pub network_rx_bytes: u64,
++
++    /// Network bytes transmitted.
++    pub network_tx_bytes: u64,
++
++    /// Number of open file descriptors.
++    pub open_files: u32,
++
++    /// Number of active threads.
++    pub threads: u32,
++
++    /// Process uptime.
++    pub uptime: Duration,
++}
++
++impl ProcessResourceUsage {
++    #[must_use]
++    pub fn total_disk_bytes(&self) -> u64 {
++        self.disk_read_bytes + self.disk_write_bytes
++    }
++
++    #[must_use]
++    pub fn total_network_bytes(&self) -> u64 {
++        self.network_rx_bytes + self.network_tx_bytes
++    }
++
++    #[must_use]
++    pub fn is_idle(&self) -> bool {
++        self.cpu_percent < 0.1
++    }
++
++    #[must_use]
++    pub fn is_memory_heavy(&self) -> bool {
++        self.memory_bytes >= 512 * 1024 * 1024
++    }
++
++    #[must_use]
++    pub fn is_cpu_heavy(&self) -> bool {
++        self.cpu_percent >= 75.0
++    }
++}
+diff --git a/src-tauri/src/providers/process/task.rs b/src-tauri/src/providers/process/task.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..f0908dd2a797ef8e1e9427f48cb08c4f633b1194
+--- /dev/null
++++ b/src-tauri/src/providers/process/task.rs
+@@ -0,0 +1,65 @@
++use serde::{Deserialize, Serialize};
++
++/// A task represents work initiated by DEX.
++///
++/// Unlike a Process, a Task is a logical unit that may spawn one or
++/// more operating system processes.
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct Task {
++    /// Stable task identifier.
++    pub id: String,
++
++    /// Display name.
++    pub name: String,
++
++    /// Root process.
++    pub pid: Option<u32>,
++
++    /// Current task state.
++    pub state: TaskState,
++
++    /// Exit code once completed.
++    pub exit_code: Option<i32>,
++}
++
++impl Task {
++    #[must_use]
++    pub fn new(
++        id: impl Into<String>,
++        name: impl Into<String>,
++    ) -> Self {
++        Self {
++            id: id.into(),
++            name: name.into(),
++            pid: None,
++            state: TaskState::Created,
++            exit_code: None,
++        }
++    }
++
++    #[must_use]
++    pub fn is_running(&self) -> bool {
++        self.state == TaskState::Running
++    }
++
++    #[must_use]
++    pub fn is_finished(&self) -> bool {
++        matches!(
++            self.state,
++            TaskState::Completed
++                | TaskState::Cancelled
++                | TaskState::Failed
++        )
++    }
++}
++
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
++pub enum TaskState {
++    Created,
++    Queued,
++    Starting,
++    Running,
++    Completed,
++    Cancelled,
++    Failed,
++}
+diff --git a/src-tauri/src/providers/provider.rs b/src-tauri/src/providers/provider.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..2b868e96a53e3c5dbceb3abdeec25cc336a77ac5
+--- /dev/null
++++ b/src-tauri/src/providers/provider.rs
+@@ -0,0 +1,29 @@
++use crate::providers::{
++    capability::Capability,
++    error::ProviderError,
++    health::ProviderHealth,
++    state::ProviderState,
++};
++
++/// Every system integration inside DEX implements this trair.
++///
++/// Providers expose operating-system capabilities (Network, Git, Hyprland, DBus, Terminal, etc.)
++/// through a common lifecycle.
++///
++/// Providers never contain buiness logic.
++/// They only expose capabilities to the Kernel.
++pub trait Provider: Send+Sync{
++    fn id(&self) -> &'static str;
++    fn name(&self) -> &'static str;
++    fn version(&self) -> &'static str;
++    fn capabilities(&self) -> &'static [Capability];
++    fn initialize(&mut self) -> Result<(), ProviderError>;
++    fn shutdown(&mut self) -> Result<(), ProviderError>;
++    fn state(&self) -> ProviderState;
++    fn health(&self) -> ProviderHealth;
++    fn is_ready(&self) -> bool {
++        self.state() == ProviderState::Running
++            && self.health() == ProviderHealth::Ready
++    }
++
++}
+diff --git a/src-tauri/src/providers/registry.rs b/src-tauri/src/providers/registry.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..2f97fddf7e271dfa1b753d9e786fb75cee63c1f2
+--- /dev/null
++++ b/src-tauri/src/providers/registry.rs
+@@ -0,0 +1,112 @@
++use std::collections::HashMap;
++
++use crate::providers::{
++    capability::Capability,
++    error::ProviderError,
++    provider::Provider,
++};
++
++/// Central registry for all providers.
++///
++/// The registry owns provider instances and allows lookup by identifier
++/// or by exposed capability.
++pub struct ProviderRegistry {
++    providers: HashMap<&'static str, Box<dyn Provider>>,
++}
++
++impl ProviderRegistry {
++    /// Creates an empty registry.
++    #[must_use]
++    pub fn new() -> Self {
++        Self {
++            providers: HashMap::new(),
++        }
++    }
++
++    /// Registers a provider.
++    pub fn register(
++        &mut self,
++        provider: Box<dyn Provider>,
++    ) -> Result<(), ProviderError> {
++        let id = provider.id();
++
++        if self.providers.contains_key(id) {
++            return Err(ProviderError::AlreadyRegistered {
++                id: id.to_owned(),
++            });
++        }
++
++        self.providers.insert(id, provider);
++
++        Ok(())
++    }
++
++    /// Unregisters a provider.
++    pub fn unregister(
++        &mut self,
++        id: &str,
++    ) -> Result<Box<dyn Provider>, ProviderError> {
++        self.providers.remove(id).ok_or_else(|| ProviderError::NotFound {
++            id: id.to_owned(),
++        })
++    }
++
++    /// Returns a provider by identifier.
++    #[must_use]
++    pub fn provider(
++        &self,
++        id: &str,
++    ) -> Option<&dyn Provider> {
++        self.providers.get(id).map(Box::as_ref)
++    }
++
++    /// Returns all registered providers.
++    #[must_use]
++    pub fn providers(
++        &self,
++    ) -> Vec<&dyn Provider> {
++        self.providers.values().map(Box::as_ref).collect()
++    }
++
++    /// Finds the first provider exposing the requested capability.
++    #[must_use]
++    pub fn capability(
++        &self,
++        capability: Capability,
++    ) -> Option<&dyn Provider> {
++        self.providers
++            .values()
++            .find(|provider| {
++                provider.capabilities().contains(&capability)
++            })
++            .map(Box::as_ref)
++    }
++
++    /// Initializes all providers.
++    pub fn initialize_all(
++        &mut self,
++    ) -> Result<(), ProviderError> {
++        for provider in self.providers.values_mut() {
++            provider.initialize()?;
++        }
++
++        Ok(())
++    }
++
++    /// Shuts down all providers.
++    pub fn shutdown_all(
++        &mut self,
++    ) -> Result<(), ProviderError> {
++        for provider in self.providers.values_mut() {
++            provider.shutdown()?;
++        }
++
++        Ok(())
++    }
++}
++
++impl Default for ProviderRegistry {
++    fn default() -> Self {
++        Self::new()
++    }
++}
+diff --git a/src-tauri/src/providers/secrets/mod.rs b/src-tauri/src/providers/secrets/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/secrets/provider.rs b/src-tauri/src/providers/secrets/provider.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/ssh/mod.rs b/src-tauri/src/providers/ssh/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/ssh/provider.rs b/src-tauri/src/providers/ssh/provid

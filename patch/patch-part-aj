@@ -1,0 +1,3456 @@
+er.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/ssh/session.rs b/src-tauri/src/providers/ssh/session.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/state.rs b/src-tauri/src/providers/state.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..38559312a1ed10968d6a8c4c05c8d80b3d03dd79
+--- /dev/null
++++ b/src-tauri/src/providers/state.rs
+@@ -0,0 +1,52 @@
++use serde::{Deserialize, Serialize};
++
++/// Lifecycle state of a provider.
++///
++/// State describes **where** a provider is in its lifecycle.
++/// It is independent from its health.
++///
++/// Example:
++/// - Running + Ready
++/// - Running + Degraded
++/// - Running + Failed
++/// - Stopped + Unknown
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
++pub enum ProviderState {
++    /// Provider has been created but not registered.
++    Created,
++
++    /// Provider is registered in the ProviderRegistry.
++    Registered,
++
++    /// Provider is allocating resources.
++    Initializing,
++
++    /// Provider is operational.
++    Running,
++
++    /// Provider is shutting down.
++    Stopping,
++
++    /// Provider has been stopped.
++    Stopped,
++}
++
++impl ProviderState {
++    /// Returns true if the provider is operational.
++    #[must_use]
++    pub const fn is_running(self) -> bool {
++        matches!(self, Self::Running)
++    }
++
++    /// Returns true if the provider is transitioning.
++    #[must_use]
++    pub const fn is_transitioning(self) -> bool {
++        matches!(self, Self::Initializing | Self::Stopping)
++    }
++
++    /// Returns true if the provider has been fully stopped.
++    #[must_use]
++    pub const fn is_stopped(self) -> bool {
++        matches!(self, Self::Stopped)
++    }
++}
+diff --git a/src-tauri/src/providers/terminal/mod.rs b/src-tauri/src/providers/terminal/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/terminal/provider.rs b/src-tauri/src/providers/terminal/provider.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/providers/terminal/shell.rs b/src-tauri/src/providers/terminal/shell.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/services/hyprland.rs b/src-tauri/src/services/hyprland.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/services/mod.rs b/src-tauri/src/services/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/services/notifications.rs b/src-tauri/src/services/notifications.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/services/settings.rs b/src-tauri/src/services/settings.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/services/system.rs b/src-tauri/src/services/system.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/services/terminal.rs b/src-tauri/src/services/terminal.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/services/workspace.rs b/src-tauri/src/services/workspace.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/state/app_state.rs b/src-tauri/src/state/app_state.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/state/mod.rs b/src-tauri/src/state/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/system/battery.rs b/src-tauri/src/system/battery.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/system/cpu.rs b/src-tauri/src/system/cpu.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/system/disk.rs b/src-tauri/src/system/disk.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/system/memory.rs b/src-tauri/src/system/memory.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/system/mod.rs b/src-tauri/src/system/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/system/monitor.rs b/src-tauri/src/system/monitor.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/system/network.rs b/src-tauri/src/system/network.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/system/process.rs b/src-tauri/src/system/process.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/utils/errors.rs b/src-tauri/src/utils/errors.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..939c3c4deee3233fd7a2c73355e995a0549f3611
+--- /dev/null
++++ b/src-tauri/src/utils/errors.rs
+@@ -0,0 +1,65 @@
++//! Application error type shared across all Tauri commands.
++//!
++//! `AppError` maps to a closed set of error codes that are serialized to the
++//! frontend as `{"type": "<code>", "message": "<display string>"}`. The
++//! `Serialize` impl is hand-written so the wire format is stable and explicit
++//! (a derived impl would key on the variant names instead).
++
++use serde::ser::{SerializeMap, Serializer};
++use serde::Serialize;
++
++/// Closed set of error codes surfaced to the frontend (ADR-0002).
++///
++/// `#[allow(dead_code)]`: variants beyond `Validation`/`Internal` are part of
++/// the wire contract and are constructed as their commands land (Phase 1+).
++#[derive(Debug, thiserror::Error)]
++#[allow(dead_code)]
++pub enum AppError {
++    #[error("Validation failed")]
++    Validation,
++    #[error("Resource not found")]
++    NotFound,
++    #[error("Permission denied")]
++    PermissionDenied,
++    #[error("Operation conflicts with the current state")]
++    Conflict,
++    #[error("Operation is not supported")]
++    Unsupported,
++    #[error("An internal error occurred")]
++    Internal,
++}
++
++impl AppError {
++    /// Lowercase snake_case wire code for this variant.
++    pub fn code(&self) -> &'static str {
++        match self {
++            AppError::Validation => "validation",
++            AppError::NotFound => "not_found",
++            AppError::PermissionDenied => "permission_denied",
++            AppError::Conflict => "conflict",
++            AppError::Unsupported => "unsupported",
++            AppError::Internal => "internal",
++        }
++    }
++}
++
++impl Serialize for AppError {
++    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
++        let mut map = serializer.serialize_map(Some(2))?;
++        map.serialize_entry("type", self.code())?;
++        map.serialize_entry("message", &self.to_string())?;
++        map.end()
++    }
++}
++
++impl From<tauri::Error> for AppError {
++    fn from(_: tauri::Error) -> Self {
++        AppError::Internal
++    }
++}
++
++impl From<rusqlite::Error> for AppError {
++    fn from(_: rusqlite::Error) -> Self {
++        AppError::Internal
++    }
++}
+\ No newline at end of file
+diff --git a/src-tauri/src/utils/logger.rs b/src-tauri/src/utils/logger.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/src/utils/mod.rs b/src-tauri/src/utils/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..cdd72c2735ca0dbbef21fa39e9e6d3cceab5e5b7
+--- /dev/null
++++ b/src-tauri/src/utils/mod.rs
+@@ -0,0 +1,5 @@
++//! Shared utilities: errors (AppError), paths, logger.
++//!
++//! Only real modules are declared; placeholders join as their phase lands.
++
++pub mod errors;
+diff --git a/src-tauri/src/utils/paths.rs b/src-tauri/src/utils/paths.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src-tauri/tauri.conf.json b/src-tauri/tauri.conf.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..f8f4aa5546f987357d143f14cb8ff1f4d7f7f4bf
+--- /dev/null
++++ b/src-tauri/tauri.conf.json
+@@ -0,0 +1,41 @@
++{
++  "$schema": "https://schema.tauri.app/config/2",
++  "productName": "omnizya-dex",
++  "version": "0.1.0",
++  "identifier": "io.github.moughamir.dex",
++  "build": {
++    "beforeDevCommand": "bun run dev",
++    "devUrl": "http://localhost:1420",
++    "beforeBuildCommand": "bun run build",
++    "frontendDist": "../build"
++  },
++  "app": {
++    "windows": [
++      {
++        "title": "omnizya-dex",
++        "width": 800,
++        "height": 600,
++        "shadow": false,
++        "fullscreen": true,
++        "resizable": true,
++        "transparent": true,
++        "decorations": false,
++        "hiddenTitle": true
++      }
++    ],
++    "security": {
++      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost"
++    }
++  },
++  "bundle": {
++    "active": true,
++    "targets": "all",
++    "icon": [
++      "icons/32x32.png",
++      "icons/128x128.png",
++      "icons/128x128@2x.png",
++      "icons/icon.icns",
++      "icons/icon.ico"
++    ]
++  }
++}
+diff --git a/src/app.css b/src/app.css
+new file mode 100644
+index 0000000000000000000000000000000000000000..47fea2273418e42b7ac9843dd4777ed3492e684f
+--- /dev/null
++++ b/src/app.css
+@@ -0,0 +1,230 @@
++@import "tailwindcss";
++@import "$lib/ui/styles/tokens.css";
++@import "$lib/ui/styles/utilities.css";
++@import "$lib/ui/styles/effects.css";
++/* ==========================================================================
++   DEX GLOBAL STYLES
++   ========================================================================== */
++
++:root {
++    font-family: Inter, "SF Pro Display", "Geist", system-ui, sans-serif;
++
++    text-rendering: optimizeLegibility;
++    -webkit-font-smoothing: antialiased;
++    -moz-osx-font-smoothing: grayscale;
++}
++html,
++body,
++#svelte {
++	width: 100%;
++	height: 100%;
++	margin: 0;
++	padding: 0;
++	overflow: hidden;
++
++	background: transparent;
++}
++
++body {
++	color: var(--text-primary);
++}
++/* ========================================================================== */
++/* App */
++/* ========================================================================== */
++
++#app {
++    width: 100vw;
++    height: 100vh;
++    overflow: hidden;
++    isolation: isolate;
++}
++
++/* ========================================================================== */
++/* Typography */
++/* ========================================================================== */
++
++h1,
++h2,
++h3,
++h4,
++h5,
++h6 {
++    margin: 0;
++    font-weight: 600;
++    letter-spacing: -0.02em;
++}
++
++p {
++    color: var(--text-secondary);
++}
++
++/* ========================================================================== */
++/* Selection */
++/* ========================================================================== */
++
++::selection {
++    color: var(--selection-text);
++    background: var(--selection-bg);
++}
++
++/* ========================================================================== */
++/* Links */
++/* ========================================================================== */
++
++a {
++    color: inherit;
++    text-decoration: none;
++}
++
++/* ========================================================================== */
++/* Buttons */
++/* ========================================================================== */
++
++button {
++    font: inherit;
++}
++
++/* ========================================================================== */
++/* Images */
++/* ========================================================================== */
++
++img {
++    display: block;
++    max-width: 100%;
++}
++
++/* ========================================================================== */
++/* Inputs */
++/* ========================================================================== */
++
++input,
++textarea,
++select {
++    font: inherit;
++}
++
++input:focus,
++textarea:focus,
++select:focus {
++    outline: none;
++}
++
++/* ========================================================================== */
++/* Scrollbar */
++/* ========================================================================== */
++
++::-webkit-scrollbar {
++    width: 10px;
++    height: 10px;
++}
++
++::-webkit-scrollbar-track {
++    background: transparent;
++}
++
++::-webkit-scrollbar-thumb {
++    border: 2px solid transparent;
++    border-radius: var(--radius-full);
++
++    background: var(--scrollbar-thumb);
++
++    background-clip: content-box;
++}
++
++::-webkit-scrollbar-thumb:hover {
++    background: var(--scrollbar-thumb-hover);
++    background-clip: content-box;
++}
++
++/* Firefox */
++
++* {
++    scrollbar-color: var(--scrollbar-thumb) transparent;
++}
++
++/* ========================================================================== */
++/* Utilities */
++/* ========================================================================== */
++
++.glass {
++    background: var(--glass-medium);
++
++    border: 1px solid var(--glass-border);
++
++    backdrop-filter: blur(var(--blur-lg));
++
++    -webkit-backdrop-filter: blur(var(--blur-lg));
++}
++
++.glass-heavy {
++    background: var(--glass-heavy);
++
++    border: 1px solid var(--glass-border-strong);
++
++    backdrop-filter: blur(var(--blur-xl));
++
++    -webkit-backdrop-filter: blur(var(--blur-xl));
++}
++
++.glow {
++    box-shadow: var(--shadow-glow), var(--shadow-md);
++}
++
++.floating {
++    box-shadow: var(--shadow-lg);
++
++    transition:
++        transform var(--duration-normal) var(--ease-standard),
++        box-shadow var(--duration-normal) var(--ease-standard);
++}
++
++.floating:hover {
++    transform: translateY(-3px);
++
++    box-shadow: var(--shadow-xl), var(--shadow-glow);
++}
++
++.panel {
++    border-radius: var(--radius-xl);
++}
++
++.blur-bg {
++    backdrop-filter: blur(var(--blur-xl));
++    -webkit-backdrop-filter: blur(var(--blur-xl));
++}
++
++/* ========================================================================== */
++/* Motion */
++/* ========================================================================== */
++
++* {
++    transition:
++        background-color var(--duration-fast) var(--ease-standard),
++        border-color var(--duration-fast) var(--ease-standard),
++        color var(--duration-fast) var(--ease-standard);
++}
++
++/* ========================================================================== */
++/* Accessibility */
++/* ========================================================================== */
++
++:focus-visible {
++    outline: none;
++    box-shadow: var(--focus-ring);
++}
++
++/* ========================================================================== */
++/* Tauri */
++/* ========================================================================== */
++
++[data-tauri-drag-region] {
++    -webkit-app-region: drag;
++}
++
++button,
++input,
++textarea,
++select,
++a {
++    -webkit-app-region: no-drag;
++}
+diff --git a/src/app.d.ts b/src/app.d.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/app.html b/src/app.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..18aca1aebe1e6c3bd2f7472f4faae6f446ed87ca
+--- /dev/null
++++ b/src/app.html
+@@ -0,0 +1,13 @@
++<!doctype html>
++<html lang="en">
++  <head>
++    <meta charset="utf-8" />
++    <link rel="icon" href="%sveltekit.assets%/favicon.png" />
++    <meta name="viewport" content="width=device-width, initial-scale=1" />
++    <title>OmniZya DEX</title>
++    %sveltekit.head%
++  </head>
++  <body data-sveltekit-preload-data="hover" class="overflow-hidden bg-transparent">
++    <div style="display: contents">%sveltekit.body%</div>
++  </body>
++</html>
+diff --git a/src/lib/core/api/commands.ts b/src/lib/core/api/commands.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..b15a934f2e86d69ab28d3dea3e620a940c63450e
+--- /dev/null
++++ b/src/lib/core/api/commands.ts
+@@ -0,0 +1,46 @@
++import { z } from "zod";
++
++/**
++ * IPC contract layer — ADR-0002.
++ *
++ * Every callable Tauri command is described by one CommandContract: a command
++ * name plus zod schemas for its args and result. `invoke` (core/api/tauri.ts)
++ * validates both edges; the Rust side validates via serde. A command is not
++ * callable until it is listed here AND registered in the Rust invoke_handler
++ * (src-tauri/src/lib.rs).
++ */
++
++export interface CommandContract<A extends z.ZodType, R extends z.ZodType> {
++  /** Must equal the Rust #[tauri::command] fn name. */
++  readonly name: string;
++  readonly args: A;
++  readonly result: R;
++}
++
++const registered = new Set<string>();
++
++export const defineCommand = <A extends z.ZodType, R extends z.ZodType>(
++  name: string,
++  args: A,
++  result: R,
++): CommandContract<A, R> => {
++  if (registered.has(name)) {
++    throw new Error(`Duplicate command contract: '${name}'`);
++  }
++  registered.add(name);
++  return { name, args, result };
++};
++
++/**
++ * Registry of all IPC commands. Adding a command:
++ *   1. Rust: src-tauri/src/commands/<domain>.rs + invoke_handler in lib.rs
++ *   2. TS:   add its contract here
++ *   3. TS:   expose a typed function in core/services/<domain>.ts
++ */
++export const COMMANDS = {
++  greet: defineCommand(
++    "greet",
++    z.object({ name: z.string() }),
++    z.object({ message: z.string() }),
++  ),
++} as const;
+diff --git a/src/lib/core/api/events.ts b/src/lib/core/api/events.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..72ddc23af48376907daf38a5d21e27357fa9772a
+--- /dev/null
++++ b/src/lib/core/api/events.ts
+@@ -0,0 +1,38 @@
++import { listen } from "@tauri-apps/api/event";
++import type { UnlistenFn } from "@tauri-apps/api/event";
++import type { z } from "zod";
++import { logError } from "$lib/core/utils/logger";
++
++/**
++ * Event name registry — ADR-0002 §5.
++ *
++ * Every Rust→UI event is declared here with its canonical name
++ * `dex.<domain>.<event>` and payload schema. Only `src-tauri/src/events/`
++ * emits; only names declared here may be subscribed. Add an entry when the
++ * first emitter of a domain lands (Phase 4 M4.x and onward).
++ */
++export const EVENTS = {
++  // "dex.system.resources": z.object({ /* ... */ }),
++} as const;
++
++/**
++ * Typed Rust→UI event subscription — ADR-0002 §5.
++ *
++ * Payloads that fail the schema are logged and dropped, never thrown into
++ * the handler: a misbehaving emitter must not crash the shell. Event names
++ * follow `dex.<domain>.<event>` and belong to the EVENTS registry.
++ */
++export function onEvent<R>(
++  name: string,
++  schema: z.ZodType<R>,
++  handler: (payload: R) => void,
++): Promise<UnlistenFn> {
++  return listen<unknown>(name, (event) => {
++    const result = schema.safeParse(event.payload);
++    if (!result.success) {
++      logError(`[events] '${name}' payload failed validation`, result.error);
++      return;
++    }
++    handler(result.data);
++  });
++}
+diff --git a/src/lib/core/api/tauri.ts b/src/lib/core/api/tauri.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..23fc4979c14c5e2c39824d69a2919c26e5533a2e
+--- /dev/null
++++ b/src/lib/core/api/tauri.ts
+@@ -0,0 +1,73 @@
++import { invoke as tauriInvoke, type InvokeArgs } from "@tauri-apps/api/core";
++import { z } from "zod";
++import type { CommandContract } from "./commands";
++
++/**
++ * Typed IPC plumbing — ADR-0002.
++ * `@tauri-apps/api` is imported nowhere outside core/api/. Features talk to
++ * Rust exclusively through core/services contract clients built on these.
++ */
++
++/** Closed set of wire error codes — mirrored from Rust AppError (ADR-0002). */
++export const ERROR_CODES = [
++  "validation",
++  "not_found",
++  "permission_denied",
++  "conflict",
++  "unsupported",
++  "internal",
++] as const;
++
++/** The AppError wire envelope, exactly as Rust serializes it. */
++const ErrorEnvelope = z.object({
++  type: z.enum(ERROR_CODES),
++  message: z.string(),
++});
++
++/** Structured IPC error mirroring the Rust AppError wire envelope. */
++export class IpcError extends Error {
++  readonly type: string;
++
++  constructor(type: string, message: string) {
++    super(message);
++    this.name = "IpcError";
++    this.type = type;
++  }
++
++  /**
++   * Wraps any rejection. Two shapes reach callers (ADR-0002):
++   * the structured AppError envelope (validated against the closed code set)
++   * and a transport rejection (Tauri string / unknown) → type "unknown".
++   */
++  static fromUnknown(cause: unknown): IpcError {
++    const parsed = ErrorEnvelope.safeParse(cause);
++    if (parsed.success) return new IpcError(parsed.data.type, parsed.data.message);
++    const message = cause instanceof Error ? cause.message : String(cause);
++    return new IpcError("unknown", message);
++  }
++}
++
++/**
++ * Boundary-validated IPC call. Args are validated before the round trip
++ * (fail fast); the result is validated after (detect Rust ⇄ TS drift).
++ */
++export async function invoke<A extends z.ZodType, R extends z.ZodType>(
++  contract: CommandContract<A, R>,
++  args: z.input<A>,
++): Promise<z.output<R>> {
++  const parsedArgs = contract.args.parse(args) as InvokeArgs;
++  let raw: unknown;
++  try {
++    raw = await tauriInvoke(contract.name, parsedArgs);
++  } catch (cause) {
++    throw IpcError.fromUnknown(cause);
++  }
++  try {
++    return contract.result.parse(raw);
++  } catch (cause) {
++    throw new IpcError(
++      "contract",
++      `Response for '${contract.name}' failed validation: ${String(cause)}`,
++    );
++  }
++}
+diff --git a/src/lib/core/app/application.svelte.ts b/src/lib/core/app/application.svelte.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/app/lifecycle.ts b/src/lib/core/app/lifecycle.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/app/registry.ts b/src/lib/core/app/registry.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/commands/command-registry.ts b/src/lib/core/commands/command-registry.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/commands/command-service.svelte.ts b/src/lib/core/commands/command-service.svelte.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/commands/command.ts b/src/lib/core/commands/command.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/composables/fade.ts b/src/lib/core/composables/fade.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/composables/glow.ts b/src/lib/core/composables/glow.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/composables/slide.ts b/src/lib/core/composables/slide.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/composables/useKeyboard.ts b/src/lib/core/composables/useKeyboard.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/composables/useMouse.ts b/src/lib/core/composables/useMouse.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/composables/useResize.ts b/src/lib/core/composables/useResize.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/composables/useSettings.ts b/src/lib/core/composables/useSettings.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/composables/useSystem.ts b/src/lib/core/composables/useSystem.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/composables/useTheme.ts b/src/lib/core/composables/useTheme.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/composables/useWidgets.ts b/src/lib/core/composables/useWidgets.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/config/app.ts b/src/lib/core/config/app.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/config/constants.ts b/src/lib/core/config/constants.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/config/layout.ts b/src/lib/core/config/layout.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..47abaf7e7e0d85d9867d7d32f84521120338c13b
+--- /dev/null
++++ b/src/lib/core/config/layout.ts
+@@ -0,0 +1,25 @@
++/**
++ * Shell layout dimensions in CSS px — single source of truth for the
++ * HUD, sidebar, dock, and status bar metrics. The four values that have
++ * a CSS var today mirror `tokens.css` exactly (72/280/76/34).
++ */
++export const layout = {
++	/** Padding around the shell content area (old AppShell `p-8` = 2rem). */
++	shellPadding: 32,
++	/** Top HUD bar height. */
++	hudHeight: 72,
++	/** Expanded sidebar width. */
++	sidebarWidth: 280,
++	/** Collapsed sidebar width. */
++	sidebarCollapsedWidth: 76,
++	/** Bottom dock height. */
++	dockHeight: 76,
++	/** Status bar height. */
++	statusHeight: 34,
++	/** Maximum width cap for main content blocks. */
++	contentMaxWidth: 1200,
++	/** Vertical gap between content blocks. */
++	contentGap: 24,
++	/** Corner radius for shell panels (matches `.dex-radius--lg` = 20px). */
++	borderRadius: 20
++} as const;
+diff --git a/src/lib/core/config/navigation/dock.ts b/src/lib/core/config/navigation/dock.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..ad91ef8688971d602aa29f9bbbcbdaeffd617d96
+--- /dev/null
++++ b/src/lib/core/config/navigation/dock.ts
+@@ -0,0 +1,39 @@
++import { Bot, Database, FolderKanban, House, Package } from "lucide-svelte";
++
++import type { Workspace } from "./types";
++
++/**
++ * Ordered list of dock workspaces (render order is authoritative).
++ */
++export const DOCK_WORKSPACES: Workspace[] = [
++	{
++		id: "dashboard",
++		label: "Dashboard",
++		href: "/",
++		icon: House
++	},
++	{
++		id: "projects",
++		label: "Projects",
++		href: "/projects",
++		icon: FolderKanban
++	},
++	{
++		id: "database",
++		label: "Database",
++		href: "/database",
++		icon: Database
++	},
++	{
++		id: "agents",
++		label: "Agents",
++		href: "/agents",
++		icon: Bot
++	},
++	{
++		id: "plugins",
++		label: "Plugins",
++		href: "/plugins",
++		icon: Package
++	}
++];
+diff --git a/src/lib/core/config/navigation/index.ts b/src/lib/core/config/navigation/index.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..0b1543091e965a863717ec97b506d8e01f25b044
+--- /dev/null
++++ b/src/lib/core/config/navigation/index.ts
+@@ -0,0 +1,8 @@
++export { DOCK_WORKSPACES } from "./dock";
++export { SIDEBAR_NAV } from "./sidebar";
++export type {
++	SidebarItem,
++	SidebarSection,
++	Workspace,
++	WorkspaceId
++} from "./types";
+diff --git a/src/lib/core/config/navigation/sidebar.ts b/src/lib/core/config/navigation/sidebar.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..3c7df7a373792ad33a15b90dfca52b850ab498d1
+--- /dev/null
++++ b/src/lib/core/config/navigation/sidebar.ts
+@@ -0,0 +1,70 @@
++import type { SidebarSection, WorkspaceId } from "./types";
++
++/**
++ * Contextual sidebar navigation per workspace.
++ * Item `id`s are kebab-case and stable across releases.
++ */
++export const SIDEBAR_NAV: Record<WorkspaceId, SidebarSection[]> = {
++	dashboard: [
++		{
++			id: "dashboard",
++			title: "Dashboard",
++			items: [
++				{ id: "overview", label: "Overview", href: "/" },
++				{ id: "activity", label: "Activity", href: "/activity" },
++				{ id: "analytics", label: "Analytics", href: "/analytics" },
++				{ id: "reports", label: "Reports", href: "/reports" }
++			]
++		}
++	],
++	projects: [
++		{
++			id: "projects",
++			title: "Projects",
++			items: [
++				{ id: "all-projects", label: "All Projects", href: "/projects" },
++				{ id: "favorites", label: "Favorites", href: "/projects/favorites" },
++				{ id: "templates", label: "Templates", href: "/projects/templates" },
++				{ id: "archived", label: "Archived", href: "/projects/archived" }
++			]
++		}
++	],
++	database: [
++		{
++			id: "database",
++			title: "Database",
++			items: [
++				{ id: "connections", label: "Connections", href: "/database/connections" },
++				{ id: "schemas", label: "Schemas", href: "/database/schemas" },
++				{ id: "tables", label: "Tables", href: "/database/tables" },
++				{ id: "queries", label: "Queries", href: "/database/queries" },
++				{ id: "backups", label: "Backups", href: "/database/backups" }
++			]
++		}
++	],
++	agents: [
++		{
++			id: "agents",
++			title: "Agents",
++			items: [
++				{ id: "installed", label: "Installed", href: "/agents" },
++				{ id: "running", label: "Running", href: "/agents/running" },
++				{ id: "marketplace", label: "Marketplace", href: "/agents/marketplace" },
++				{ id: "history", label: "History", href: "/agents/history" },
++				{ id: "logs", label: "Logs", href: "/agents/logs" }
++			]
++		}
++	],
++	plugins: [
++		{
++			id: "plugins",
++			title: "Plugins",
++			items: [
++				{ id: "installed", label: "Installed", href: "/plugins" },
++				{ id: "marketplace", label: "Marketplace", href: "/plugins/marketplace" },
++				{ id: "updates", label: "Updates", href: "/plugins/updates" },
++				{ id: "developer", label: "Developer", href: "/plugins/developer" }
++			]
++		}
++	]
++};
+diff --git a/src/lib/core/config/navigation/types.ts b/src/lib/core/config/navigation/types.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e498d960e2f018aed8e625244ac607125fcb0e3e
+--- /dev/null
++++ b/src/lib/core/config/navigation/types.ts
+@@ -0,0 +1,44 @@
++import type { House } from "lucide-svelte";
++
++/**
++ * Identifiers for the top-level workspaces surfaced in the dock.
++ */
++export type WorkspaceId =
++	| "dashboard"
++	| "projects"
++	| "database"
++	| "agents"
++	| "plugins";
++
++/**
++ * A top-level workspace entry rendered by the dock.
++ * Active state is derived at runtime, never hardcoded.
++ *
++ * `typeof House` follows the legacy config pattern — all lucide icon
++ * classes are structurally identical, so any lucide icon is assignable.
++ */
++export interface Workspace {
++	id: WorkspaceId;
++	label: string;
++	href: string;
++	icon: typeof House;
++}
++
++/**
++ * A single contextual navigation item within a workspace sidebar.
++ */
++export interface SidebarItem {
++	id: string;
++	label: string;
++	href: string;
++	badge?: string;
++}
++
++/**
++ * A titled (or untitled) group of sidebar navigation items.
++ */
++export interface SidebarSection {
++	id: string;
++	title?: string;
++	items: SidebarItem[];
++}
+diff --git a/src/lib/core/config/theme.ts b/src/lib/core/config/theme.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..a3fa96d5fb8ba67859cf29a4f2377e659783f19b
+--- /dev/null
++++ b/src/lib/core/config/theme.ts
+@@ -0,0 +1,11 @@
++import { cyber } from "$lib/ui/themes/cyber";
++import { dark } from "$lib/ui/themes/dark";
++import { light } from "$lib/ui/themes/light";
++
++export const themes = {
++  dark,
++  cyber,
++  light,
++}
++export type ThemeName = keyof typeof themes;
++export const defaultTheme: ThemeName = "dark";
+diff --git a/src/lib/core/events/event-bus.svelte.ts b/src/lib/core/events/event-bus.svelte.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/events/event.ts b/src/lib/core/events/event.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/events/events.ts b/src/lib/core/events/events.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/index.ts b/src/lib/core/index.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/protocols/hardware/device.ts b/src/lib/core/protocols/hardware/device.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/services/ai.ts b/src/lib/core/services/ai.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/services/database.ts b/src/lib/core/services/database.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/services/greet.ts b/src/lib/core/services/greet.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..137b880a83d80c0170eec339c5230ed8bbfbe631
+--- /dev/null
++++ b/src/lib/core/services/greet.ts
+@@ -0,0 +1,13 @@
++import { COMMANDS } from "$lib/core/api/commands";
++import { invoke } from "$lib/core/api/tauri";
++
++/**
++ * Contract client for the `greet` command domain — ADR-0002.
++ *
++ * The only public surface features may use to reach Rust. Mirrors
++ * `src-tauri/src/commands/core.rs`; typed, surfaces `IpcError` on failure.
++ */
++export async function greet(name: string): Promise<string> {
++  const output = await invoke(COMMANDS.greet, { name });
++  return output.message;
++}
+diff --git a/src/lib/core/services/hyprland.ts b/src/lib/core/services/hyprland.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/services/plugins.ts b/src/lib/core/services/plugins.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/services/service-container.ts b/src/lib/core/services/service-container.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/services/service-registry.ts b/src/lib/core/services/service-registry.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/services/service.ts b/src/lib/core/services/service.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/services/settings.ts b/src/lib/core/services/settings.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/services/system.ts b/src/lib/core/services/system.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/services/terminal.ts b/src/lib/core/services/terminal.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/stores/ai.svelte.ts b/src/lib/core/stores/ai.svelte.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/stores/app.svelte.ts b/src/lib/core/stores/app.svelte.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/stores/notification.svelte.ts b/src/lib/core/stores/notification.svelte.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/stores/session.svelte.ts b/src/lib/core/stores/session.svelte.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/stores/settings.svelte.ts b/src/lib/core/stores/settings.svelte.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/stores/shell.svelte.ts b/src/lib/core/stores/shell.svelte.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..3d164d21b68e18bf29d810e40c4f9e6d37bc34d2
+--- /dev/null
++++ b/src/lib/core/stores/shell.svelte.ts
+@@ -0,0 +1,105 @@
++import {
++	DOCK_WORKSPACES,
++	SIDEBAR_NAV,
++	type SidebarSection,
++	type Workspace,
++	type WorkspaceId
++} from "$lib/core/config/navigation";
++
++/**
++ * Shell Store
++ *
++ * Holds the runtime state of the shell chrome: the active workspace and
++ * the visibility/collapse flags for the sidebar and dock. Navigation
++ * data itself lives in `core/config/navigation` — this store only tracks
++ * selection and visibility.
++ */
++class ShellStore {
++	activeWorkspace = $state<WorkspaceId>("dashboard");
++
++	sidebarCollapsed = $state(false);
++
++	dockVisible = $state(true);
++
++	sidebarVisible = $state(true);
++
++	#initialized = false;
++
++	/**
++	 * Contextual sidebar navigation for the active workspace.
++	 */
++	get currentContext(): SidebarSection[] {
++		return SIDEBAR_NAV[this.activeWorkspace];
++	}
++
++	/**
++	 * Activate a workspace.
++	 */
++	selectWorkspace(id: WorkspaceId): void {
++		this.activeWorkspace = id;
++	}
++
++	/**
++	 * Boot the shell state. Idempotent.
++	 * Call once from +layout.svelte.
++	 */
++	init(): void {
++		if (this.#initialized) {
++			return;
++		}
++
++		this.#initialized = true;
++
++		this.activeWorkspace = this.#resolveWorkspace(window.location.pathname);
++	}
++
++	/**
++	 * Toggle the sidebar collapsed state.
++	 */
++	toggleSidebar(): void {
++		this.sidebarCollapsed = !this.sidebarCollapsed;
++	}
++
++	/**
++	 * Set the sidebar collapsed state.
++	 */
++	setSidebarCollapsed(collapsed: boolean): void {
++		this.sidebarCollapsed = collapsed;
++	}
++
++	/**
++	 * Set the dock visibility.
++	 */
++	setDockVisible(visible: boolean): void {
++		this.dockVisible = visible;
++	}
++
++	/**
++	 * Set the sidebar visibility.
++	 */
++	setSidebarVisible(visible: boolean): void {
++		this.sidebarVisible = visible;
++	}
++
++	/**
++	 * Derive the active workspace from a pathname by matching the longest
++	 * workspace `href` prefix (e.g. "/database/connections" → "database").
++	 * Falls back to "dashboard" when no workspace matches.
++	 */
++	#resolveWorkspace(pathname: string): WorkspaceId {
++		let match: Workspace | undefined;
++
++		for (const workspace of DOCK_WORKSPACES) {
++			if (
++				pathname.startsWith(workspace.href) &&
++				(match === undefined || workspace.href.length > match.href.length)
++			) {
++				match = workspace;
++			}
++		}
++
++		return match?.id ?? "dashboard";
++	}
++}
++
++export const shellStore = new ShellStore();
+diff --git a/src/lib/core/stores/system.svelte.ts b/src/lib/core/stores/system.svelte.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/stores/terminal.svelte.ts b/src/lib/core/stores/terminal.svelte.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/stores/theme.svelte.ts b/src/lib/core/stores/theme.svelte.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..42a8c772a25a471b898783baa79ec35a226916ac
+--- /dev/null
++++ b/src/lib/core/stores/theme.svelte.ts
+@@ -0,0 +1,98 @@
++import { themes, defaultTheme, type ThemeName } from "$lib/core/config/theme";
++import type { Theme, ThemePalette } from "$lib/ui/themes/types";
++import { storageGet, storageSet } from "$lib/core/utils/storage";
++
++/**
++ * Theme Store
++ *
++ * ADR-0003
++ *
++ * Responsibilities
++ * - Manage the active theme.
++ * - Synchronize the HTML `data-theme` attribute.
++ * - Persist the user's choice.
++ * - Expose the runtime palette for the graphics engine.
++ */
++
++const STORAGE_KEY = "theme";
++
++class ThemeStore {
++  current = $state<ThemeName>(defaultTheme);
++
++  #initialized = false;
++
++  /**
++   * Active theme.
++   */
++  get theme(): Theme {
++    return themes[this.current];
++  }
++
++  /**
++   * Runtime palette.
++   */
++  get palette(): ThemePalette {
++    return this.theme.palette;
++  }
++
++  /**
++   * Boot the theme system.
++   * Call once from +layout.svelte.
++   */
++  init(): void {
++    if (this.#initialized) {
++      return;
++    }
++
++    this.#initialized = true;
++
++    const stored = storageGet<ThemeName>(STORAGE_KEY);
++
++    if (stored && stored in themes) {
++      this.apply(stored);
++      return;
++    }
++
++    this.apply(defaultTheme);
++  }
++
++  /**
++   * Apply a theme.
++   */
++  apply(name: ThemeName): void {
++    this.current = name;
++
++    document.documentElement.dataset.theme = name;
++
++    storageSet(STORAGE_KEY, name);
++  }
++
++  /**
++   * Toggle between themes.
++   */
++  toggle(): void {
++    const order = Object.keys(themes) as ThemeName[];
++
++    const index = order.indexOf(this.current);
++
++    const next = order[(index + 1) % order.length];
++
++    this.apply(next);
++  }
++
++  /**
++   * Reset to default.
++   */
++  reset(): void {
++    this.apply(defaultTheme);
++  }
++
++  /**
++   * Check current theme.
++   */
++  is(name: ThemeName): boolean {
++    return this.current === name;
++  }
++}
++
++export const themeStore = new ThemeStore();
+diff --git a/src/lib/core/stores/widgets.svelte.ts b/src/lib/core/stores/widgets.svelte.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/stores/workspace.svelte.ts b/src/lib/core/stores/workspace.svelte.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/types/ai.ts b/src/lib/core/types/ai.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/types/application.ts b/src/lib/core/types/application.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/types/common.ts b/src/lib/core/types/common.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/types/plugin.ts b/src/lib/core/types/plugin.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/types/settings.ts b/src/lib/core/types/settings.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/types/system.ts b/src/lib/core/types/system.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/types/widget.ts b/src/lib/core/types/widget.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/types/workspace.ts b/src/lib/core/types/workspace.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/utils/date.ts b/src/lib/core/utils/date.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/utils/format.ts b/src/lib/core/utils/format.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/utils/helpers.ts b/src/lib/core/utils/helpers.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/core/utils/logger.ts b/src/lib/core/utils/logger.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..688f05aefab613e464057db640c7fb17ac906754
+--- /dev/null
++++ b/src/lib/core/utils/logger.ts
+@@ -0,0 +1,43 @@
++import { isTauri } from "@tauri-apps/api/core";
++import * as pluginLog from "@tauri-apps/plugin-log";
++
++/**
++ * Logging facade — the ONLY logging import the frontend may use
++ * (ADR-0002 / architecture.md). Backed by `@tauri-apps/plugin-log` (the
++ * Rust plugin writes to stdout + the app log dir); falls back to the
++ * browser console when running outside Tauri (plain `bun run dev`).
++ *
++ * Use these instead of `console.*` — no direct console calls in new code.
++ */
++const usePlugin = isTauri();
++
++function format(args: unknown[]): string {
++  return args
++    .map((arg) => (typeof arg === "string" ? arg : JSON.stringify(arg)))
++    .join(" ");
++}
++
++export function logTrace(...args: unknown[]): void {
++  if (usePlugin) pluginLog.trace(format(args));
++  else console.trace(...args);
++}
++
++export function logDebug(...args: unknown[]): void {
++  if (usePlugin) pluginLog.debug(format(args));
++  else console.debug(...args);
++}
++
++export function logInfo(...args: unknown[]): void {
++  if (usePlugin) pluginLog.info(format(args));
++  else console.info(...args);
++}
++
++export function logWarn(...args: unknown[]): void {
++  if (usePlugin) pluginLog.warn(format(args));
++  else console.warn(...args);
++}
++
++export function logError(...args: unknown[]): void {
++  if (usePlugin) pluginLog.error(format(args));
++  else console.error(...args);
++}
+diff --git a/src/lib/core/utils/storage.ts b/src/lib/core/utils/storage.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..728e899910f5b45082e2a103cec88f8da12c7eca
+--- /dev/null
++++ b/src/lib/core/utils/storage.ts
+@@ -0,0 +1,25 @@
++/**
++ * JSON-safe localStorage access with a namespaced prefix. The shell must
++ * never crash because storage is unavailable or corrupted — every access is
++ * wrapped.
++ */
++
++const PREFIX = "dex.";
++
++export function storageGet<T>(key: string): T | null {
++  try {
++    const raw = localStorage.getItem(PREFIX + key);
++    if (raw === null) return null;
++    return JSON.parse(raw) as T;
++  } catch {
++    return null;
++  }
++}
++
++export function storageSet(key: string, value: unknown): void {
++  try {
++    localStorage.setItem(PREFIX + key, JSON.stringify(value));
++  } catch {
++    // Quota / availability failure: persist nothing, keep the shell alive.
++  }
++}
+diff --git a/src/lib/features/ai/components/.gitkeep b/src/lib/features/ai/components/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/ai/services/.gitkeep b/src/lib/features/ai/services/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/ai/stores/.gitkeep b/src/lib/features/ai/stores/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/ai/types/.gitkeep b/src/lib/features/ai/types/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/ai/utils/.gitkeep b/src/lib/features/ai/utils/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/dashboard/components/.gitkeep b/src/lib/features/dashboard/components/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/dashboard/services/.gitkeep b/src/lib/features/dashboard/services/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/dashboard/stores/.gitkeep b/src/lib/features/dashboard/stores/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/dashboard/types/.gitkeep b/src/lib/features/dashboard/types/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/dashboard/utils/.gitkeep b/src/lib/features/dashboard/utils/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/hyprland/components/.gitkeep b/src/lib/features/hyprland/components/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/hyprland/services/.gitkeep b/src/lib/features/hyprland/services/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/hyprland/stores/.gitkeep b/src/lib/features/hyprland/stores/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/hyprland/types/.gitkeep b/src/lib/features/hyprland/types/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/hyprland/utils/.gitkeep b/src/lib/features/hyprland/utils/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/launcher/components/.gitkeep b/src/lib/features/launcher/components/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/launcher/services/.gitkeep b/src/lib/features/launcher/services/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/launcher/stores/.gitkeep b/src/lib/features/launcher/stores/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/launcher/types/.gitkeep b/src/lib/features/launcher/types/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/launcher/utils/.gitkeep b/src/lib/features/launcher/utils/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/notifications/components/.gitkeep b/src/lib/features/notifications/components/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/notifications/services/.gitkeep b/src/lib/features/notifications/services/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/notifications/stores/.gitkeep b/src/lib/features/notifications/stores/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/notifications/types/.gitkeep b/src/lib/features/notifications/types/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/notifications/utils/.gitkeep b/src/lib/features/notifications/utils/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/plugins/components/.gitkeep b/src/lib/features/plugins/components/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/plugins/services/.gitkeep b/src/lib/features/plugins/services/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/plugins/stores/.gitkeep b/src/lib/features/plugins/stores/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/plugins/types/.gitkeep b/src/lib/features/plugins/types/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/plugins/utils/.gitkeep b/src/lib/features/plugins/utils/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/settings/components/.gitkeep b/src/lib/features/settings/components/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/settings/services/.gitkeep b/src/lib/features/settings/services/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/settings/stores/.gitkeep b/src/lib/features/settings/stores/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/settings/types/.gitkeep b/src/lib/features/settings/types/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/settings/utils/.gitkeep b/src/lib/features/settings/utils/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/terminal/components/.gitkeep b/src/lib/features/terminal/components/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/terminal/services/.gitkeep b/src/lib/features/terminal/services/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/terminal/stores/.gitkeep b/src/lib/features/terminal/stores/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/terminal/types/.gitkeep b/src/lib/features/terminal/types/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/terminal/utils/.gitkeep b/src/lib/features/terminal/utils/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/widgets/components/.gitkeep b/src/lib/features/widgets/components/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/widgets/services/.gitkeep b/src/lib/features/widgets/services/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/widgets/stores/.gitkeep b/src/lib/features/widgets/stores/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/widgets/types/.gitkeep b/src/lib/features/widgets/types/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/features/widgets/utils/.gitkeep b/src/lib/features/widgets/utils/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/graphics/README.md b/src/lib/graphics/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..54491d0b3fd5d053e2d449cb9d80aeb93314bace
+--- /dev/null
++++ b/src/lib/graphics/README.md
+@@ -0,0 +1,37 @@
++# graphics/ — Rendering Architecture (Phase 0)
++
++The `graphics/` layer owns everything GPU. Its job: render the shell's visual
++depth (backdrop scenes, particle ambience, window effects) into a transparent
++WebGL canvas composited **under** the DOM chrome.
++
++## Rules
++
++1. **Ownership** — only code under `graphics/` touches WebGL/Three.js. `ui/`
++   and `features/` consume `graphics/contracts.ts` (the `Renderer` /
++   `RenderSurface` interfaces) and the theme palette — never `three` directly.
++2. **Transparency (ADR-0004)** — the canvas is created with `alpha: true` and
++   the window background stays transparent. The desktop and the DOM glass
++   panels show through; the renderer never paints an opaque backdrop.
++3. **Frame loop** — exactly one loop owner (requestAnimationFrame, driven by
++   the renderer). It starts lazily on first visual need and stops with
++   `dispose()`. Nothing outside `graphics/` schedules frames.
++4. **DPR** — the backing store is sized in device pixels (`surface.resize`);
++   resize follows the window, not the CSS box.
++5. **Palette bridge (ADR-0003)** — scene colors come from
++   `ui/themes/*.ts` (`ThemePalette`), keeping WebGL and DOM visuals in sync;
++   theme changes are pushed to the renderer by its owner, never polled.
++6. **Resource discipline** — every GPU object (geometry, texture, material)
++   is disposed with its owner. `dispose()` is total: no orphaned buffers,
++   no leaked listeners.
++7. **Performance contract** — 60 FPS floor; zero per-frame allocations in
++   steady state; `prefers-reduced-motion` disables ambient animation.
++
++## Layout (Phase 1+ implementations land in these files)
++
++- `renderer.ts` — `Renderer` implementation (WebGL context, loop, DPR)
++- `scene.ts`, `camera.ts`, `lighting.ts`, `controls.ts`, `particles.ts`
++- `core/` — context/state helpers · `materials/` — shader materials ·
++  `effects/` — post/effects · `shaders/` — GLSL · `objects/` — scene objects
++
++Phase 0 ships only `contracts.ts` (+ this doc). Implementations arrive with
++the first feature that needs GPU visuals — no speculative engine code.
+diff --git a/src/lib/graphics/camera.ts b/src/lib/graphics/camera.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/graphics/contracts.ts b/src/lib/graphics/contracts.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..a8ab176e4a4a2c4b9cc6cfa75489aa67d8dd4409
+--- /dev/null
++++ b/src/lib/graphics/contracts.ts
+@@ -0,0 +1,42 @@
++/**
++ * Rendering engine contracts — Phase 0 (ADR-0001 §6, ADR-0004 §4).
++ *
++ * Engine-agnostic on purpose: Three.js is not yet a dependency. Phase 1+
++ * implements these contracts inside `graphics/`; consumers (ui/, features/)
++ * depend on the contracts, never on WebGL/Three.js directly. The renderer
++ * owns its frame loop, resources, and lifecycle — nothing outside this
++ * module may touch the canvas context.
++ */
++
++/** RGBA color in 0..1 space, as used by GPU code. */
++export interface RgbaColor {
++  readonly r: number;
++  readonly g: number;
++  readonly b: number;
++  readonly a: number;
++}
++
++/**
++ * The drawing surface. Must stay transparent (alpha: true) so the Wayland
++ * desktop and DOM glass panels composite through it (ADR-0004).
++ */
++export interface RenderSurface {
++  /** Canvas the renderer draws into. */
++  readonly canvas: HTMLCanvasElement;
++  /** Resizes the backing store in device pixels (DPR-aware). */
++  resize(width: number, height: number): void;
++}
++
++/**
++ * The shell renderer. One instance, owned by the graphics layer; started on
++ * first visual need (lazy), stopped on dispose.
++ */
++export interface Renderer {
++  readonly surface: RenderSurface;
++  /** Starts the render loop; returns a stop() handle. */
++  start(): () => void;
++  /** Renders a single frame (DPR changes, headless tests). */
++  render(): void;
++  /** Stops the loop and releases GPU resources. Unusable afterwards. */
++  dispose(): void;
++}
+diff --git a/src/lib/graphics/controls.ts b/src/lib/graphics/controls.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/graphics/core/.gitkeep b/src/lib/graphics/core/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/graphics/effects/.gitkeep b/src/lib/graphics/effects/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/graphics/lighting.ts b/src/lib/graphics/lighting.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/graphics/materials/.gitkeep b/src/lib/graphics/materials/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/graphics/objects/.gitkeep b/src/lib/graphics/objects/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/graphics/particles.ts b/src/lib/graphics/particles.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/graphics/renderer.ts b/src/lib/graphics/renderer.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/graphics/scene.ts b/src/lib/graphics/scene.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/graphics/shaders/.gitkeep b/src/lib/graphics/shaders/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/src/lib/types/icon.ts b/src/lib/types/icon.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..75a0098efc022eb8480b9b7e89f82ec64c7a07ad
+--- /dev/null
++++ b/src/lib/types/icon.ts
+@@ -0,0 +1,3 @@
++import type { SvelteComponent } from "svelte";
++
++export type IconComponent = new (...args: any[]) => SvelteComponent;
+diff --git a/src/lib/ui/dashboard/ActivityFeed.svelte b/src/lib/ui/dashboard/ActivityFeed.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..506b5d5677edc0342a39e956e07e37a4e5a2a1a8
+--- /dev/null
++++ b/src/lib/ui/dashboard/ActivityFeed.svelte
+@@ -0,0 +1,32 @@
++<script lang="ts">
++	import { Activity } from "lucide-svelte";
++
++	import Widget from "./Widget.svelte";
++
++	const items = [
++		"DEX initialized.",
++		"Theme loaded.",
++		"Database connected.",
++		"Plugin manager ready."
++	];
++</script>
++
++<Widget
++	title="Activity"
++	subtitle="Recent events"
++	icon={Activity}
++>
++
++	<div class="space-y-3">
++
++		{#each items as item}
++
++			<div class="rounded-xl bg-(--surface-2) p-4">
++				{item}
++			</div>
++
++		{/each}
++
++	</div>
++
++</Widget>
+diff --git a/src/lib/ui/dashboard/Dashboard.svelte b/src/lib/ui/dashboard/Dashboard.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..0516632997321c5954730c70176b3d82038377fc
+--- /dev/null
++++ b/src/lib/ui/dashboard/Dashboard.svelte
+@@ -0,0 +1,13 @@
++<script lang="ts">
++	import type { Snippet } from "svelte";
++
++	interface Props {
++		children?: Snippet;
++	}
++
++	let { children }: Props = $props();
++</script>
++
++<div class="flex flex-col gap-6">
++	{@render children?.()}
++</div>
+diff --git a/src/lib/ui/dashboard/QuickActions.svelte b/src/lib/ui/dashboard/QuickActions.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..e12aa4eb33bce99058b1e412dd91972564316952
+--- /dev/null
++++ b/src/lib/ui/dashboard/QuickActions.svelte
+@@ -0,0 +1,41 @@
++<script lang="ts">
++	import {
++		Bot,
++		FolderPlus,
++		Plug,
++		Database
++	} from "lucide-svelte";
++
++	import { Button } from "$lib/ui/primitives";
++	import Widget from "./Widget.svelte";
++</script>
++
++<Widget
++	title="Quick Actions"
++>
++
++	<div class="grid grid-cols-2 gap-3">
++
++		<Button>
++			<FolderPlus />
++			Project
++		</Button>
++
++		<Button>
++			<Bot />
++			Agent
++		</Button>
++
++		<Button>
++			<Database />
++			Database
++		</Button>
++
++		<Button>
++			<Plug />
++			Plugin
++		</Button>
++
++	</div>
++
++</Widget>
+diff --git a/src/lib/ui/dashboard/StatCard.svelte b/src/lib/ui/dashboard/StatCard.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..aa8dbbfb3e9b59604ac0fcc9ae82d0b5084a0758
+--- /dev/null
++++ b/src/lib/ui/dashboard/StatCard.svelte
+@@ -0,0 +1,44 @@
++<script lang="ts">
++	import type { IconComponent } from "$lib/types/icon";
++	import Widget from "./Widget.svelte";
++
++	interface Props {
++
++		title: string;
++
++		value: string | number;
++
++		icon: IconComponent;
++
++		change?: string;
++	}
++
++	let {
++		title,
++		value,
++		icon,
++		change
++	}: Props = $props();
++</script>
++
++<Widget
++	{title}
++	{icon}
++	class="min-h-42.5"
++>
++
++	<div class="flex h-full flex-col justify-end">
++
++		<h2 class="text-4xl font-bold">
++			{value}
++		</h2>
++
++		{#if change}
++			<p class="mt-2 text-sm text-(--dex-success)">
++				{change}
++			</p>
++		{/if}
++
++	</div>
++
++</Widget>
+diff --git a/src/lib/ui/dashboard/Widget.svelte b/src/lib/ui/dashboard/Widget.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..c9b26d2cfa574361855b8c3fa8fcac57e1530b35
+--- /dev/null
++++ b/src/lib/ui/dashboard/Widget.svelte
+@@ -0,0 +1,50 @@
++<script lang="ts">
++	import type { Component, Snippet } from "svelte";
++
++	import GlassPanel from "$lib/ui/primitives/GlassPanel.svelte";
++	import WidgetHeader from "./WidgetHeader.svelte";
++	import type { IconComponent } from "$lib/types/icon";
++
++
++	interface Props {
++
++		title: string;
++
++		subtitle?: string;
++
++		icon?: IconComponent;
++
++		actions?: Snippet;
++
++		children?: Snippet;
++
++		class?: string;
++	}
++
++	let {
++		title,
++		subtitle,
++		icon,
++		actions,
++		children,
++		class: className = ""
++	}: Props = $props();
++</script>
++
++<GlassPanel
++	interactive
++	class={`h-full ${className}`}
++>
++
++	<WidgetHeader
++		{title}
++		{subtitle}
++		{icon}
++		{actions}
++	/>
++
++	<div class="h-full">
++		{@render children?.()}
++	</div>
++
++</GlassPanel>
+diff --git a/src/lib/ui/dashboard/WidgetGrid.svelte b/src/lib/ui/dashboard/WidgetGrid.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..261dfa5dd9bc6ed25c5a6ca6443c1368959b56b0
+--- /dev/null
++++ b/src/lib/ui/dashboard/WidgetGrid.svelte
+@@ -0,0 +1,36 @@
++<script lang="ts">
++	import type { Snippet } from "svelte";
++
++	interface Props {
++		columns?: 1 | 2 | 3 | 4;
++		children?: Snippet;
++	}
++
++	let {
++		columns = 3,
++		children
++	}: Props = $props();
++
++	const classes = $derived.by(() => {
++
++		switch (columns) {
++
++			case 1:
++				return "grid grid-cols-1 gap-6";
++
++			case 2:
++				return "grid grid-cols-2 gap-6";
++
++			case 4:
++				return "grid grid-cols-4 gap-6";
++
++			default:
++				return "grid grid-cols-3 gap-6";
++		}
++
++	});
++</script>
++
++<div class={classes}>
++	{@render children?.()}
++</div>
+diff --git a/src/lib/ui/dashboard/WidgetHeader.svelte b/src/lib/ui/dashboard/WidgetHeader.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..4095c972ee608a1e9a33ba22fe42beadddecf7c3
+--- /dev/null
++++ b/src/lib/ui/dashboard/WidgetHeader.svelte
+@@ -0,0 +1,54 @@
++<script lang="ts">
++	import type { Snippet } from "svelte";
++	import type { IconComponent } from "$lib/types/icon";
++
++	interface Props {
++		title: string;
++		subtitle?: string;
++
++		icon?: IconComponent;
++
++		actions?: Snippet;
++	}
++
++	let {
++		title,
++		subtitle,
++		icon: Icon,
++		actions
++	}: Props = $props();
++</script>
++
++<header class="mb-5 flex items-start justify-between gap-4">
++
++	<div class="flex items-center gap-3">
++
++		{#if Icon}
++			<div class="rounded-xl bg-(--surface-3) p-3">
++				<Icon class="size-5 text-(--dex-primary)" />
++			</div>
++		{/if}
++
++		<div>
++
++			<h2 class="text-lg font-semibold">
++				{title}
++			</h2>
++
++			{#if subtitle}
++				<p class="text-sm text-(--text-muted)">
++					{subtitle}
++				</p>
++			{/if}
++
++		</div>
++
++	</div>
++
++	{#if actions}
++		<div class="flex items-center gap-2">
++			{@render actions()}
++		</div>
++	{/if}
++
++</header>
+diff --git a/src/lib/ui/dashboard/index.ts b/src/lib/ui/dashboard/index.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..cf4c2b85fff7fd6de44ad4e4b5f067332ec9c7cc
+--- /dev/null
++++ b/src/lib/ui/dashboard/index.ts
+@@ -0,0 +1,9 @@
++export { default as Dashboard } from "./Dashboard.svelte";
++
++export { default as Widget } from "./Widget.svelte";
++export { default as WidgetHeader } from "./WidgetHeader.svelte";
++export { default as WidgetGrid } from "./WidgetGrid.svelte";
++
++export { default as StatCard } from "./StatCard.svelte";
++export { default as ActivityFeed } from "./ActivityFeed.svelte";
++export { default as QuickActions } from "./QuickActions.svelte";
+diff --git a/src/lib/ui/effects/Aurora.svelte b/src/lib/ui/effects/Aurora.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..200e427b35643fd31b5b0328debde4a044c5bd25
+--- /dev/null
++++ b/src/lib/ui/effects/Aurora.svelte
+@@ -0,0 +1,3 @@
++<div class="dex-effect">
++	<div class="dex-aurora"></div>
++</div>
+diff --git a/src/lib/ui/effects/Background.svelte b/src/lib/ui/effects/Background.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..3f767bd3f25525b6ca38e894cf7480bf202ea0f2
+--- /dev/null
++++ b/src/lib/ui/effects/Background.svelte
+@@ -0,0 +1,24 @@
++<script lang="ts">
++	import Aurora from "./Aurora.svelte";
++	import Noise from "./Noise.svelte";
++	import Grid from "./Grid.svelte";
++	import Spotlight from "./Spotlight.svelte";
++	import CursorGlow from "./CursorGlow.svelte";
++	import Vignette from "./Vignette.svelte";
++</script>
++
++<div class="absolute inset-0 -z-50 overflow-hidden">
++
++	<Aurora />
++
++	<Spotlight />
++
++	<Grid />
++
++	<Noise />
++
++	<CursorGlow />
++
++	<Vignette />
++
++</div>
+diff --git a/src/lib/ui/effects/CursorGlow.svelte b/src/lib/ui/effects/CursorGlow.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..d04e4e15a25466480768834b7319c5eeb73d570a
+--- /dev/null
++++ b/src/lib/ui/effects/CursorGlow.svelte
+@@ -0,0 +1,28 @@
++<script lang="ts">
++	import { onMount } from "svelte";
++
++	let x = $state(window.innerWidth / 2);
++	let y = $state(window.innerHeight / 2);
++
++	function update(event: PointerEvent) {
++		x = event.clientX;
++		y = event.clientY;
++	}
++
++	$effect(() => {
++		document.documentElement.style.setProperty("--cursor-x", `${x}px`);
++		document.documentElement.style.setProperty("--cursor-y", `${y}px`);
++	});
++
++	onMount(() => {
++		window.addEventListener("pointermove", update);
++
++		return () => {
++			window.removeEventListener("pointermove", update);
++		};
++	});
++</script>
++
++<div class="dex-effect">
++	<div class="dex-cursor-glow"></div>
++</div>
+diff --git a/src/lib/ui/effects/Grid.svelte b/src/lib/ui/effects/Grid.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..59f93fc9fc3e543f12b23972a34f8715a6325691
+--- /dev/null
++++ b/src/lib/ui/effects/Grid.svelte
+@@ -0,0 +1,3 @@
++<div class="dex-effect">
++	<div class="dex-grid"></div>
++</div>
+diff --git a/src/lib/ui/effects/Noise.svelte b/src/lib/ui/effects/Noise.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..4090898293079c8a0fee62524b0588f86cb34e42
+--- /dev/null
++++ b/src/lib/ui/effects/Noise.svelte
+@@ -0,0 +1,3 @@
++<div class="dex-effect">
++	<div class="dex-noise"></div>
++</div>
+diff --git a/src/lib/ui/effects/Spotlight.svelte b/src/lib/ui/effects/Spotlight.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..fef2e6bf29bc50b5cd86cfdfd693559dc15d6208
+--- /dev/null
++++ b/src/lib/ui/effects/Spotlight.svelte
+@@ -0,0 +1,3 @@
++<div class="dex-effect">
++	<div class="dex-spotlight"></div>
++</div>
+diff --git a/src/lib/ui/effects/Vignette.svelte b/src/lib/ui/effects/Vignette.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..4bfb44fdb5f53440c766fae3e58c689470507b6f
+--- /dev/null
++++ b/src/lib/ui/effects/Vignette.svelte
+@@ -0,0 +1,3 @@
++<div class="dex-effect">
++	<div class="dex-vignette"></div>
++</div>
+diff --git a/src/lib/ui/effects/index.ts b/src/lib/ui/effects/index.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..c0998a4b26dc3b68c1abae776fc4c1172d5a9070
+--- /dev/null
++++ b/src/lib/ui/effects/index.ts
+@@ -0,0 +1,7 @@
++export { default as Aurora } from "./Aurora.svelte";
++export { default as Noise } from "./Noise.svelte";
++export { default as Grid } from "./Grid.svelte";
++export { default as Spotlight } from "./Spotlight.svelte";
++export { default as CursorGlow } from "./CursorGlow.svelte";
++export { default as Vignette } from "./Vignette.svelte";
++export { default as Background } from "./Background.svelte";
+diff --git a/src/lib/ui/layout/AISuggestions.svelte b/src/lib/ui/layout/AISuggestions.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..69ac310de87d6f86498eec22924cc506a7645c7d
+--- /dev/null
++++ b/src/lib/ui/layout/AISuggestions.svelte
+@@ -0,0 +1,51 @@
++<div class="panel">
++
++<h2>AI Suggestions</h2>
++
++<div class="tip">
++
++Generate a CRUD backend for your latest project.
++
++</div>
++
++<div class="tip">
++
++Optimize your SQLite database.
++
++</div>
++
++<div class="tip">
++
++Review project architecture.
++
++</div>
++
++</div>
++
++<style>
++
++.panel{
++
++background:#121216;
++
++padding:24px;
++
++border-radius:18px;
++
++border:1px solid #222;
++
++}
++
++.tip{
++
++margin:15px 0;
++
++padding:18px;
++
++background:#1A1A1F;
++
++border-radius:12px;
++
++}
++
++</style>
+diff --git a/src/lib/ui/layout/AppShell.svelte b/src/lib/ui/layout/AppShell.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..8cc0bf86758fb16918cd21833e194bdac63d1b85
+--- /dev/null
++++ b/src/lib/ui/layout/AppShell.svelte
+@@ -0,0 +1,36 @@
++<script lang="ts">
++	import Background from "$lib/ui/effects/Background.svelte";
++
++	import TopBar from "./TopBar.svelte";
++	import Sidebar from "./Sidebar.svelte";
++	import Dock from "./Dock.svelte";
++	import StatusBar from "./StatusBar.svelte";
++
++	import type { Snippet } from "svelte";
++
++	interface Props {
++		children?: Snippet;
++	}
++
++	let { children }: Props = $props();
++</script>
++
++<div class="relative h-screen w-screen overflow-hidden bg-transparent text-(--text-primary)">
++
++	<Background />
++
++	<TopBar />
++
++	<div class="flex h-full pt-(--hud-height)">
++		<Sidebar />
++
++		<main class="relative flex-1 overflow-auto p-8">
++			{@render children?.()}
++		</main>
++	</div>
++
++	<Dock />
++
++	<StatusBar />
++
++</div>
+diff --git a/src/lib/ui/layout/Dashboard.svelte b/src/lib/ui/layout/Dashboard.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..a279e1402ff28a795f45b951075aae846b302906
+--- /dev/null
++++ b/src/lib/ui/layout/Dashboard.svelte
+@@ -0,0 +1,92 @@
++<script>
++
++import QuickActions from './QuickActions.svelte'
++import StatsCard from './StatsCard.svelte'
++import RecentActivity from './RecentActivity.svelte'
++import AISuggestions from './AISuggestions.svelte'
++
++</script>
++
++<section>
++
++<h1>
++
++Good Afternoon 👋
++
++</h1>
++
++<p>
++
++Everything is ready.
++
++</p>
++
++<QuickActions/>
++
++<div class="stats">
++
++<StatsCard
++title="Projects"
++value="14"
++/>
++
++<StatsCard
++title="Agents"
++value="6"
++/>
++
++<StatsCard
++title="Files"
++value="231"
++/>
++
++<StatsCard
++title="Tasks"
++value="48"
++/>
++
++</div>
++
++<div class="grid">
++
++<RecentActivity/>
++
++<AISuggestions/>
++
++</div>
++
++</section>
++
++<style>
++
++section{
++
++padding:30px;
++
++overflow:auto;
++
++}
++
++.stats{
++
++display:grid;
++
++grid-template-columns:repeat(4,1fr);
++
++gap:20px;
++
++margin:30px 0;
++
++}
++
++.grid{
++
++display:grid;
++
++grid-template-columns:2fr 1fr;
++
++gap:20px;
++
++}
++
++</style>
+diff --git a/src/lib/ui/layout/Dock.svelte b/src/lib/ui/layout/Dock.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..08b3340f1a8a91464a89a1b570b376c9c94a5d5d
+--- /dev/null
++++ b/src/lib/ui/layout/Dock.svelte
+@@ -0,0 +1,40 @@
++<script lang="ts">
++	import {
++		Bot,
++		Database,
++		FolderKanban,
++		Home,
++		Package
++	} from "lucide-svelte";
++
++	import { Button, GlassPanel } from "$lib/ui/primitives";
++
++	const apps = [
++		Home,
++		FolderKanban,
++		Database,
++		Bot,
++		Package
++	];
++</script>
++
++<div
++	class="pointer-events-none absolute bottom-6 left-1/2 z-(--z-dock) -translate-x-1/2"
++>
++	<GlassPanel
++		variant="dock"
++		padding="sm"
++		radius="full"
++		class="pointer-events-auto flex items-center gap-2"
++	>
++		{#each apps as Icon}
++			<Button
++				size="icon"
++				variant="ghost"
++				rounded="full"
++			>
++				<Icon />
++			</Button>
++		{/each}
++	</GlassPanel>
++</div>
+diff --git a/src/lib/ui/layout/HUD.svelte b/src/lib/ui/layout/HUD.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..6d71136908a8aec05048f6299ca59f285a7e0e2c
+--- /dev/null
++++ b/src/lib/ui/layout/HUD.svelte
+@@ -0,0 +1,14 @@
++<script lang="ts">
++	import AppShell from "./AppShell.svelte";
++	import type { Snippet } from "svelte";
++
++	interface Props {
++		children?: Snippet;
++	}
++
++	let { children }: Props = $props();
++</script>
++
++<AppShell>
++	{@render children?.()}
++</AppShell>
+diff --git a/src/lib/ui/layout/QuickActions.svelte b/src/lib/ui/layout/QuickActions.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..b09807a03df1872c9c3a316b19e04339ccc3bdca
+--- /dev/null
++++ b/src/lib/ui/layout/QuickActions.svelte
+@@ -0,0 +1,51 @@
++<div class="actions">
++
++<button>New Project</button>
++
++<button>New Agent</button>
++
++<button>Import Files</button>
++
++<button>Open Terminal</button>
++
++</div>
++
++<style>
++
++.actions{
++
++display:flex;
++
++gap:15px;
++
++margin-top:25px;
++
++}
++
++button{
++
++padding:15px 22px;
++
++border:none;
++
++border-radius:14px;
++
++background:#4F46E5;
++
++color:white;
++
++font-weight:600;
++
++cursor:pointer;
++
++transition:.25s;
++
++}
++
++button:hover{
++
++transform:translateY(-2px);
++
++}
++
++</style>
+diff --git a/src/lib/ui/layout/RecentActivity.svelte b/src/lib/ui/layout/RecentActivity.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..939fe513503118f8b849fab657f9feb651a7da14
+--- /dev/null
++++ b/src/lib/ui/layout/RecentActivity.svelte
+@@ -0,0 +1,41 @@
++<div class="panel">
++
++<h2>Recent Activity</h2>
++
++<ul>
++
++<li>✔ Created AI Agent</li>
++
++<li>✔ Imported PostgreSQL Database</li>
++
++<li>✔ Opened Project</li>
++
++<li>✔ Generated API</li>
++
++</ul>
++
++</div>
++
++<style>
++
++.panel{
++
++background:#121216;
++
++padding:24px;
++
++border-radius:18px;
++
++border:1px solid #222;
++
++min-height:350px;
++
++}
++
++li{
++
++margin:18px 0;
++
++}
++
++</style>
+diff --git a/src/lib/ui/layout/Sidebar.svelte b/src/lib/ui/layout/Sidebar.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..77c608a68a3e8e21c1d093e0e7516eef55befe4b
+--- /dev/null
++++ b/src/lib/ui/layout/Sidebar.svelte
+@@ -0,0 +1,38 @@
++<script lang="ts">
++	import { SIDEBAR_NAV } from "$lib/core/config/navigation";
++
++	import { GlassPanel } from "$lib/ui/primitives";
++	import { NavItem, NavSection } from "$lib/ui/navigation";
++</script>
++
++<aside class="z-(--z-sidebar) h-full w-(--sidebar-width) p-6">
++	<GlassPanel variant="sidebar" padding="sm" class="flex h-full flex-col">
++		<div class="space-y-6">
++			{#each Object.values(SIDEBAR_NAV).flat() as section (section.id)}
++				<NavSection title={section.title}>
++					{#snippet children()}
++						{#each section.items as item (item.id)}
++							<NavItem
++								label={item.label}
++								href={item.href}
++								active={false}
++							>
++								{#if item.badge}
++									{#snippet badge()}
++										<span
++											class="rounded-full bg-(--surface-3) px-2 py-0.5 text-[10px]"
++										>
++											{item.badge}
++										</span>
++									{/snippet}
++								{/if}
++							</NavItem>
++						{/each}
++					{/snippet}
++				</NavSection>
++			{/each}
++		</div>
++
++		<div class="flex-1"></div>
++	</GlassPanel>
++</aside>
+diff --git a/src/lib/ui/layout/StatsCard.svelte b/src/lib/ui/layout/StatsCard.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..6d64e96b47ed3462fa0dc5615eff695b60382744
+--- /dev/null
++++ b/src/lib/ui/layout/StatsCard.svelte
+@@ -0,0 +1,44 @@
++<script lang="ts">
++
++export let title=""
++export let value=""
++
++</script>
++
++<div class="card">
++
++<h3>{title}</h3>
++
++<h1>{value}</h1>
++
++</div>
++
++<style>
++
++.card{
++
++background:#121216;
++
++padding:24px;
++
++border-radius:18px;
++
++border:1px solid #222;
++
++}
++
++h3{
++
++color:#999;
++
++}
++
++h1{
++
++font-size:34px;
++
++margin-top:15px;
++
++}
++
++</style>
+diff --git a/src/lib/ui/layout/StatusBar.svelte b/src/lib/ui/layout/StatusBar.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..0e0cb0cf127cff0e907c47a87c6ce30c86e97893
+--- /dev/null
++++ b/src/lib/ui/layout/StatusBar.svelte
+@@ -0,0 +1,26 @@
++<script lang="ts">
++	const now = $state(new Date());
++
++	$effect(() => {
++		const timer = setInterval(() => {
++			now.setTime(now.getTime() + 1000);
++		}, 1000);
++
++		return () => clearInterval(timer);
++	});
++
++	const time = $derived(
++		now.toLocaleTimeString([], {
++			hour: "2-digit",
++			minute: "2-digit"
++		})
++	);
++</script>
++
++<footer
++	class="absolute bottom-0 left-0 right-0 z-(--z-status) flex h-(--status-height) items-center justify-between px-6 text-xs text-(--text-muted)"
++>
++	<div>DEX v0.1.0</div>
++
++	<div>{time}</div>
++</footer>
+diff --git a/src/lib/ui/layout/TopBar.svelte b/src/lib/ui/layout/TopBar.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..c8fe225b07833dde271bc60915439026cf7dd9e0
+--- /dev/null
++++ b/src/lib/ui/layout/TopBar.svelte
+@@ -0,0 +1,49 @@
++<script lang="ts">
++    import { Bell, Settings2 } from "lucide-svelte";
++
++    import { Button, GlassPanel } from "$lib/ui/primitives";
++    import { SearchBox } from "$lib/ui/navigation";
++
++    let query = $state("");
++</script>
++
++<header
++    class="absolute inset-x-0 top-0 z-(--z-hud) flex h-(--hud-height) items-center px-6"
++    data-tauri-drag-region
++>
++    <GlassPanel
++        variant="hud"
++        padding="sm"
++        class="flex h-full w-full items-center gap-4"
++    >
++        <div class="flex items-center gap-3" data-tauri-drag-region>
++            <div
++                class="flex size-10 items-center justify-center rounded-xl bg-(--dex-primary) font-bold text-black"
++            >
++                D
++            </div>
++
++            <div>
++                <h1 class="text-sm font-semibold">DEX</h1>
++
++                <p class="text-xs text-(--text-muted)">
++                    Digital Experience
++                </p>
++            </div>
++        </div>
++
++        <div class="flex-1">    </div>
++
++        <div class="w-full max-w-md">
++            <SearchBox bind:value={query} />
++        </div>
++
++        <Button variant="ghost" size="icon">
++            <Bell />
++        </Button>
++
++        <Button variant="ghost" size="icon">
++            <Settings2 />
++        </Button>
++    </GlassPanel>
++</header>
+diff --git a/src/lib/ui/layout/index.ts b/src/lib/ui/layout/index.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..30c264c262ec2da33ea883a93b8e059aa4ba24a4
+--- /dev/null
++++ b/src/lib/ui/layout/index.ts
+@@ -0,0 +1,6 @@
++export { default as HUD } from "./HUD.svelte";
++export { default as AppShell } from "./AppShell.svelte";
++export { default as TopBar } from "./TopBar.svelte";
++export { default as Sidebar } from "./Sidebar.svelte";
++export { default as Dock } from "./Dock.svelte";
++export { default as StatusBar } from "./StatusBar.svelte";
+diff --git a/src/lib/ui/navigation/Breadcrumb.svelte b/src/lib/ui/navigation/Breadcrumb.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..d72fd6e2ef8329286770d5a96f83a3d3e001da88
+--- /dev/null
++++ b/src/lib/ui/navigation/Breadcrumb.svelte
+@@ -0,0 +1,24 @@
++<script lang="ts">
++	interface Item {
++		label: string;
++		href?: string;
++	}
++
++	interface Props {
++		items: Item[];
++	}
++
++	let { items }: Props = $props();
++</script>
++
++<nav class="flex items-center gap-2 text-sm">
++	{#each items as item, i}
++		{#if i > 0}
++			<span class="text-(--text-muted)"> / </span>
++		{/if}
++
++		<a href={item.href} class="transition hover:text-(--dex-primary)">
++			{item.label}
++		</a>
++	{/each}
++</nav>
+diff --git a/src/lib/ui/navigation/CommandPalette.svelte b/src/lib/ui/navigation/CommandPalette.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..2d9dbe6329d9ab7cc97742ff5ecd54785a0388ba
+--- /dev/null
++++ b/src/lib/ui/navigation/CommandPalette.svelte
+@@ -0,0 +1,10 @@
++<script lang="ts">
++	import SearchBox from "./SearchBox.svelte";
++
++	let query = $state("");
++</script>
++
++<SearchBox
++	bind:value={query}
++	placeholder="Search commands..."
++/>
+diff --git a/src/lib/ui/navigation/NavItem.svelte b/src/lib/ui/navigation/NavItem.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..1c52cad6c9687cbbe5a56b104644b46a8c6b2779
+--- /dev/null
++++ b/src/lib/ui/navigation/NavItem.svelte
+@@ -0,0 +1,86 @@
++<script lang="ts">
++	import { cva, type VariantProps } from "class-variance-authority";
++	import { twMerge } from "tailwind-merge";
++	import type { Snippet } from "svelte";
++
++	const variants = cva(
++		[
++			"group",
++			"flex",
++			"items-center",
++			"gap-3",
++			"rounded-xl",
++			"px-4",
++			"py-3",
++			"text-sm",
++			"font-medium",
++			"transition-all",
++			"duration-200",
++			"select-none"
++		],
++		{
++			variants: {
++				active: {
++					true: [
++						"bg-[color:var(--surface-3)]",
++						"text-[color:var(--text-primary)]",
++						"shadow-sm"
++					],
++					false: [
++						"text-[color:var(--text-secondary)]",
++						"hover:bg-[color:var(--surface-2)]",
++						"hover:text-[color:var(--text-primary)]"
++					]
++				}
++			},
++			defaultVariants: {
++				active: false
++			}
++		}
++	);
++
++	interface Props extends VariantProps<typeof variants> {
++		label: string;
++		href?: string;
++		icon?: Snippet;
++		badge?: Snippet;
++		children?: Snippet;
++		class?: string;
++	}
++
++	let {
++		label,
++		href = "#",
++		icon,
++		badge,
++		children: _children,
++		active,
++		class: className
++	}: Props = $props();
++
++	const classes = $derived(
++		twMerge(
++			variants({ active }),
++			className
++		)
++	);
++</script>
++
++<a
++	href={href}
++	class={classes}
++>
++	{#if icon}
++		<div class="flex size-5 items-center justify-center">
++			{@render icon()}
++		</div>
++	{/if}
++
++	<span class="flex-1">
++		{label}
++	</span>
++
++	{#if badge}
++		{@render badge()}
++	{/if}
++</a>
+diff --git a/src/lib/ui/navigation/NavSection.svelte b/src/lib/ui/navigation/NavSection.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..78ff822f3ec93fb2f05ba79f873964001bd90b4f
+--- /dev/null
++++ b/src/lib/ui/navigation/NavSection.svelte
+@@ -0,0 +1,27 @@
++<script lang="ts">
++	import type { Snippet } from "svelte";
++
++	interface Props {
++		title?: string;
++		children?: Snippet;
++	}
++
++	let {
++		title,
++		children
++	}: Props = $props();
++</script>
++
++<section class="space-y-2">
++
++	{#if title}
++		<h3 class="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-(--text-muted)">
++			{title}
++		</h3>
++	{/if}
++
++	<div class="space-y-1">
++		{@render children?.()}
++	</div>
++
++</section>
+diff --git a/src/lib/ui/navigation/SearchBox.svelte b/src/lib/ui/navigation/SearchBox.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..3554061de64e81a80b3085eb9ccd9ae1ba1fb1b4
+--- /dev/null
++++ b/src/lib/ui/navigation/SearchBox.svelte
+@@ -0,0 +1,28 @@
++<script lang="ts">
++	import { Search } from "lucide-svelte";
++
++	interface Props {
++		placeholder?: string;
++		value?: string;
++	}
++
++	let {
++		placeholder = "Search...",
++		value = $bindable("")
++	}: Props = $props();
++</script>
++
++<div class="relative">
++
++	<Search
++		class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-(--text-muted)"
++	/>
++
++	<input
++		bind:value
++		type="search"
++		placeholder={placeholder}
++		class="h-10 w-full rounded-xl border border-(--border-default) bg-(--surface-2) pl-10 pr-4 outline-none transition focus:border-(--dex-primary)"
++	/>
++
++</div>
+diff --git a/src/lib/ui/navigation/index.ts b/src/lib/ui/navigation/index.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..5d25bd9c109cddf4413b1d8a876eff17bba4cc0e
+--- /dev/null
++++ b/src/lib/ui/navigation/index.ts
+@@ -0,0 +1,5 @@
++export { default as NavItem } from "./NavItem.svelte";
++export { default as NavSection } from "./NavSection.svelte";
++export { default as SearchBox } from "./SearchBox.svelte";
++export { default as Breadcrumb } from "./Breadcrumb.svelte";
++export { default as CommandPalette } from "./CommandPalette.svelte";
+diff --git a/src/lib/ui/primitives/Badge.svelte b/src/lib/ui/primitives/Badge.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..2e2f294ef7e559eab90588aada839ce883be40ec
+--- /dev/null
++++ b/src/lib/ui/primitives/Badge.svelte
+@@ -0,0 +1,74 @@
++<script lang="ts">
++	import { cva, type VariantProps } from "class-variance-authority";
++	import { twMerge } from "tailwind-merge";
++	import type { HTMLAttributes } from "svelte/elements";
++	import type { Snippet } from "svelte";
++
++	const variants = cva(
++		[
++			"inline-flex",
++			"items-center",
++			"justify-center",
++			"rounded-full",
++			"px-2.5",
++			"py-1",
++			"text-xs",
++			"font-medium",
++			"border"
++		],
++		{
++			variants: {
++				variant: {
++					default:
++						"dex-glass text-[color:var(--text-primary)] border-[color:var(--border-default)]",
++
++					accent:
++						"bg-[color:var(--dex-primary)] text-white border-transparent",
++
++					success:
++						"bg-[color:var(--dex-success)] text-white border-transparent",
++
++					warning:
++						"bg-[color:var(--dex-warning)] text-black border-transparent",
++
++					danger:
++						"bg-[color:var(--dex-danger)] text-white border-transparent"
++				}
++			},
++
++			defaultVariants: {
++				variant: "default"
++			}
++		}
++	);
++
++	type Props =
++		HTMLAttributes<HTMLSpanElement> &
++		VariantProps<typeof variants> & {
++			children?: Snippet;
++			class?: string;
++		};
++
++	let {
++		variant,
++		children,
++		class: className,
++		...rest
++	}: Props = $props();
++
++	const classes = $derived(
++		twMerge(
++			variants({
++				variant
++			}),
++			className
++		)
++	);
++</script>
++
++<span
++	class={classes}
++	{...rest}
++>
++	{@render children?.()}
++</span>
+diff --git a/src/lib/ui/primitives/Button.svelte b/src/lib/ui/primitives/Button.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..23807ac86fcba558584049eacda6970f7b04cff9
+--- /dev/null
++++ b/src/lib/ui/primitives/Button.svelte
+@@ -0,0 +1,159 @@
++<script lang="ts">
++	import { cva, type VariantProps } from "class-variance-authority";
++	import { twMerge } from "tailwind-merge";
++	import type { HTMLButtonAttributes } from "svelte/elements";
++	import type { Component, Snippet } from "svelte";
++
++	const buttonVariants = cva(
++		[
++			"inline-flex",
++			"items-center",
++			"justify-center",
++			"gap-2",
++			"select-none",
++			"font-medium",
++			"transition-all",
++			"duration-200",
++			"outline-none",
++			"disabled:pointer-events-none",
++			"disabled:opacity-50"
++		],
++		{
++			variants: {
++				variant: {
++					primary: [
++						"dex-glass",
++						"dex-glass-elevated",
++						"text-white",
++						"border-[color:var(--dex-primary)]"
++					],
++
++					secondary: [
++						"dex-glass",
++						"text-[color:var(--text-primary)]"
++					],
++
++					ghost: [
++						"bg-transparent",
++						"border",
++						"border-transparent",
++						"hover:bg-[color:var(--surface-2)]"
++					],
++
++					danger: [
++						"bg-[color:var(--dex-danger)]",
++						"text-white"
++					]
++				},
++
++				size: {
++					xs: "h-8 px-3 text-xs",
++					sm: "h-9 px-4 text-sm",
++					md: "h-11 px-5 text-sm",
++					lg: "h-12 px-6 text-base",
++					xl: "h-14 px-8 text-lg",
++
++					icon: "size-11 p-0"
++				},
++
++				rounded: {
++					sm: "rounded-md",
++					md: "rounded-lg",
++					lg: "rounded-xl",
++					full: "rounded-full"
++				},
++
++				glow: {
++					true: "dex-glow",
++					false: ""
++				},
++
++				interactive: {
++					true: "dex-interactive",
++					false: ""
++				}
++			},
++
++			defaultVariants: {
++				variant: "primary",
++				size: "md",
++				rounded: "lg",
++				glow: false,
++				interactive: true
++			}
++		}
++	);
++
++	type Props =
++		HTMLButtonAttributes &
++		VariantProps<typeof buttonVariants> & {
++
++			leftIcon?: Component;
++
++			rightIcon?: Component;
++
++			loading?: boolean;
++
++			children?: Snippet;
++
++			class?: string;
++		};
++
++	let {
++		variant,
++		size,
++		rounded,
++		glow,
++		interactive,
++
++		leftIcon: LeftIcon,
++		rightIcon: RightIcon,
++
++		loading = false,
++
++		children,
++
++		class: className,
++
++		disabled,
++
++		...rest
++	}: Props = $props();
++
++	const classes = $derived(
++		twMerge(
++			buttonVariants({
++				variant,
++				size,
++				rounded,
++				glow,
++				interactive
++			}),
++			className
++		)
++	);
++</script>
++
++<button
++	class={classes}
++	disabled={disabled || loading}
++	{...rest}
++>
++	{#if loading}
++		<div
++			class="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
++		>
++
++		</div>
++	{:else}
++		{#if LeftIcon}
++			<LeftIcon class="size-4 shrink-0" />
++		{/if}
++	{/if}
++
++	{@render children?.()}
++
++	{#if !loading && RightIcon}
++		<RightIcon class="size-4 shrink-0" />
++	{/if}
++</button>
+diff --git a/src/lib/ui/primitives/Divider.svelte b/src/lib/ui/primitives/Divider.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..51f463e9f6d83a58035be69d4a81c63c328d669e
+--- /dev/null
++++ b/src/lib/ui/primitives/Divider.svelte
+@@ -0,0 +1,35 @@
++<script lang="ts">
++	import { clsx } from "clsx";
++
++	/** Hairline separator. Horizontal by default; vertical needs a sized parent. */
++
++	let {
++		orientation = "horizontal",
++		class: className,
++	}: {
++		orientation?: "horizontal" | "vertical";
++		class?: string;
++	} = $props();
++</script>
++
++<hr
++	aria-orientation={orientation}
++	class={clsx("dex-divider", `dex-divider--${orientation}`, className)}
++/>
++
++<style>
++	.dex-divider {
++		border: none;
++		background: var(--dex-border-subtle);
++	}
++
++	.dex-divider--horizontal {
++		width: 100%;
++		height: 1px;
++	}
++
++	.dex-divider--vertical {
++		width: 1px;
++		height: 100%;
++	}
++</style>
+diff --git a/src/lib/ui/primitives/GlassPanel.svelte b/src/lib/ui/primitives/GlassPanel.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..fa168806fee40f5837081550785b8f8c88798c57
+--- /dev/null
++++ b/src/lib/ui/primitives/GlassPanel.svelte
+@@ -0,0 +1,223 @@
++<script lang="ts">
++    import { clsx } from "clsx";
++    import type { HTMLAttributes } from "svelte/elements";
++    import type { Snippet } from "svelte";
++
++    type GlassElement =
++        "div" | "section" | "aside" | "header" | "footer" | "nav" | "main";
++
++    type GlassVariant =
++        "panel" | "hud" | "sidebar" | "dock" | "raised" | "floating";
++
++    type GlassPadding = "none" | "sm" | "md" | "lg";
++
++    type GlassRadius = "md" | "lg" | "xl" | "full";
++
++    interface Props extends HTMLAttributes<HTMLElement> {
++        element?: GlassElement;
++        variant?: GlassVariant;
++        padding?: GlassPadding;
++        radius?: GlassRadius;
++        glow?: boolean;
++        interactive?: boolean;
++        class?: string;
++        children?: Snippet;
++    }
++
++    let {
++        element = "div",
++        variant = "panel",
++        padding = "md",
++        radius = "xl",
++        glow = false,
++        interactive = false,
++        class: className,
++        children,
++        ...rest
++    }: Props = $props();
++
++    const classes = $derived(
++        clsx(
++            "dex-glass",
++            `dex-glass--${variant}`,
++            `dex-padding--${padding}`,
++            `dex-radius--${radius}`,
++            {
++                "dex-glass--glow": glow,
++                "dex-glass--interactive": interactive,
++            },
++            className,
++        ),
++    );
++</script>
++
++<svelte:element this={element} class={classes} {...rest}>
++    <div class="dex-glass__highlight"></div>
++
++    <div class="dex-glass__reflection"></div>
++    <div class="dex-glass__content">
++        {@render children?.()}
++    </div>
++</svelte:element>
++
++<style>
++    .dex-glass {
++        position: relative;
++
++        overflow: hidden;
++
++        border: 1px solid rgb(255 255 255 / 0.12);
++        background: linear-gradient(
++            180deg,
++            rgb(28 30 38 / 0.42),
++            rgb(18 20 28 / 0.3)
++        );
++
++        backdrop-filter: blur(56px) saturate(185%) brightness(1.05);
++        box-shadow:
++            0 18px 60px rgb(0 0 0 / 0.38),
++            inset 0 1px 0 rgb(255 255 255 / 0.12),
++            inset 0 -1px 0 rgb(255 255 255 / 0.03);
++        transition:
++            transform 0.25s ease,
++            box-shadow 0.25s ease,
++            border-color 0.25s ease;
++    }
++
++    .dex-glass::before {
++        content: "";
++
++        position: absolute;
++        inset: 0;
++
++        background: linear-gradient(
++            180deg,
++            rgb(255 255 255 / 0.1),
++            transparent 45%
++        );
++
++        pointer-events: none;
++    }
++
++    .dex-glass__highlight {
++        position: absolute;
++
++        width: 280px;
++        height: 280px;
++
++        left: -120px;
++        top: -160px;
++
++        border-radius: 999px;
++
++        background: radial-gradient(
++            circle,
++            rgb(255 255 255 / 0.18),
++            transparent 70%
++        );
++
++        opacity: 0.22;
++        filter: blur(060px);
++    }
++
++    .dex-glass__reflection {
++        position: absolute;
++        inset: 0;
++
++        background: linear-gradient(
++            120deg,
++            transparent 20%,
++            rgb(255 255 255 / 0.05) 45%,
++            transparent 70%
++        );
++        opacity: 0.18;
++        pointer-events: none;
++    }
++
++    .dex-glass__content {
++        position: relative;
++        z-index: 1;
++    }
++
++    .dex-glass--interactive:hover {
++        transform: translateY(-4px);
++
++        border-color: rgb(255 255 255 / 0.18);
++
++        box-shadow:
++            0 32px 80px rgb(0 0 0 / 0.35),
++            0 0 30px rgb(120 170 255 / 0.08),
++            inset 0 1px 0 rgb(255 255 255 / 0.2);
++    }
++
++    .dex-glass--glow {
++        box-shadow:
++            0 0 40px rgb(100 160 255 / 0.12),
++            0 24px 70px rgb(0 0 0 / 0.32),
++            inset 0 1px 0 rgb(255 255 255 / 0.18);
++    }
++
++    .dex-glass--hud {
++        background: linear-gradient(
++            180deg,
++            rgb(255 255 255 / 0.14),
++            rgb(255 255 255 / 0.05)
++        );
++    }
++
++    .dex-glass--sidebar {
++        background: linear-gradient(
++            180deg,
++            rgb(255 255 255 / 0.08),
++            rgb(255 255 255 / 0.03)
++        );
++    }
++
++    .dex-glass--dock {
++        background: linear-gradient(
++            180deg,
++            rgb(255 255 255 / 0.12),
++            rgb(255 255 255 / 0.05)
++        );
++        box-shadow:
++            0 28px 80px rgb(0 0 0 /0.45),
++            inset 0 1px 0 rgb(255 255 255 /0.1);
++        backdrop-filter: blur(40px) saturate(200%);
++    }
++
++    .dex-glass--floating {
++        backdrop-filter: blur(48px) saturate(220%);
++    }
++
++    .dex-padding--none {
++        padding: 0;
++    }
++
++    .dex-padding--sm {
++        padding: 0.75rem;
++    }
++
++    .dex-padding--md {
++        padding: 1rem;
++    }
++
++    .dex-padding--lg {
++        padding: 1.5rem;
++    }
++
++    .dex-radius--md {
++        border-radius: 16px;
++    }
++
++    .dex-radius--lg {
++        border-radius: 20px;
++    }
++
++    .dex-radius--xl {
++        border-radius: 28px;
++    }
++
++    .dex-radius--full {
++        border-radius: 999px;
++    }
++</style>
+diff --git a/src/lib/ui/primitives/Icon.svelte b/src/lib/ui/primitives/Icon.svelte
+new file mode 100644
+index 0000000000000000000000000000000000000000..9bd48c99ec3239027b21a02c2c9d3bdf4ef684c1
+--- /dev/null
++++ b/src/lib/ui/primitives/Icon.svelte
+@@ -0,0 +1,51 @@
++<script lang="ts">
++    import { cva, type VariantProps } from "class-variance-authority";
++    import { twMerge } from "tailwind-merge";
++    import type { Component } from "svelte";
++
++    const variants = cva("shrink-0 transition-colors duration-200", {
++        variants: {
++            size: {
++                xs: "size-3",
++                sm: "size-4",
++                md: "size-5",
++                lg: "size-6",
++                xl: "size-8",
++            },
++
++            color: {
++                default: "text-[color:var(--text-primary)]",
++                muted: "text-[color:var(--text-muted)]",
++                accent: "text-[color:var(--dex-primary)]",
++                success: "text-[color:var(--dex-success)]",
++                warning: "text-[color:var(--dex-warning)]",
++                danger: "text-[color:var(--dex-danger)]",
++                current: "text-current",
++            },
++        },
++
++        defaultVariants: {
++            size: "md",
++            color: "default",
++        },
++    });
++
++    type Props = VariantProps<typeof variants> & {
++        icon: Component;
++        class?: string;
++    };
++
++    let { icon: Icon, size, color, class: className }: Props = $props();
++
++    const classes = $derived(
++        twMerge(
++            variants({
++   

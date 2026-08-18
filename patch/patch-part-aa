@@ -1,0 +1,1474 @@
+commit 5b06be22c020ee34edf9104fd9769daea7471b87
+Author: Mohamed Moughamir <moughamir@users.noreply.github.com>
+Date:   Wed Aug 5 14:35:26 2026 +0100
+
+    fix: restore frontend shell compilation (#1)
+    
+    Use the canonical sidebar navigation export, align NavItem with Svelte snippet props, and restore the shell layout CSS variables so the Phase 0 frontend gates can compile and build.
+
+diff --git a/.env.example b/.env.example
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/.github/PULL_REQUEST_TEMPLATE.md b/.github/PULL_REQUEST_TEMPLATE.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/.github/workflows/lint.yml b/.github/workflows/lint.yml
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000000000000000000000000000000000000..96436ce8d7338124f375831f814db11e22b91497
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,16 @@
++.DS_Store
++node_modules
++/build
++/.svelte-kit
++/package
++.env
++.env.*
++!.env.example
++vite.config.js.timestamp-*
++vite.config.ts.timestamp-*
++
++# Deepwork session state (git-local, OpenCode-readable)
++.slim/deepwork/
++.ignore
++.obsidian/
++AGENTS.md AUDIT_FIXES_PROMPT.md README.md
+diff --git a/.vscode/extensions.json b/.vscode/extensions.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..67abe25ca018e42dbb2bfb79811537ade885306c
+--- /dev/null
++++ b/.vscode/extensions.json
+@@ -0,0 +1,8 @@
++{
++  "recommendations": [
++    "svelte.svelte-vscode",
++    "tauri-apps.tauri-vscode",
++    "rust-lang.rust-analyzer",
++    "bradlc.vscode-tailwindcss"
++  ]
++}
+diff --git a/.vscode/launch.json b/.vscode/launch.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/.vscode/settings.json b/.vscode/settings.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..2f86c501174ae0dab6e1f9591f290af2a8b37152
+--- /dev/null
++++ b/.vscode/settings.json
+@@ -0,0 +1,3 @@
++{
++  "svelte.enable-ts-plugin": true
++}
+diff --git a/AGENTS.md b/AGENTS.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..86b570e68a1d92d81fb153d5f613deba3f7ae367
+--- /dev/null
++++ b/AGENTS.md
+@@ -0,0 +1,58 @@
++# AGENTS.md
++
++DEX — a programmable desktop layer for Hyprland. Phase 0 (foundation) is current; M0.1–M0.3 done, M0.4 (tooling/CI) open. Architecture decisions live in `docs/50-adr/` (read ADR-0001–0005 before touching cross-cutting code) and `docs/20-architecture/20_System_Architecture.md`. Detailed engineering rules live in `docs/40-engineering/` (CodingStandards, Testing, CI, GitWorkflow, Release). AGENTS.md is the operational ground truth for commands and repo mechanics.
++
++## Stack
++
++- SvelteKit 2 (Svelte 5 runes) + Vite 6 + TypeScript strict, Tauri 2 (Rust: tokio/serder/rusqlite/zbus), **Bun** package manager.
++- SPA only: `adapter-static` + `index.html` fallback, `ssr = false` (`src/routes/+layout.ts`). No Node server.
++- Frontend `src/` (Svelte); backend `src-tauri/` (Rust crate `omnizya_dex_lib` / bin `omnizya_dex`).
++
++## Commands
++
++- `bun install` — never `npm`/`pnpm`.
++- `bun run dev` — Vite-only dev server, **port 1420** (`strictPort: true` in `vite.config.js`). Frontend work only; window chrome is not rendered here.
++- `bun run check` (`check:watch` for watch mode) — `svelte-kit sync && svelte-check`. Frontend type gate; must pass clean.
++- `bun run tauri dev` — full transparent desktop window. Requires Wayland/Hyprland + webkit2gtk + a display; **not headless, not in CI**.
++- `cargo check` (then `cargo test`) inside `src-tauri/`.
++- **No CI configured.** `tests/{unit,integration,e2e,frontend,backend}/` are empty, `.github/workflows/*.yml` are empty placeholders, and no JS test runner / lint / formatter is wired (M0.4). Verification runs locally.
++
++## Live vs. placeholder
++
++Phase 0 ships the shell + the IPC plumbing. The rest is scaffolding — much of it inert, not merely empty.
++
++- **The only live IPC command is `greet`**, wired end-to-end: Rust `commands/core.rs` (`#[tauri::command] greet`) → single `generate_handler![commands::core::greet]` in `lib.rs` → TS contract `COMMANDS.greet` (`core/api/commands.ts`) → typed client `core/services/greet.ts`. Adding a command requires a contract in **both** `core/api/commands.ts` and `src-tauri/src/lib.rs`.
++- **Live `core/` plumbing**: `core/api/{commands,tauri,events}.ts`, `core/services/greet.ts`, `core/utils/{logger,storage}.ts`, `core/stores/theme.svelte.ts` (bootstrapped in `+layout.svelte`), `core/config/{theme,layout,navigation}.ts`. (`core/stores/shell.svelte.ts` is real but currently not wired in.) Everything else under `core/{services,types,events,hooks,composables}` is an empty placeholder — do not import it.
++- **Rust is mostly inert, not just empty.** `lib.rs` declares only `mod commands;` and `mod utils;`. The large `providers/` tree (dbus, modem, network, process, health, …), plus `state/`, `events/`, `ipc/`, `database/`, `models/`, `plugins/`, `services/`, `system/` — none are `mod`-declared, so **none are compiled**, even though several provider files contain real skeleton code. Don't build on them; declare a module only when its slice ships. (82 of 123 `*.rs` under `src-tauri/src/` are empty.)
++- `database/migrations/*.sql`, `database/seeds/default.sql` and `database/dex.db` are empty/committed. **Migrations are append-only** (ADR-0001): never edit a committed migration; each schema change is a new migration + Rust model + zod schema in one slice.
++
++## How new code is wired (ADR-0002 IPC checklist)
++
++1. Rust `src-tauri/src/commands/<domain>.rs` — `#[tauri::command]`, `Result<T, AppError>` (from `utils/errors.rs`), **exactly one serde struct arg**; no `#[serde(rename_all)]`, serde snake_case is the wire authority.
++2. Rust: declare the module in `commands/mod.rs` and append the fn to the **single** `generate_handler![...]` in `lib.rs` — exactly one `invoke_handler`; a second silently shadows the first.
++3. TS: add `defineCommand(...)` + zod schemas to `core/api/commands.ts` (duplicate names throw at import). Infallible commands use `z.null()`.
++4. TS: expose a typed async fn in `core/services/<domain>.ts` returning the domain result, surfacing `IpcError` on failure.
++5. Capability grant if a plugin is involved (`src-tauri/capabilities/default.json`; `log:default` already granted).
++- Rust→UI events: emit from `src-tauri/src/events/` (future phase), declare in the `EVENTS` registry (`dex.<domain>.<event>`) and subscribe via `onEvent(name, schema, handler)` from `core/api/events.ts`. Invalid payloads are logged and dropped, never thrown into the handler.
++
++## Conventions
++
++- **Boundaries** — frontend never imports `@tauri-apps/api` directly (only `core/api`); features only call typed clients in `core/services`. No `fetch`/`fs`/SQLite in the frontend — all system access flows `core/services` → Rust (ADR-0001). Features never import other features; shared logic goes to `core/` or `ui/`. Depend direction is acyclic: `ui → features → core → IPC → src-tauri`.
++- **Design tokens** — defined in `src/lib/ui/styles/tokens.css` (the live source). Components consume semantic tokens via `var(...)`, never hardcoded color/radius/duration/z-index literals.
++  - Token namespaces: `--surface-*`, `--bg-*`, `--text-*`, `--glass-*`, `--blur-*`, `--radius-*`, `--space-*`, `--shadow-*`, `--duration-*`, `--ease-*`, `--z-*`, plus `--dex-*` for brand/accent only (e.g. `var(--text-muted)`, `var(--surface-3)`, `var(--dex-primary)`). `docs/40-engineering/DesignSystem.md` describes an aspirational flat `--dex-*` vocabulary that does **not** match the imported `tokens.css`; follow the CSS file.
++  - Themes are TS palettes in `src/lib/ui/themes/` (light/dark/cyber), mirrored to `data-theme`; `theme.svelte.ts` + `init()` bootstrapped in `src/routes/+layout.svelte`.
++- **Tailwind v4** is wired config-less via `@tailwindcss/vite` — there is **no** `tailwind.config.js`/`postcss.config.js`. Utility classes and arbitrary properties (`bg-(--surface-3)`) both resolve to CSS vars.
++- **Transparent window (ADR-0004)**: `tauri.conf.json` sets `fullscreen/transparent/decorations: false`. `html`/`body`/`#svelte`/`body` must stay `background: transparent` (app.css + `app.html` body) — visual backdrop comes from glass panels (`backdrop-filter` + translucent tokens). Any full-window solid fill is a contract violation.
++- **Strict CSP (ADR-0005)** in `tauri.conf.json`: `default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost`. Dev HMR (Vite ws) may need temporary relaxation — never ship the loosened policy.
++- **Logging** — only `core/utils/logger.ts` (`logTrace`/`logDebug`/`logInfo`/`logWarn`/`logError`), a facade over `@tauri-apps/plugin-log` (writes stdout + app log dir), console fallback under plain `bun run dev`. No `console.*` in new code.
++- **Svelte 5 runes only** (`$state`/`$derived`/`$effect`); stores are `.svelte.ts` files. No legacy `svelte/store`.
++- **File naming**: `PascalCase.svelte` components; `kebab-case.svelte.ts` rune stores; `kebab-case.ts` modules; `snake_case.rs` Rust; zero-padded append-only migrations (`001_init.sql`).
++- **Commits**: conventional (`feat:`/`fix:`/`refactor:`/`perf:`/`docs:`/`test:`/`style:`), imperative summary < 72 chars, body explains *why*. Branch from `develop` (`feat/`/`fix/`/… short-lived), **squash-merge** to `develop`; `develop` → `main` at milestone/release. `main`/`develop` are never force-pushed.
++
++## Verification order (the gate)
++
++1. `bun run check` — frontend types (`svelte-kit sync && svelte-check`).
++2. `cargo check` — Rust, inside `src-tauri/`.
++3. `bun run tauri dev` — manual desktop. Transparent/compositor behavior can't be tested headless (ADR-0004), so this stays a manual gate even after CI lands.
++
++A change failing `bun run check` or `cargo check` is not ready for review. Automated suites (`cargo test`, bun test) slot in after M0.4; until then the manual desktop check covers behavior.
+diff --git a/AUDIT_FIXES_PROMPT.md b/AUDIT_FIXES_PROMPT.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..9d68bc7d1e6662e3ee6b4a37212692f2db5bce8a
+--- /dev/null
++++ b/AUDIT_FIXES_PROMPT.md
+@@ -0,0 +1,230 @@
++# Documentation Audit Fixes — Writer Agent Prompt
++
++## Context
++
++A 12-pass documentation audit of the DEX `docs/` tree identified 9 issues across critical, high, and medium severity. This prompt covers the 5 critical and high-priority fixes that must be completed before Phase 1 development begins.
++
++## Issues to Fix
++
++### CRITICAL 1: ADR Numbering Conflicts
++
++**Location:** `docs/50-adr/`
++
++**Problem:** Five pairs of duplicate ADR numbers exist — every number from 0001–0005 has two files:
++
++| Number | Populated File | Empty Duplicate |
++|--------|---------------|-----------------|
++| 0001 | `0001-layer-ownership.md` (6.6KB) | `0001-workspace-first.md` (0 bytes) |
++| 0002 | `0002-typed-ipc-contract.md` (4.6KB) | `0002-offline-first.md` (0 bytes) |
++| 0003 | `0003-design-tokens.md` (2.9KB) | `0003-cli-first.md` (0 bytes) |
++| 0004 | `0004-transparent-compositing.md` (2.3KB) | `0004-plugin-system.md` (0 bytes) |
++| 0005 | `0005-plugin-boundary.md` (2.1KB) | `0005-native-integration.md` (0 bytes) |
++
++Additionally, `0006-threejs-renderer.md` (0 bytes) is unique but empty.
++
++**Fix:**
++1. Read all files in `docs/50-adr/` to understand current state
++2. Delete all empty duplicate files (they are 0-byte placeholders):
++   - `0001-workspace-first.md`
++   - `0002-offline-first.md`
++   - `0003-cli-first.md`
++   - `0004-plugin-system.md`
++   - `0005-native-integration.md`
++   - `0006-threejs-renderer.md`
++3. Verify no other files reference the deleted filenames
++4. Update any cross-references if needed
++
++**Acceptance Criteria:**
++- All ADR files have unique numbering
++- No broken cross-references
++- Empty files are either removed or renumbered without conflicts
++
++---
++
++### CRITICAL 2: Populate Guides Layer
++
++**Location:** `docs/80-guides/`
++
++**Problem:** All 5 guide files are empty:
++- `CreatingPlugin.md`
++- `CreatingWidget.md`
++- `CreatingTheme.md`
++- `CreatingWorkspace.md`
++- `UsingAI.md`
++
++**Fix:** Populate each guide with practical how-to content based on the corresponding specs and architecture docs.
++
++**For `CreatingPlugin.md`:**
++- Reference `30-specs/PluginAPI.md` for the formal contract
++- Reference `20-architecture/27_Plugins.md` for architecture
++- Include: Prerequisites, Project setup, Manifest creation, Command registration, Event handling, Testing, Installation
++- Include code examples (TypeScript for manifest, Rust for commands)
++
++**For `CreatingWidget.md`:**
++- Reference `30-specs/WidgetAPI.md` for the formal contract
++- Include: Prerequisites, Widget structure, Sandboxed API usage, Shell-mediated commands, Positioning, Testing
++
++**For `CreatingTheme.md`:**
++- Reference `40-engineering/DesignSystem.md` for tokens
++- Reference `30-specs/Theme.md` for the formal theme contract
++- Include: Token architecture, Color palette definition, Typography, Motion, Theme switching, Persistence
++
++**For `CreatingWorkspace.md`:**
++- Reference `30-specs/Workspace.md` for lifecycle
++- Reference `30-specs/Manifest.md` for manifest format
++- Include: Creating a manifest, Declaring sessions, Declaring Workspace Services, Activation, Snapshots
++
++**For `UsingAI.md`:**
++- Reference `30-specs/Knowledge.md` for Knowledge Vault
++- Reference `20-architecture/26_AI_Architecture.md` for AI architecture
++- Include: Knowledge Vault basics, Connecting a Memory Provider, Querying the Vault, Disabling AI
++
++**Acceptance Criteria:**
++- Each guide has Purpose, Prerequisites, Steps, Examples, Related Documents sections
++- Guides reference formal specs (not duplicate them)
++- Code examples are realistic and follow project conventions
++- Each guide is 100-200 lines
++
++---
++
++### CRITICAL 3: Populate Dev Files
++
++**Location:** `docs/90-dev/`
++
++**Problem:** 3 of 5 dev files are empty:
++- `Debug.md`
++- `ProjectStructure.md`
++- `Profiling.md`
++
++**Fix:**
++
++**For `Debug.md`:**
++- Reference `90-dev/Build.md` for build context
++- Include: Frontend debugging (browser DevTools, Vite HMR), Rust debugging (cargo check, rust-gdb), IPC debugging (invoke logging, error envelope), Log plugin output locations, Common failure modes and diagnosis
++
++**For `ProjectStructure.md`:**
++- Reference `20-architecture/20_System_Architecture.md` for layer model
++- Include: Repository layout diagram, `src/` frontend structure, `src-tauri/` Rust structure, `docs/` hierarchy, Key files and their roles, Wiring rules (ADR-0002 checklist)
++
++**For `Profiling.md`:**
++- Reference `40-engineering/Performance.md` for budgets
++- Include: Performance budgets (cold start <500ms, 60 FPS, <200 MB idle), Frontend profiling (Chrome DevTools Performance tab), Rust profiling (cargo flamegraph), Memory measurement, FPS monitoring, When to optimize
++
++**Acceptance Criteria:**
++- Each file has Purpose, Content, Related Documents sections
++- Content is practical and actionable
++- References to other docs use relative paths
++- Each file is 80-150 lines
++
++---
++
++### HIGH 4: Populate Release Engineering
++
++**Location:** `docs/40-engineering/Release.md`
++
++**Problem:** Empty file, but Release is M9.5 in roadmap
++
++**Fix:** Create release process document.
++
++**Structure:**
++```markdown
++# Release Process
++
++## Purpose
++[How DEX releases are built, tested, and published]
++
++## Release Cycle
++- Semantic versioning (MAJOR.MINOR.PATCH)
++- Phase gates as release milestones
++
++## Build Process
++- Frontend build (`bun run build`)
++- Rust build (`cargo build --release`)
++- Tauri bundler (`bun run tauri build`)
++
++## Packaging Targets
++- Arch Linux (pacman/AUR)
++- AppImage
++- Flatpak
++
++## Testing Gate
++- `bun run check` passes
++- `cargo check` passes
++- `cargo test` passes
++- Manual verification on Hyprland
++
++## Release Checklist
++[Step-by-step release process]
++
++## Post-Release
++- Tag creation
++- Changelog update
++- Announcement
++
++## Related Documents
++[Links to Build.md, CodingStandards.md, ProductRoadmap.md]
++```
++
++**Acceptance Criteria:**
++- Covers build, packaging, testing, and publishing
++- References existing build docs
++- 60-100 lines
++
++---
++
++### HIGH 5: Add Missing Glossary Terms
++
++**Location:** `docs/00-vision/03_Glossary.md`
++
++**Problem:** Several terms used in docs are not defined in Glossary
++
++**Fix:** Add the following terms:
++
++```markdown
++## Automation Terms
++
++**Trigger** — An event that starts a Workflow execution (file change, cron schedule, CLI command, startup).
++
++**Condition** — A test evaluated before a Workflow action executes; if false, the action is skipped.
++
++**Action** — A single operation performed by a Workflow (run command, send notification, activate Workspace).
++
++**Result** — The outcome of a Workflow action (success, failure, partial).
++
++**Workflow** — A sequence of Trigger → Condition → Action → Result steps that automate a development routine.
++
++**Macro** — A recorded sequence of keyboard, mouse, or shell operations that can be replayed.
++
++**Scheduler** — The Runtime component that fires Triggers on cron schedules or system events.
++
++**Smart Action** — An AI-generated Workflow created from natural language description.
++
++## Other Terms
++
++**Desktop Experience** — Alternative expansion of DEX; used in architecture docs but not the canonical product name.
++
++**omnizya-dex** — The Rust crate name for the DEX backend (library target: `omnizya_dex_lib`).
++```
++
++**Acceptance Criteria:**
++- All terms used in docs appear in Glossary
++- Definitions are concise (1-2 sentences)
++- Terms are grouped logically
++
++---
++
++## Execution Order
++
++1. Fix ADR numbering (CRITICAL 1) — no dependencies
++2. Add Glossary terms (HIGH 5) — no dependencies
++3. Populate Release engineering (HIGH 4) — depends on Build.md reference
++4. Populate Dev files (CRITICAL 3) — depends on Build.md, Architecture docs
++5. Populate Guides (CRITICAL 2) — depends on Specs, Architecture docs
++
++## Verification
++
++After all fixes:
++1. Run `bun run check` (if applicable to doc changes)
++2. Verify all relative links resolve
++3. Verify Glossary contains all used terms
++4. Verify no ADR numbering conflicts remain
+diff --git a/README.md b/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..ea4d020728ec607dfda60ebb08b8a1a41530feea
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1,52 @@
++# DEX
++
++**DEX** — a programmable desktop layer for Hyprland/Wayland on Arch Linux.
++Not a desktop application: an operating layer between the user and the OS —
++a reactive, modular, GPU-accelerated shell built on Tauri 2, Svelte 5, and
++Rust.
++
++## Stack
++
++- Frontend: SvelteKit (SPA) · Svelte 5 runes · TypeScript strict · CSS
++  variables · Three.js (Phase 1) · Bun
++- Backend: Tauri 2 · Rust · Tokio · Serde · SQLite (rusqlite)
++- Platform: Hyprland · Wayland · Arch Linux
++
++## Architecture
++
++Layer model, boundaries, and decisions live in
++[`docs/20-architecture/20_System_Architecture.md`](docs/20-architecture/20_System_Architecture.md) and
++[`docs/50-adr/`](docs/50-adr/) (ADR-0001 layer ownership, ADR-0002 typed IPC
++contract, ADR-0003 design tokens, ADR-0004 transparent compositing).
++Design system usage: [`docs/40-engineering/DesignSystem.md`](docs/40-engineering/DesignSystem.md).
++Roadmap: [`docs/10-product/11_Product_Roadmap.md`](docs/10-product/11_Product_Roadmap.md).
++
++Highlights:
++
++- **Boundaries** — UI never touches SQLite, the shell, or the filesystem;
++  Rust owns all system access. Every IPC call is schema-validated at both
++  edges (zod ⇄ serde).
++- **Feature-first** — business features are self-contained under
++  `src/lib/features/<feature>/`; shared infrastructure in `src/lib/core/`;
++  reusable visuals in `src/lib/ui/`; GPU in `src/lib/graphics/`.
++- **Design tokens** — components consume semantic `var(--dex-*)` only;
++  theming via `data-theme` with a typed TS palette mirror for the graphics
++  engine.
++
++## Development
++
++```sh
++bun install        # never npm
++bun run dev        # Vite only, port 1420
++bun run tauri dev  # full desktop window (Wayland/Hyprland, webkit2gtk)
++bun run check      # svelte-check
++cargo check        # inside src-tauri/
++```
++
++See [`AGENTS.md`](AGENTS.md) for repo mechanics and conventions.
++
++## Status
++
++Phase 0 (foundation): layer model, ADRs, design system, typed IPC layer,
++theme store, Rust command scaffolding — no business features yet. See
++[`docs/10-product/11_Product_Roadmap.md`](docs/10-product/11_Product_Roadmap.md).
+diff --git a/assets/fonts/.gitkeep b/assets/fonts/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/assets/icons/.gitkeep b/assets/icons/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/assets/images/.gitkeep b/assets/images/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/assets/models/.gitkeep b/assets/models/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/assets/shaders/.gitkeep b/assets/shaders/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/assets/sounds/.gitkeep b/assets/sounds/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/assets/wallpapers/.gitkeep b/assets/wallpapers/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/bun.lock b/bun.lock
+new file mode 100644
+index 0000000000000000000000000000000000000000..f0a8b7c9c04f5a18db2aff115d6d920d1949e953
+--- /dev/null
++++ b/bun.lock
+@@ -0,0 +1,534 @@
++{
++  "lockfileVersion": 1,
++  "configVersion": 1,
++  "workspaces": {
++    "": {
++      "name": "omnizya-dex",
++      "dependencies": {
++        "@floating-ui/core": "^1.8.0",
++        "@floating-ui/dom": "^1.8.0",
++        "@tauri-apps/api": "^2.11.1",
++        "@tauri-apps/plugin-log": "^2.9.0",
++        "@tauri-apps/plugin-opener": "^2",
++        "@types/three": "^0.185.3",
++        "bits-ui": "^2.18.1",
++        "class-variance-authority": "^0.7.1",
++        "clsx": "^2.1.1",
++        "formsnap": "^2.0.1",
++        "fuse.js": "^7.5.0",
++        "lucide-svelte": "^1.0.1",
++        "mode-watcher": "^1.1.0",
++        "motion": "^12.43.0",
++        "nanoid": "^6.0.1",
++        "svelte-sonner": "^1.1.1",
++        "tailwind-merge": "^3.6.0",
++        "three": "^0.185.1",
++        "tw-animate-css": "^1.4.0",
++        "zod": "^4.4.3",
++      },
++      "devDependencies": {
++        "@sveltejs/adapter-static": "^3.0.6",
++        "@sveltejs/kit": "^2.9.0",
++        "@sveltejs/vite-plugin-svelte": "^5.0.0",
++        "@tailwindcss/vite": "^4.3.3",
++        "@tauri-apps/cli": "^2",
++        "svelte": "^5.0.0",
++        "svelte-check": "^4.0.0",
++        "tailwindcss": "^4.3.3",
++        "typescript": "~5.6.2",
++        "vite": "^6.0.3",
++      },
++    },
++  },
++  "packages": {
++    "@ark/schema": ["@ark/schema@0.56.2", "", { "dependencies": { "@ark/util": "0.56.2" } }, "sha512-Qx4D2JFbBWpntiHZaTv7bGG4H/M2rigiknezKg/WVyDSaLdE4YCcWAOoFB7pjjDqHbbV2OqRfntm1nnXvwMexg=="],
++
++    "@ark/util": ["@ark/util@0.56.2", "", {}, "sha512-9kU2sUE38FZEGG7l3hamYMBieLYEJh2L1mrYD2eXpT+78EnQSV1bhjxJhnxGBMSTbtwpBSDNSK+K60WvaI/DTQ=="],
++
++    "@babel/runtime": ["@babel/runtime@7.29.7", "", {}, "sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw=="],
++
++    "@dimforge/rapier3d-compat": ["@dimforge/rapier3d-compat@0.12.0", "", {}, "sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow=="],
++
++    "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.25.12", "", { "os": "aix", "cpu": "ppc64" }, "sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA=="],
++
++    "@esbuild/android-arm": ["@esbuild/android-arm@0.25.12", "", { "os": "android", "cpu": "arm" }, "sha512-VJ+sKvNA/GE7Ccacc9Cha7bpS8nyzVv0jdVgwNDaR4gDMC/2TTRc33Ip8qrNYUcpkOHUT5OZ0bUcNNVZQ9RLlg=="],
++
++    "@esbuild/android-arm64": ["@esbuild/android-arm64@0.25.12", "", { "os": "android", "cpu": "arm64" }, "sha512-6AAmLG7zwD1Z159jCKPvAxZd4y/VTO0VkprYy+3N2FtJ8+BQWFXU+OxARIwA46c5tdD9SsKGZ/1ocqBS/gAKHg=="],
++
++    "@esbuild/android-x64": ["@esbuild/android-x64@0.25.12", "", { "os": "android", "cpu": "x64" }, "sha512-5jbb+2hhDHx5phYR2By8GTWEzn6I9UqR11Kwf22iKbNpYrsmRB18aX/9ivc5cabcUiAT/wM+YIZ6SG9QO6a8kg=="],
++
++    "@esbuild/darwin-arm64": ["@esbuild/darwin-arm64@0.25.12", "", { "os": "darwin", "cpu": "arm64" }, "sha512-N3zl+lxHCifgIlcMUP5016ESkeQjLj/959RxxNYIthIg+CQHInujFuXeWbWMgnTo4cp5XVHqFPmpyu9J65C1Yg=="],
++
++    "@esbuild/darwin-x64": ["@esbuild/darwin-x64@0.25.12", "", { "os": "darwin", "cpu": "x64" }, "sha512-HQ9ka4Kx21qHXwtlTUVbKJOAnmG1ipXhdWTmNXiPzPfWKpXqASVcWdnf2bnL73wgjNrFXAa3yYvBSd9pzfEIpA=="],
++
++    "@esbuild/freebsd-arm64": ["@esbuild/freebsd-arm64@0.25.12", "", { "os": "freebsd", "cpu": "arm64" }, "sha512-gA0Bx759+7Jve03K1S0vkOu5Lg/85dou3EseOGUes8flVOGxbhDDh/iZaoek11Y8mtyKPGF3vP8XhnkDEAmzeg=="],
++
++    "@esbuild/freebsd-x64": ["@esbuild/freebsd-x64@0.25.12", "", { "os": "freebsd", "cpu": "x64" }, "sha512-TGbO26Yw2xsHzxtbVFGEXBFH0FRAP7gtcPE7P5yP7wGy7cXK2oO7RyOhL5NLiqTlBh47XhmIUXuGciXEqYFfBQ=="],
++
++    "@esbuild/linux-arm": ["@esbuild/linux-arm@0.25.12", "", { "os": "linux", "cpu": "arm" }, "sha512-lPDGyC1JPDou8kGcywY0YILzWlhhnRjdof3UlcoqYmS9El818LLfJJc3PXXgZHrHCAKs/Z2SeZtDJr5MrkxtOw=="],
++
++    "@esbuild/linux-arm64": ["@esbuild/linux-arm64@0.25.12", "", { "os": "linux", "cpu": "arm64" }, "sha512-8bwX7a8FghIgrupcxb4aUmYDLp8pX06rGh5HqDT7bB+8Rdells6mHvrFHHW2JAOPZUbnjUpKTLg6ECyzvas2AQ=="],
++
++    "@esbuild/linux-ia32": ["@esbuild/linux-ia32@0.25.12", "", { "os": "linux", "cpu": "ia32" }, "sha512-0y9KrdVnbMM2/vG8KfU0byhUN+EFCny9+8g202gYqSSVMonbsCfLjUO+rCci7pM0WBEtz+oK/PIwHkzxkyharA=="],
++
++    "@esbuild/linux-loong64": ["@esbuild/linux-loong64@0.25.12", "", { "os": "linux", "cpu": "none" }, "sha512-h///Lr5a9rib/v1GGqXVGzjL4TMvVTv+s1DPoxQdz7l/AYv6LDSxdIwzxkrPW438oUXiDtwM10o9PmwS/6Z0Ng=="],
++
++    "@esbuild/linux-mips64el": ["@esbuild/linux-mips64el@0.25.12", "", { "os": "linux", "cpu": "none" }, "sha512-iyRrM1Pzy9GFMDLsXn1iHUm18nhKnNMWscjmp4+hpafcZjrr2WbT//d20xaGljXDBYHqRcl8HnxbX6uaA/eGVw=="],
++
++    "@esbuild/linux-ppc64": ["@esbuild/linux-ppc64@0.25.12", "", { "os": "linux", "cpu": "ppc64" }, "sha512-9meM/lRXxMi5PSUqEXRCtVjEZBGwB7P/D4yT8UG/mwIdze2aV4Vo6U5gD3+RsoHXKkHCfSxZKzmDssVlRj1QQA=="],
++
++    "@esbuild/linux-riscv64": ["@esbuild/linux-riscv64@0.25.12", "", { "os": "linux", "cpu": "none" }, "sha512-Zr7KR4hgKUpWAwb1f3o5ygT04MzqVrGEGXGLnj15YQDJErYu/BGg+wmFlIDOdJp0PmB0lLvxFIOXZgFRrdjR0w=="],
++
++    "@esbuild/linux-s390x": ["@esbuild/linux-s390x@0.25.12", "", { "os": "linux", "cpu": "s390x" }, "sha512-MsKncOcgTNvdtiISc/jZs/Zf8d0cl/t3gYWX8J9ubBnVOwlk65UIEEvgBORTiljloIWnBzLs4qhzPkJcitIzIg=="],
++
++    "@esbuild/linux-x64": ["@esbuild/linux-x64@0.25.12", "", { "os": "linux", "cpu": "x64" }, "sha512-uqZMTLr/zR/ed4jIGnwSLkaHmPjOjJvnm6TVVitAa08SLS9Z0VM8wIRx7gWbJB5/J54YuIMInDquWyYvQLZkgw=="],
++
++    "@esbuild/netbsd-arm64": ["@esbuild/netbsd-arm64@0.25.12", "", { "os": "none", "cpu": "arm64" }, "sha512-xXwcTq4GhRM7J9A8Gv5boanHhRa/Q9KLVmcyXHCTaM4wKfIpWkdXiMog/KsnxzJ0A1+nD+zoecuzqPmCRyBGjg=="],
++
++    "@esbuild/netbsd-x64": ["@esbuild/netbsd-x64@0.25.12", "", { "os": "none", "cpu": "x64" }, "sha512-Ld5pTlzPy3YwGec4OuHh1aCVCRvOXdH8DgRjfDy/oumVovmuSzWfnSJg+VtakB9Cm0gxNO9BzWkj6mtO1FMXkQ=="],
++
++    "@esbuild/openbsd-arm64": ["@esbuild/openbsd-arm64@0.25.12", "", { "os": "openbsd", "cpu": "arm64" }, "sha512-fF96T6KsBo/pkQI950FARU9apGNTSlZGsv1jZBAlcLL1MLjLNIWPBkj5NlSz8aAzYKg+eNqknrUJ24QBybeR5A=="],
++
++    "@esbuild/openbsd-x64": ["@esbuild/openbsd-x64@0.25.12", "", { "os": "openbsd", "cpu": "x64" }, "sha512-MZyXUkZHjQxUvzK7rN8DJ3SRmrVrke8ZyRusHlP+kuwqTcfWLyqMOE3sScPPyeIXN/mDJIfGXvcMqCgYKekoQw=="],
++
++    "@esbuild/openharmony-arm64": ["@esbuild/openharmony-arm64@0.25.12", "", { "os": "none", "cpu": "arm64" }, "sha512-rm0YWsqUSRrjncSXGA7Zv78Nbnw4XL6/dzr20cyrQf7ZmRcsovpcRBdhD43Nuk3y7XIoW2OxMVvwuRvk9XdASg=="],
++
++    "@esbuild/sunos-x64": ["@esbuild/sunos-x64@0.25.12", "", { "os": "sunos", "cpu": "x64" }, "sha512-3wGSCDyuTHQUzt0nV7bocDy72r2lI33QL3gkDNGkod22EsYl04sMf0qLb8luNKTOmgF/eDEDP5BFNwoBKH441w=="],
++
++    "@esbuild/win32-arm64": ["@esbuild/win32-arm64@0.25.12", "", { "os": "win32", "cpu": "arm64" }, "sha512-rMmLrur64A7+DKlnSuwqUdRKyd3UE7oPJZmnljqEptesKM8wx9J8gx5u0+9Pq0fQQW8vqeKebwNXdfOyP+8Bsg=="],
++
++    "@esbuild/win32-ia32": ["@esbuild/win32-ia32@0.25.12", "", { "os": "win32", "cpu": "ia32" }, "sha512-HkqnmmBoCbCwxUKKNPBixiWDGCpQGVsrQfJoVGYLPT41XWF8lHuE5N6WhVia2n4o5QK5M4tYr21827fNhi4byQ=="],
++
++    "@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.12", "", { "os": "win32", "cpu": "x64" }, "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA=="],
++
++    "@exodus/schemasafe": ["@exodus/schemasafe@1.3.0", "", {}, "sha512-5Aap/GaRupgNx/feGBwLLTVv8OQFfv3pq2lPRzPg9R+IOBnDgghTGW7l7EuVXOvg5cc/xSAlRW8rBrjIC3Nvqw=="],
++
++    "@floating-ui/core": ["@floating-ui/core@1.8.0", "", { "dependencies": { "@floating-ui/utils": "^0.2.12" } }, "sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ=="],
++
++    "@floating-ui/dom": ["@floating-ui/dom@1.8.0", "", { "dependencies": { "@floating-ui/core": "^1.8.0", "@floating-ui/utils": "^0.2.12" } }, "sha512-yXSrzeHZBTZadLOlfyhCkJHNeLJnHRnRInwdZ40L7ZiaAtrBwoYlsDrX3v5zB1Utk7CLfzcOVnVVWoXEky7Ceg=="],
++
++    "@floating-ui/utils": ["@floating-ui/utils@0.2.12", "", {}, "sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww=="],
++
++    "@hapi/hoek": ["@hapi/hoek@9.3.0", "", {}, "sha512-/c6rf4UJlmHlC9b5BaNvzAcFv7HZ2QHaV0D4/HNlBdvFnvQq8RI4kYdhyPCl7Xj+oWvTWQ8ujhqS53LIgAe6KQ=="],
++
++    "@hapi/topo": ["@hapi/topo@5.1.0", "", { "dependencies": { "@hapi/hoek": "^9.0.0" } }, "sha512-foQZKJig7Ob0BMAYBfcJk8d77QtOe7Wo4ox7ff1lQYoNNAb6jwcY1ncdoy2e9wQZzvNy7ODZCYJkK8kzmcAnAg=="],
++
++    "@internationalized/date": ["@internationalized/date@3.12.3", "", { "dependencies": { "@swc/helpers": "^0.5.0" } }, "sha512-fuLX+3ZKLsxI73y8b01EG/WjHb6gE6weCqlfawPO27kBWGMh9G1yH6Csv1uU7/cac9H2GHmOMt6CjmuQ1aia4Q=="],
++
++    "@jridgewell/gen-mapping": ["@jridgewell/gen-mapping@0.3.13", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.0", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA=="],
++
++    "@jridgewell/remapping": ["@jridgewell/remapping@2.3.5", "", { "dependencies": { "@jridgewell/gen-mapping": "^0.3.5", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-LI9u/+laYG4Ds1TDKSJW2YPrIlcVYOwi2fUC6xB43lueCjgxV4lffOCZCtYFiH6TNOX+tQKXx97T4IKHbhyHEQ=="],
++
++    "@jridgewell/resolve-uri": ["@jridgewell/resolve-uri@3.1.2", "", {}, "sha512-bRISgCIjP20/tbWSPWMEi54QVPRZExkuD9lJL+UIxUKtwVJA8wW1Trb1jMs1RFXo1CBTNZ/5hpC9QvmKWdopKw=="],
++
++    "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.5.5", "", {}, "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og=="],
++
++    "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
++
++    "@napi-rs/lzma-linux-x64-gnu": ["@napi-rs/lzma-linux-x64-gnu@1.5.1", "", { "os": "linux", "cpu": "x64" }, "sha512-oTXEIha4SsuXdTA4Iyskj0kpdx2yVXdhd75c2v3xGrHFfVMsbhTPZU/nMPL4sWKo4pBHm3aucLaqGlF696dTyQ=="],
++
++    "@polka/url": ["@polka/url@1.0.0-next.29", "", {}, "sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww=="],
++
++    "@poppinss/macroable": ["@poppinss/macroable@1.1.2", "", {}, "sha512-FAVBRzzWhYP5mA3lCwLH1A0fKBqq5anyjGet90Z81aRK5c/+LTGUE1zJhZrErjaenBSOOI9BVUs3WVmotneFQA=="],
++
++    "@rollup/rollup-android-arm-eabi": ["@rollup/rollup-android-arm-eabi@4.62.4", "", { "os": "android", "cpu": "arm" }, "sha512-RrPokAb7dmbxFoeO3TloqHyOjgye8RkBhSqmp4aJMIex4c9r46ZstPnleDQOq1t46VOVjwIuwNogIqbodV1Vvg=="],
++
++    "@rollup/rollup-android-arm64": ["@rollup/rollup-android-arm64@4.62.4", "", { "os": "android", "cpu": "arm64" }, "sha512-JKuJc+pnpks2pjy7L/N3v/cAkZxYlnmuZoD840ldbMI5KDbC4iO9NKwPKYdjYFCMAIIlBzYSFHxIJVYzRo2/8A=="],
++
++    "@rollup/rollup-darwin-arm64": ["@rollup/rollup-darwin-arm64@4.62.4", "", { "os": "darwin", "cpu": "arm64" }, "sha512-krw5uS2STmvJ02x0uTXHbqQNuz+9eZ1iw+qXk9dmW2gvV4jV7O2hEoOnuhFrpOPiel1mBFtqbxYZZtC46hXLOw=="],
++
++    "@rollup/rollup-darwin-x64": ["@rollup/rollup-darwin-x64@4.62.4", "", { "os": "darwin", "cpu": "x64" }, "sha512-wsTxtgApb4PrOsNJIm0FZ1h3WvCC+k9uxLJ4ad75hgoS4NiRes2SoJFlDAyMwiUY8IssDqGcHbXuN0sx1tfF1A=="],
++
++    "@rollup/rollup-freebsd-arm64": ["@rollup/rollup-freebsd-arm64@4.62.4", "", { "os": "freebsd", "cpu": "arm64" }, "sha512-GUOnQlyZe3yAXhWOtOMsn5Qkrv5E5mZXa0thbARWi5Ei2szlVXJFQhddZ4HbAzh8q92w5twp+CQvs/eFanz9YQ=="],
++
++    "@rollup/rollup-freebsd-x64": ["@rollup/rollup-freebsd-x64@4.62.4", "", { "os": "freebsd", "cpu": "x64" }, "sha512-/Y7f3QuxjzPKsjA/rfEDa3+0vXqyjmJ50Ln8dPpCmWkKTrUoWHG1cWhTqaAMLob2m2nESWuC7yGrREz019Ztqg=="],
++
++    "@rollup/rollup-linux-arm-gnueabihf": ["@rollup/rollup-linux-arm-gnueabihf@4.62.4", "", { "os": "linux", "cpu": "arm" }, "sha512-81wiiX3v7aqy+T+bT61TJ78yJjRquqFFTTbAPt08imfQQzkPIW8t6aJbkTagtCCrXMNc9D66+geqlK7ydLPNqA=="],
++
++    "@rollup/rollup-linux-arm-musleabihf": ["@rollup/rollup-linux-arm-musleabihf@4.62.4", "", { "os": "linux", "cpu": "arm" }, "sha512-9kmDIvNZqdoHOBZgNtpTBeLWYO/LVipM3H/j62P8848/l/VPEQL6N3uxU9pvP1oZAsXyC2MEnFP3ovRjo7WYNQ=="],
++
++    "@rollup/rollup-linux-arm64-gnu": ["@rollup/rollup-linux-arm64-gnu@4.62.4", "", { "os": "linux", "cpu": "arm64" }, "sha512-CcnXHWnXg69g+DX5VWL3FHts3qMRN2uVEHX+BZvGLdd07/gXkn3ePjYtO1LDJvxkGKVHMclKBRa1QUTH+6toYQ=="],
++
++    "@rollup/rollup-linux-arm64-musl": ["@rollup/rollup-linux-arm64-musl@4.62.4", "", { "os": "linux", "cpu": "arm64" }, "sha512-iFOibiHnTRuhrWLlRsOQFdZJJIa7S8OwkneJr4ocALP16u5yk6lWLINFwhHaEqBFMsKDUZofLkGos7+CPzGB3g=="],
++
++    "@rollup/rollup-linux-loong64-gnu": ["@rollup/rollup-linux-loong64-gnu@4.62.4", "", { "os": "linux", "cpu": "none" }, "sha512-XnWYMI7euHlb5a871xPja+Gm7DRCFU+FGRrtS2sMq9N8FvqtpagUy6gD4YOemC5MRk9xbh8+jYMEJbigFQwsgA=="],
++
++    "@rollup/rollup-linux-loong64-musl": ["@rollup/rollup-linux-loong64-musl@4.62.4", "", { "os": "linux", "cpu": "none" }, "sha512-qGDAlO0U8xedCcsdRm9oaoQY8DAx/QT7uIxJWhCdx0ceIWX783UC9QSYkdpzAe29wNiVfp24+bZdQmn49o45SQ=="],
++
++    "@rollup/rollup-linux-ppc64-gnu": ["@rollup/rollup-linux-ppc64-gnu@4.62.4", "", { "os": "linux", "cpu": "ppc64" }, "sha512-ru4H6ezD7ysA5EiEK6qkkaEb4modH8CTej6kUy/gQi20u3kB3G7Zn8snXXkeJSCOFKG/rbPPtM/+9Wgas1961w=="],
++
++    "@rollup/rollup-linux-ppc64-musl": ["@rollup/rollup-linux-ppc64-musl@4.62.4", "", { "os": "linux", "cpu": "ppc64" }, "sha512-2W4MO5WQVJnbJaZdvDb9rhBDuFU1nKIepPFpJUBsTh2k1YY2g+ODViaWuyOAjQ5cOP7NvrvLzt3wvHOoiAvc7w=="],
++
++    "@rollup/rollup-linux-riscv64-gnu": ["@rollup/rollup-linux-riscv64-gnu@4.62.4", "", { "os": "linux", "cpu": "none" }, "sha512-+fxjfuoAmVMCYV5QyjoIpu0cp5DOiOTeqYFk1AVaxGr+/ravWLX89XfQmptsoWcaVy/TGf2hexzbUOrCQIL1CQ=="],
++
++    "@rollup/rollup-linux-riscv64-musl": ["@rollup/rollup-linux-riscv64-musl@4.62.4", "", { "os": "linux", "cpu": "none" }, "sha512-jTn8JfHGL4djjFxPuM06LmNUJDsst2jeVlsd9OmIH6zc5sC9K6rIuO4YajXatLUpBmBKl6b35ro1QZocLi+tcA=="],
++
++    "@rollup/rollup-linux-s390x-gnu": ["@rollup/rollup-linux-s390x-gnu@4.62.4", "", { "os": "linux", "cpu": "s390x" }, "sha512-oCJCJL4pXsoDcP2QZ+JVlPTIRc6266zsIaeJJsWImmF7HO0W8nb6HuSgZlMWxJwaPf8ehbSw8yo0EUw925hKsA=="],
++
++    "@rollup/rollup-linux-x64-gnu": ["@rollup/rollup-linux-x64-gnu@4.62.4", "", { "os": "linux", "cpu": "x64" }, "sha512-W69hukhZ3KKNRCaMIEzKvcFye42hh0FE1+YoYaf5+Ikacuftoco6yO/xouz0hc5d5W/s3yBro5jRiuEE/Q5vUw=="],
++
++    "@rollup/rollup-linux-x64-musl": ["@rollup/rollup-linux-x64-musl@4.62.4", "", { "os": "linux", "cpu": "x64" }, "sha512-qiXbGG2jkjXhzXpsFZSR2Xpb8DN/UaxYsbb/STbuR/6fpaDgRmmaq1B/LmtF2wQFOFOSsK2jdE0RZ3a0zHn4QA=="],
++
++    "@rollup/rollup-openbsd-x64": ["@rollup/rollup-openbsd-x64@4.62.4", "", { "os": "openbsd", "cpu": "x64" }, "sha512-nWeM//hxv8mIo6jD7Hu4o48DVmV9pbV6gsKaWU+4NFyqHoPKwrkRiZGLKUhOBk8qNmDmpwFtPKg80Bo/Tn4xiQ=="],
++
++    "@rollup/rollup-openharmony-arm64": ["@rollup/rollup-openharmony-arm64@4.62.4", "", { "os": "none", "cpu": "arm64" }, "sha512-s62SQ/vgsRSvMwDkOEfTqfgASF0f26ZNaQuTA6Aok5lrikf89yI2W0gFHvZb2Jpgc6N8JnOKZgCK2iciO3CsxQ=="],
++
++    "@rollup/rollup-win32-arm64-msvc": ["@rollup/rollup-win32-arm64-msvc@4.62.4", "", { "os": "win32", "cpu": "arm64" }, "sha512-J6wGf8TVGbXJq+HH+ttTvrcfNKPbuZecV6KT1B8I18BC5IURUh5kl4Yl5OEP5eFIUoI5BWxCsyYMhFsDx8kekw=="],
++
++    "@rollup/rollup-win32-ia32-msvc": ["@rollup/rollup-win32-ia32-msvc@4.62.4", "", { "os": "win32", "cpu": "ia32" }, "sha512-zmfrQd/0wu6oJs8Vq8KwY/YtsKSsLtKe/HwAP4Wqy8LhWjeT55fHRAkOhYQ12wI3ayS4Tt12d5CDRD7N96SAYQ=="],
++
++    "@rollup/rollup-win32-x64-gnu": ["@rollup/rollup-win32-x64-gnu@4.62.4", "", { "os": "win32", "cpu": "x64" }, "sha512-qPzHqdj9rfUD+w79dtE07zi/kFwKyCJqplp5K5ygeLTp7jLpAoc16OAH39HSmRC9UpozaecsleI8uAdEj6v2yw=="],
++
++    "@rollup/rollup-win32-x64-msvc": ["@rollup/rollup-win32-x64-msvc@4.62.4", "", { "os": "win32", "cpu": "x64" }, "sha512-zD6NdeWEByGE9QF9vCrlJ5YQB4oq9q91kPZS37Jwj5hOkvR1lTBSpsKhKDw4IJtbQ35LsTS1HD9DZYGKIshU1Q=="],
++
++    "@sideway/address": ["@sideway/address@4.1.5", "", { "dependencies": { "@hapi/hoek": "^9.0.0" } }, "sha512-IqO/DUQHUkPeixNQ8n0JA6102hT9CmaljNTPmQ1u8MEhBo/R4Q8eKLN/vGZxuebwOroDB4cbpjheD4+/sKFK4Q=="],
++
++    "@sideway/formula": ["@sideway/formula@3.0.1", "", {}, "sha512-/poHZJJVjx3L+zVD6g9KgHfYnb443oi7wLu/XKojDviHy6HOEOA6z1Trk5aR1dGcmPenJEgb2sK2I80LeS3MIg=="],
++
++    "@sideway/pinpoint": ["@sideway/pinpoint@2.0.0", "", {}, "sha512-RNiOoTPkptFtSVzQevY/yWtZwf/RxyVnPy/OcA9HBM3MlGDnBEYL5B41H0MTn0Uec8Hi+2qUtTfG2WWZBmMejQ=="],
++
++    "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
++
++    "@sveltejs/acorn-typescript": ["@sveltejs/acorn-typescript@1.0.11", "", { "peerDependencies": { "acorn": "^8.9.0" } }, "sha512-LFuZUkjJ9iF7JZye/aG5XM0SFcQ5VyL0oVX4WJ9dc0Va3R3s0OauX1BESVCb+YN/ol8TAfqGDDAQsTG627Y5kw=="],
++
++    "@sveltejs/adapter-static": ["@sveltejs/adapter-static@3.0.10", "", { "peerDependencies": { "@sveltejs/kit": "^2.0.0" } }, "sha512-7D9lYFWJmB7zxZyTE/qxjksvMqzMuYrrsyh1f4AlZqeZeACPRySjbC3aFiY55wb1tWUaKOQG9PVbm74JcN2Iew=="],
++
++    "@sveltejs/kit": ["@sveltejs/kit@2.70.2", "", { "dependencies": { "@standard-schema/spec": "^1.0.0", "@sveltejs/acorn-typescript": "^1.0.9", "@types/cookie": "^0.6.0", "acorn": "^8.16.0", "cookie": "^0.6.0", "devalue": "^5.8.1", "esm-env": "^1.2.2", "kleur": "^4.1.5", "magic-string": "^0.30.5", "mrmime": "^2.0.0", "set-cookie-parser": "^3.0.0", "sirv": "^3.0.0" }, "peerDependencies": { "@opentelemetry/api": "^1.0.0", "@sveltejs/vite-plugin-svelte": "^3.0.0 || ^4.0.0-next.1 || ^5.0.0 || ^6.0.0-next.0 || ^7.0.0", "svelte": "^4.0.0 || ^5.0.0-next.0", "typescript": "^5.3.3 || ^6.0.0", "vite": "^5.0.3 || ^6.0.0 || ^7.0.0-beta.0 || ^8.0.0" }, "optionalPeers": ["@opentelemetry/api", "typescript"], "bin": { "svelte-kit": "svelte-kit.js" } }, "sha512-RzRoRpuR2KXqc5yMO0akQHDZeT4AslOlznGITURsqHaVbtyYP4Wn3eE3gxj9JcDyNYO0crkxhdwFHc+2vkVm6w=="],
++
++    "@sveltejs/load-config": ["@sveltejs/load-config@0.2.1", "", {}, "sha512-5m3B2cbqQ4TbwW6Xkh66Ntw6dD7gNc77cCxABTTesWcq9jxIzMgTk97pZx5vEtvQx8iokgi7GIphqZe+PGwcZA=="],
++
++    "@sveltejs/vite-plugin-svelte": ["@sveltejs/vite-plugin-svelte@5.1.1", "", { "dependencies": { "@sveltejs/vite-plugin-svelte-inspector": "^4.0.1", "debug": "^4.4.1", "deepmerge": "^4.3.1", "kleur": "^4.1.5", "magic-string": "^0.30.17", "vitefu": "^1.0.6" }, "peerDependencies": { "svelte": "^5.0.0", "vite": "^6.0.0" } }, "sha512-Y1Cs7hhTc+a5E9Va/xwKlAJoariQyHY+5zBgCZg4PFWNYQ1nMN9sjK1zhw1gK69DuqVP++sht/1GZg1aRwmAXQ=="],
++
++    "@sveltejs/vite-plugin-svelte-inspector": ["@sveltejs/vite-plugin-svelte-inspector@4.0.1", "", { "dependencies": { "debug": "^4.3.7" }, "peerDependencies": { "@sveltejs/vite-plugin-svelte": "^5.0.0", "svelte": "^5.0.0", "vite": "^6.0.0" } }, "sha512-J/Nmb2Q2y7mck2hyCX4ckVHcR5tu2J+MtBEQqpDrrgELZ2uvraQcK/ioCV61AqkdXFgriksOKIceDcQmqnGhVw=="],
++
++    "@swc/helpers": ["@swc/helpers@0.5.23", "", { "dependencies": { "tslib": "^2.8.0" } }, "sha512-5lSsMOTXURePglDfvuAQUqkGek9Hg2kksOYay2m0+XR++b2NWYL/4sWyuvVBIs8oKnJaxkdi9whaL/sqN13afw=="],
++
++    "@tailwindcss/node": ["@tailwindcss/node@4.3.3", "", { "dependencies": { "@jridgewell/remapping": "^2.3.5", "enhanced-resolve": "^5.24.1", "jiti": "^2.7.0", "lightningcss": "1.32.0", "magic-string": "^0.30.21", "source-map-js": "^1.2.1", "tailwindcss": "4.3.3" } }, "sha512-/T8IKEsf9VTU6tLjgC7+sv2mOPtQxzE2jMw7u4Tt40Tx+QSZxpzh95/H6cMKoja9XuW7iMdLJYBB0o9G1CaAgg=="],
++
++    "@tailwindcss/oxide": ["@tailwindcss/oxide@4.3.3", "", { "optionalDependencies": { "@tailwindcss/oxide-android-arm64": "4.3.3", "@tailwindcss/oxide-darwin-arm64": "4.3.3", "@tailwindcss/oxide-darwin-x64": "4.3.3", "@tailwindcss/oxide-freebsd-x64": "4.3.3", "@tailwindcss/oxide-linux-arm-gnueabihf": "4.3.3", "@tailwindcss/oxide-linux-arm64-gnu": "4.3.3", "@tailwindcss/oxide-linux-arm64-musl": "4.3.3", "@tailwindcss/oxide-linux-x64-gnu": "4.3.3", "@tailwindcss/oxide-linux-x64-musl": "4.3.3", "@tailwindcss/oxide-wasm32-wasi": "4.3.3", "@tailwindcss/oxide-win32-arm64-msvc": "4.3.3", "@tailwindcss/oxide-win32-x64-msvc": "4.3.3" } }, "sha512-krXjAikiaFSPaK/FkAQT5UTx3VormQaiZ5hBFlJZ9UFQGB/rwg1MZIhHAG9smMQRTdyJxP6Qt5MwMtdyU5FWrA=="],
++
++    "@tailwindcss/oxide-android-arm64": ["@tailwindcss/oxide-android-arm64@4.3.3", "", { "os": "android", "cpu": "arm64" }, "sha512-Y85A2gmPSkl5Ve5qR86GL4HT509cFqQh1aes9p3sSkyTPwt0Pppf3GkwGe4JPACcRYjgJIEhQgM6dBClnr0NYw=="],
++
++    "@tailwindcss/oxide-darwin-arm64": ["@tailwindcss/oxide-darwin-arm64@4.3.3", "", { "os": "darwin", "cpu": "arm64" }, "sha512-BiaWatpBcERQFDlOjRDpIVXuFK5PJez5SA4JMg6VYZdBYU+qKfV/vqjcIs+IYmtitf1xYQZTwXvU/8y4lfZUGw=="],
++
++    "@tailwindcss/oxide-darwin-x64": ["@tailwindcss/oxide-darwin-x64@4.3.3", "", { "os": "darwin", "cpu": "x64" }, "sha512-fAeUqfV5ndhxRwai8cXGzdLvul9utWOmeTkv69unv4ZXixjn61Z+p9lCWdwOwA3TYboG3BwdVuN/RDjhBRl0mw=="],
++
++    "@tailwindcss/oxide-freebsd-x64": ["@tailwindcss/oxide-freebsd-x64@4.3.3", "", { "os": "freebsd", "cpu": "x64" }, "sha512-iyf5bV6+wnAlflVeEy7R25dupxTNECZN5QMI0qNT6eT+EgaGdZcKhGkr5SdoaWiLJ3spLqIY9VCeSGrwmtg4kw=="],
++
++    "@tailwindcss/oxide-linux-arm-gnueabihf": ["@tailwindcss/oxide-linux-arm-gnueabihf@4.3.3", "", { "os": "linux", "cpu": "arm" }, "sha512-aAYUprJAJQWWbRrPvtjdroZ56Md+JM8pMiopS6xGEwDfLhqj+2ver2p4nU4Mb3CRqcMmNBjo8KkUgcxhkzVQGQ=="],
++
++    "@tailwindcss/oxide-linux-arm64-gnu": ["@tailwindcss/oxide-linux-arm64-gnu@4.3.3", "", { "os": "linux", "cpu": "arm64" }, "sha512-nDxldcEENOxZRzC2uu9jrutZdAAQtb+8WWDCSnWL1zvBk1+FN+x6MtDViPB5AJMfttVCUhehGWus3XBPgatM/w=="],
++
++    "@tailwindcss/oxide-linux-arm64-musl": ["@tailwindcss/oxide-linux-arm64-musl@4.3.3", "", { "os": "linux", "cpu": "arm64" }, "sha512-Md44bD6veX/PC5iyF8cDVnw4HBIANZepRZZ7a8DQOvkfo5WUBwcp6iAuCUz23u+4SUkhJlD3eL7hNdW8ezd/kA=="],
++
++    "@tailwindcss/oxide-linux-x64-gnu": ["@tailwindcss/oxide-linux-x64-gnu@4.3.3", "", { "os": "linux", "cpu": "x64" }, "sha512-tx7us1muwOKAKWao2v/GaafFeQboE6aj88vC6ziN2NCGcRm8gWUhwjzg+YdVB1e4boAtdtma4L43onunI6NS4w=="],
++
++    "@tailwindcss/oxide-linux-x64-musl": ["@tailwindcss/oxide-linux-x64-musl@4.3.3", "", { "os": "linux", "cpu": "x64" }, "sha512-SJxX60smvHgasZoBy11dX6YRjXJFovwWBoedhbQPOBzgFWBHGB+TVPWB9BxzR7TTxU8FQZAI2AyiNCMzFm8Img=="],
++
++    "@tailwindcss/oxide-wasm32-wasi": ["@tailwindcss/oxide-wasm32-wasi@4.3.3", "", { "dependencies": { "@emnapi/core": "^1.11.1", "@emnapi/runtime": "^1.11.1", "@emnapi/wasi-threads": "^1.2.2", "@napi-rs/wasm-runtime": "^1.1.4", "@tybys/wasm-util": "^0.10.2", "tslib": "^2.8.1" }, "cpu": "none" }, "sha512-jx1+rPhY/5Ympkktd656HBWEBLxP7dH06losBLjjf5vgCODXvi9KhtftWcMIwTFIDqBr7cRnQkdLnAG+IOlGvQ=="],
++
++    "@tailwindcss/oxide-win32-arm64-msvc": ["@tailwindcss/oxide-win32-arm64-msvc@4.3.3", "", { "os": "win32", "cpu": "arm64" }, "sha512-3rc292Ca2ceK6Ulcc/bAVnTs/3nDtoPhyEKlgPv+yQJQi/JS/AMJlqzxvlDacL1nekbrcf6bTqp/jV4qgnPxNQ=="],
++
++    "@tailwindcss/oxide-win32-x64-msvc": ["@tailwindcss/oxide-win32-x64-msvc@4.3.3", "", { "os": "win32", "cpu": "x64" }, "sha512-yJ0pwIVc/nYeGoV02WtsN8KYyLQv7kyI2wDnkezyJlGGjkd4QLwDGAwl47YpPJeuI0M0ObaXGSPjvWDPeTPggw=="],
++
++    "@tailwindcss/vite": ["@tailwindcss/vite@4.3.3", "", { "dependencies": { "@tailwindcss/node": "4.3.3", "@tailwindcss/oxide": "4.3.3", "tailwindcss": "4.3.3" }, "peerDependencies": { "vite": "^5.2.0 || ^6 || ^7 || ^8" } }, "sha512-yYU8cogLeSh/ms2jh8Fj7jaba/EWa7Ja6GoUqYZaraEuCI5YS6ms6ObZgjjedm+jm6XZjdNRWBpPP6Z86oOxcw=="],
++
++    "@tauri-apps/api": ["@tauri-apps/api@2.11.1", "", {}, "sha512-M2FPuYND2m+wh5hfW9ZpSdxMPdEJovPBWwoHJmwUpysTYNHaOkVFN419m/K0LIgjb/7KU2vBgsUepJWugQCvAA=="],
++
++    "@tauri-apps/cli": ["@tauri-apps/cli@2.11.4", "", { "optionalDependencies": { "@tauri-apps/cli-darwin-arm64": "2.11.4", "@tauri-apps/cli-darwin-x64": "2.11.4", "@tauri-apps/cli-linux-arm-gnueabihf": "2.11.4", "@tauri-apps/cli-linux-arm64-gnu": "2.11.4", "@tauri-apps/cli-linux-arm64-musl": "2.11.4", "@tauri-apps/cli-linux-riscv64-gnu": "2.11.4", "@tauri-apps/cli-linux-x64-gnu": "2.11.4", "@tauri-apps/cli-linux-x64-musl": "2.11.4", "@tauri-apps/cli-win32-arm64-msvc": "2.11.4", "@tauri-apps/cli-win32-ia32-msvc": "2.11.4", "@tauri-apps/cli-win32-x64-msvc": "2.11.4" }, "bin": { "tauri": "tauri.js" } }, "sha512-R8xGtMpwyetawSqm9kYOuMmEqkhUbvcUy8n0aNXIxollKBLESUu5f4Fx+64hgASYm1H+jSWq6jCW6zqTnH6hqQ=="],
++
++    "@tauri-apps/cli-darwin-arm64": ["@tauri-apps/cli-darwin-arm64@2.11.4", "", { "os": "darwin", "cpu": "arm64" }, "sha512-1ryOF3ZhpZ/nemHV5zVwBQBz9jDGKmKPvWPADOhc83ig0P4bMc2iER4NbC6r9sjeIZ6RVQ4g3RZIYvezhcl4TQ=="],
++
++    "@tauri-apps/cli-darwin-x64": ["@tauri-apps/cli-darwin-x64@2.11.4", "", { "os": "darwin", "cpu": "x64" }, "sha512-uFsGQAAfuyz1k/yGLmkWfkBlgKAqZfxqlHmLWx81QU27RJWfmbNHCIq8T8w1e+VClleIuZUjpHWfoE4E3DLo3A=="],
++
++    "@tauri-apps/cli-linux-arm-gnueabihf": ["@tauri-apps/cli-linux-arm-gnueabihf@2.11.4", "", { "os": "linux", "cpu": "arm" }, "sha512-IaHZn5CdBL21oUmjiVOS1ctw6Ip1O0pjp70FwOWmYz1myWe0SY96ZIj2FYf7pT0m8bI2h/hrs5ZbEXXh44/MkQ=="],
++
++    "@tauri-apps/cli-linux-arm64-gnu": ["@tauri-apps/cli-linux-arm64-gnu@2.11.4", "", { "os": "linux", "cpu": "arm64" }, "sha512-N41/ukTRVe6XSuUTESuFdGeOW2i7k62tK+6gHK5Kd5/q5RPvvi19GaWAVPPb9u95HSGmTChSolBfzynUsssFaA=="],
++
++    "@tauri-apps/cli-linux-arm64-musl": ["@tauri-apps/cli-linux-arm64-musl@2.11.4", "", { "os": "linux", "cpu": "arm64" }, "sha512-v277UnT/fB64xAfSroL5N3Km3tLmvATWqJJw/wRI+g6o+HkeD0slyE7gOhNs1MbjE41R7bQOTxMVoL3aomUJmw=="],
++
++    "@tauri-apps/cli-linux-riscv64-gnu": ["@tauri-apps/cli-linux-riscv64-gnu@2.11.4", "", { "os": "linux", "cpu": "none" }, "sha512-qqgNkQ2u1yZHxjhxsZaxUtRDW8dIqIYm33rx/mzwQv0SfY9x1B+iraj8vWeFiXjjSVVhEMepXSOts1TqPzvXNQ=="],
++
++    "@tauri-apps/cli-linux-x64-gnu": ["@tauri-apps/cli-linux-x64-gnu@2.11.4", "", { "os": "linux", "cpu": "x64" }, "sha512-2VRNWl84FOH0m2giiDkO2h0QXlcMJeX+zJDpI5kDIQAx6s+geF3v48F4DXfJez4GS/FdoDGnPnw1C2iYGbQ7bQ=="],
++
++    "@tauri-apps/cli-linux-x64-musl": ["@tauri-apps/cli-linux-x64-musl@2.11.4", "", { "os": "linux", "cpu": "x64" }, "sha512-o9GyhYor/nc7xarmwDE3ka2szuW3uuZzXjHWh64Q8YX5AtSgxdQkFWzrY4O8KiGtVNvFBI14H3Q49Qj5TOIP/A=="],
++
++    "@tauri-apps/cli-win32-arm64-msvc": ["@tauri-apps/cli-win32-arm64-msvc@2.11.4", "", { "os": "win32", "cpu": "arm64" }, "sha512-ld5Ehb598m0VkYyylRPNeCFsBe/km0jxis6KgMpl3IGY6I/i1RwQXO05I1AsXUXO2WC6AvB/Lw4qTf/asiuEiQ=="],
++
++    "@tauri-apps/cli-win32-ia32-msvc": ["@tauri-apps/cli-win32-ia32-msvc@2.11.4", "", { "os": "win32", "cpu": "ia32" }, "sha512-12Hxi0XX/H5VFxO/bGgHkFWhml9VMgEOu9CidjeCeTNQ1l6fpUlbiGgSP7CLI3PFtW9/FfbeHieZ+kyWK5H7CA=="],
++
++    "@tauri-apps/cli-win32-x64-msvc": ["@tauri-apps/cli-win32-x64-msvc@2.11.4", "", { "os": "win32", "cpu": "x64" }, "sha512-+vDiqBIU5dMISg/wNvX3sF+ZHfgJGJ5T0AcO+EHNXV9GGAG+P5fzodlDXD3QdKCRgZxMoCm5PPvj3BqLNjBthw=="],
++
++    "@tauri-apps/plugin-log": ["@tauri-apps/plugin-log@2.9.0", "", { "dependencies": { "@tauri-apps/api": "^2.11.0" } }, "sha512-Ql8okrnsguk0eDq1GvRfttFV5KaeW/7vcao6bdbkXCRJ1+2sWE15ZJvJVEKVANrOKy1mRngqC3IFIAP+wP5qSw=="],
++
++    "@tauri-apps/plugin-opener": ["@tauri-apps/plugin-opener@2.5.4", "", { "dependencies": { "@tauri-apps/api": "^2.11.0" } }, "sha512-1HnPkb+AmgO29HBazm4uPLKB+r7zzcTBW1d0fyYp1uP+jwtpoiNDGKMMzz58SFp49nOIrxdE3aUJtT57lfO9CQ=="],
++
++    "@tweenjs/tween.js": ["@tweenjs/tween.js@23.1.3", "", {}, "sha512-vJmvvwFxYuGnF2axRtPYocag6Clbb5YS7kLL+SO/TeVFzHqDIWrNKYtcsPMibjDx9O+bu+psAy9NKfWklassUA=="],
++
++    "@types/cookie": ["@types/cookie@0.6.0", "", {}, "sha512-4Kh9a6B2bQciAhf7FSuMRRkUWecJgJu9nPnx3yzpsfXX/c50REIqpHY4C82bXP90qrLtXtkDxTZosYO3UpOwlA=="],
++
++    "@types/estree": ["@types/estree@1.0.9", "", {}, "sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg=="],
++
++    "@types/stats.js": ["@types/stats.js@0.17.4", "", {}, "sha512-jIBvWWShCvlBqBNIZt0KAshWpvSjhkwkEu4ZUcASoAvhmrgAUI2t1dXrjSL4xXVLB4FznPrIsX3nKXFl/Dt4vA=="],
++
++    "@types/three": ["@types/three@0.185.3", "", { "dependencies": { "@dimforge/rapier3d-compat": "~0.12.0", "@tweenjs/tween.js": "~23.1.3", "@types/stats.js": "*", "@types/webxr": ">=0.5.17", "fflate": "~0.8.2", "meshoptimizer": "~1.1.1" } }, "sha512-8TqTn1+fjPWuJ4mR6Igtg56DCf9b5EeAlwhb5xaa6WlBrsg7SvG0NQbyctGRkHCKwg0uftfCspOEsTXelgktMA=="],
++
++    "@types/trusted-types": ["@types/trusted-types@2.0.7", "", {}, "sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw=="],
++
++    "@types/validator": ["@types/validator@13.15.10", "", {}, "sha512-T8L6i7wCuyoK8A/ZeLYt1+q0ty3Zb9+qbSSvrIVitzT3YjZqkTZ40IbRsPanlB4h1QB3JVL1SYCdR6ngtFYcuA=="],
++
++    "@types/webxr": ["@types/webxr@0.5.24", "", {}, "sha512-h8fgEd/DpoS9CBrjEQXR+dIDraopAEfu4wYVNY2tEPwk60stPWhvZMf4Foo5FakuQ7HFZoa8WceaWFervK2Ovg=="],
++
++    "@typeschema/class-validator": ["@typeschema/class-validator@0.3.0", "", { "dependencies": { "@typeschema/core": "0.14.0" }, "peerDependencies": { "class-validator": "^0.14.1" }, "optionalPeers": ["class-validator"] }, "sha512-OJSFeZDIQ8EK1HTljKLT5CItM2wsbgczLN8tMEfz3I1Lmhc5TBfkZ0eikFzUC16tI3d1Nag7um6TfCgp2I2Bww=="],
++
++    "@typeschema/core": ["@typeschema/core@0.14.0", "", { "peerDependencies": { "@types/json-schema": "^7.0.15" }, "optionalPeers": ["@types/json-schema"] }, "sha512-Ia6PtZHcL3KqsAWXjMi5xIyZ7XMH4aSnOQes8mfMLx+wGFGtGRNlwe6Y7cYvX+WfNK67OL0/HSe9t8QDygV0/w=="],
++
++    "@valibot/to-json-schema": ["@valibot/to-json-schema@1.7.1", "", { "peerDependencies": { "valibot": "^1.4.0" } }, "sha512-3qkmU6KXWh8GIThEAW3kuRHPQBMjWkKy+Ppz3WkUucx53DTpOa6siMn4xDGSOhlVyMrDaJTCTMLYPZVAIk1P0A=="],
++
++    "@vinejs/compiler": ["@vinejs/compiler@3.0.0", "", {}, "sha512-v9Lsv59nR56+bmy2p0+czjZxsLHwaibJ+SV5iK9JJfehlJMa501jUJQqqz4X/OqKXrxtE3uTQmSqjUqzF3B2mw=="],
++
++    "@vinejs/vine": ["@vinejs/vine@3.0.1", "", { "dependencies": { "@poppinss/macroable": "^1.0.4", "@types/validator": "^13.12.2", "@vinejs/compiler": "^3.0.0", "camelcase": "^8.0.0", "dayjs": "^1.11.13", "dlv": "^1.1.3", "normalize-url": "^8.0.1", "validator": "^13.12.0" } }, "sha512-ZtvYkYpZOYdvbws3uaOAvTFuvFXoQGAtmzeiXu+XSMGxi5GVsODpoI9Xu9TplEMuD/5fmAtBbKb9cQHkWkLXDQ=="],
++
++    "acorn": ["acorn@8.18.0", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-lGq+9yr1/GuAWaVYIHRjvvySG5/4VfKIvC8EWxStPdcDh/Ka7FG3twP6v4d5BkravUilhIAsG4Qj83t02LWUPQ=="],
++
++    "aria-query": ["aria-query@5.3.1", "", {}, "sha512-Z/ZeOgVl7bcSYZ/u/rh0fOpvEpq//LZmdbkXyc7syVzjPAhfOa9ebsdTSjEBDU4vs5nC98Kfduj1uFo0qyET3g=="],
++
++    "arkregex": ["arkregex@0.0.8", "", { "dependencies": { "@ark/util": "0.56.2" } }, "sha512-PJcx6G1kQTgLKPUbeYlYecDRaKq15AMSGVajlKFYWlPeJRQL+j3dKE6tyMs40HZ99djS1l9Vhl3ezAHy9JBIqQ=="],
++
++    "arktype": ["arktype@2.2.3", "", { "dependencies": { "@ark/schema": "0.56.2", "@ark/util": "0.56.2", "arkregex": "0.0.8" } }, "sha512-7W+0RLTUNJiBFIIZXwOQxSR8Z273IAd6IvqBeG9+gHnQKFsIx2C0iOtGTmMrPnlX4qLXyc5+ll7A0BIj9WrbTg=="],
++
++    "axobject-query": ["axobject-query@4.1.0", "", {}, "sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ=="],
++
++    "bits-ui": ["bits-ui@2.18.1", "", { "dependencies": { "@floating-ui/core": "^1.7.1", "@floating-ui/dom": "^1.7.1", "esm-env": "^1.1.2", "runed": "^0.35.1", "svelte-toolbelt": "^0.10.6", "tabbable": "^6.2.0" }, "peerDependencies": { "@internationalized/date": "^3.8.1", "svelte": "^5.33.0" } }, "sha512-KkemzKFH4T3gt3H+P86JcnAWExjByv/6vlwjm/BoCwTPHu03yiCdxbghdJLvFReQTe0acCAiRcKfmixxD6XvlA=="],
++
++    "camelcase": ["camelcase@8.0.0", "", {}, "sha512-8WB3Jcas3swSvjIeA2yvCJ+Miyz5l1ZmB6HFb9R1317dt9LCQoswg/BGrmAmkWVEszSrrg4RwmO46qIm2OEnSA=="],
++
++    "chokidar": ["chokidar@4.0.3", "", { "dependencies": { "readdirp": "^4.0.1" } }, "sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA=="],
++
++    "class-validator": ["class-validator@0.14.4", "", { "dependencies": { "@types/validator": "^13.15.3", "libphonenumber-js": "^1.11.1", "validator": "^13.15.22" } }, "sha512-AwNusCCam51q703dW82x95tOqQp6oC9HNUl724KxJJOfnKscI8dOloXFgyez7LbTTKWuRBA37FScqVbJEoq8Yw=="],
++
++    "class-variance-authority": ["class-variance-authority@0.7.1", "", { "dependencies": { "clsx": "^2.1.1" } }, "sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg=="],
++
++    "clsx": ["clsx@2.1.1", "", {}, "sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA=="],
++
++    "cookie": ["cookie@0.6.0", "", {}, "sha512-U71cyTamuh1CRNCfpGY6to28lxvNwPG4Guz/EVjgf3Jmzv0vlDp1atT9eS5dDjMYHucpHbWns6Lwf3BKz6svdw=="],
++
++    "dayjs": ["dayjs@1.11.21", "", {}, "sha512-98IT+HOahAisibz/yjKbzuOBwYcjJ7BCLPzARyHiyEBmRz4fatF+KPJszEHXsGYjUG234aH/cOjW1wwTbKUZlA=="],
++
++    "debug": ["debug@4.4.3", "", { "dependencies": { "ms": "^2.1.3" }, "peerDependencies": { "supports-color": "*" }, "optionalPeers": ["supports-color"] }, "sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA=="],
++
++    "deepmerge": ["deepmerge@4.3.1", "", {}, "sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A=="],
++
++    "dequal": ["dequal@2.0.3", "", {}, "sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA=="],
++
++    "detect-libc": ["detect-libc@2.1.2", "", {}, "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="],
++
++    "devalue": ["devalue@5.9.0", "", {}, "sha512-RWrqdArjvPbsATEhOPUo6Wndc/iWnkWKlhIrdlF3zMMYo/c3CVtoaVAyLtWxz5h8nSlkHzxnzV2uLydPXmtF+A=="],
++
++    "dlv": ["dlv@1.1.3", "", {}, "sha512-+HlytyjlPKnIG8XuRG8WvmBP8xs8P71y+SKKS6ZXWoEgLuePxtDoUEiH7WkdePWrQ5JBpE6aoVqfZfJUQkjXwA=="],
++
++    "effect": ["effect@3.22.1", "", { "dependencies": { "@standard-schema/spec": "^1.0.0", "fast-check": "^3.23.1" } }, "sha512-TNoXushmPOBAjJlthF5d2QwnX2xBPEtcNJr5XKNKbRLbDvBcOYkXlYDfvGfSA0zriwLFuCll5MDtNMAdZL17PQ=="],
++
++    "enhanced-resolve": ["enhanced-resolve@5.24.5", "", { "dependencies": { "graceful-fs": "^4.2.4", "tapable": "^2.3.3" } }, "sha512-L1l8TNvomm6UVW5B253AGxQagSQr+vGwhMlrrfRS2qmhx46AMpMVJKQYLvWYbysTMY8VoicOvzHzoHMbyzB+4A=="],
++
++    "esbuild": ["esbuild@0.25.12", "", { "optionalDependencies": { "@esbuild/aix-ppc64": "0.25.12", "@esbuild/android-arm": "0.25.12", "@esbuild/android-arm64": "0.25.12", "@esbuild/android-x64": "0.25.12", "@esbuild/darwin-arm64": "0.25.12", "@esbuild/darwin-x64": "0.25.12", "@esbuild/freebsd-arm64": "0.25.12", "@esbuild/freebsd-x64": "0.25.12", "@esbuild/linux-arm": "0.25.12", "@esbuild/linux-arm64": "0.25.12", "@esbuild/linux-ia32": "0.25.12", "@esbuild/linux-loong64": "0.25.12", "@esbuild/linux-mips64el": "0.25.12", "@esbuild/linux-ppc64": "0.25.12", "@esbuild/linux-riscv64": "0.25.12", "@esbuild/linux-s390x": "0.25.12", "@esbuild/linux-x64": "0.25.12", "@esbuild/netbsd-arm64": "0.25.12", "@esbuild/netbsd-x64": "0.25.12", "@esbuild/openbsd-arm64": "0.25.12", "@esbuild/openbsd-x64": "0.25.12", "@esbuild/openharmony-arm64": "0.25.12", "@esbuild/sunos-x64": "0.25.12", "@esbuild/win32-arm64": "0.25.12", "@esbuild/win32-ia32": "0.25.12", "@esbuild/win32-x64": "0.25.12" }, "bin": { "esbuild": "bin/esbuild" } }, "sha512-bbPBYYrtZbkt6Os6FiTLCTFxvq4tt3JKall1vRwshA3fdVztsLAatFaZobhkBC8/BrPetoa0oksYoKXoG4ryJg=="],
++
++    "esm-env": ["esm-env@1.2.2", "", {}, "sha512-Epxrv+Nr/CaL4ZcFGPJIYLWFom+YeV1DqMLHJoEd9SYRxNbaFruBwfEX/kkHUJf55j2+TUbmDcmuilbP1TmXHA=="],
++
++    "esrap": ["esrap@2.3.0", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.4.15" }, "peerDependencies": { "@typescript-eslint/types": "^8.2.0" }, "optionalPeers": ["@typescript-eslint/types"] }, "sha512-GQ/7RN8uOtEfNpzZzBMTzW9JBcX42oaSVtPzdF+6cEL8pqIL094iUpr9jzYGn4O4P/1S60dJ6izyT8F4LYARng=="],
++
++    "fast-check": ["fast-check@3.23.2", "", { "dependencies": { "pure-rand": "^6.1.0" } }, "sha512-h5+1OzzfCC3Ef7VbtKdcv7zsstUQwUDlYpUTvjeUsJAssPgLn7QzbboPtL5ro04Mq0rPOsMzl7q5hIbRs2wD1A=="],
++
++    "fdir": ["fdir@6.5.0", "", { "peerDependencies": { "picomatch": "^3 || ^4" }, "optionalPeers": ["picomatch"] }, "sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg=="],
++
++    "fflate": ["fflate@0.8.3", "", {}, "sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA=="],
++
++    "formsnap": ["formsnap@2.0.1", "", { "dependencies": { "svelte-toolbelt": "^0.5.0" }, "peerDependencies": { "svelte": "^5.0.0", "sveltekit-superforms": "^2.19.0" } }, "sha512-iJSe4YKd/W6WhLwKDVJU9FQeaJRpEFuolhju7ZXlRpUVyDdqFdMP8AUBICgnVvQPyP41IPAlBa/v0Eo35iE6wQ=="],
++
++    "framer-motion": ["framer-motion@12.43.0", "", { "dependencies": { "motion-dom": "^12.43.0", "motion-utils": "^12.39.0", "tslib": "^2.4.0" }, "peerDependencies": { "@emotion/is-prop-valid": "*", "react": "^18.0.0 || ^19.0.0", "react-dom": "^18.0.0 || ^19.0.0" }, "optionalPeers": ["@emotion/is-prop-valid", "react", "react-dom"] }, "sha512-1eaL3RvR/kAlbG7UYcpMptEyzPoENO0c6w7ZnB3/hh2vSAz/6uGAFn6fdoqTBguNstf3MsFhJHsD/0DHiclG+g=="],
++
++    "fsevents": ["fsevents@2.3.3", "", { "os": "darwin" }, "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw=="],
++
++    "fuse.js": ["fuse.js@7.5.0", "", {}, "sha512-sQtrEfA+ez/3G0cCZecF70oqpCRttCexYUG4mUrtWL49ULUzUyxokt5kyqwtKzj1270RaKih+hcP3qLcumccow=="],
++
++    "graceful-fs": ["graceful-fs@4.2.11", "", {}, "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ=="],
++
++    "inline-style-parser": ["inline-style-parser@0.2.7", "", {}, "sha512-Nb2ctOyNR8DqQoR0OwRG95uNWIC0C1lCgf5Naz5H6Ji72KZ8OcFZLz2P5sNgwlyoJ8Yif11oMuYs5pBQa86csA=="],
++
++    "is-reference": ["is-reference@3.0.3", "", { "dependencies": { "@types/estree": "^1.0.6" } }, "sha512-ixkJoqQvAP88E6wLydLGGqCJsrFUnqoH6HnaczB8XmDH1oaWU+xxdptvikTgaEhtZ53Ky6YXiBuUI2WXLMCwjw=="],
++
++    "jiti": ["jiti@2.7.0", "", { "bin": { "jiti": "lib/jiti-cli.mjs" } }, "sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ=="],
++
++    "joi": ["joi@17.13.4", "", { "dependencies": { "@hapi/hoek": "^9.3.0", "@hapi/topo": "^5.1.0", "@sideway/address": "^4.1.5", "@sideway/formula": "^3.0.1", "@sideway/pinpoint": "^2.0.0" } }, "sha512-1RuuER6kmt8K8I3nIWvPZKi5RQCb568ZPyY4Pwjlua+yo+63ZTmIwxLZH0heBmiKN4uxjvCiarDrjaeH84xicQ=="],
++
++    "json-schema-to-ts": ["json-schema-to-ts@3.1.1", "", { "dependencies": { "@babel/runtime": "^7.18.3", "ts-algebra": "^2.0.0" } }, "sha512-+DWg8jCJG2TEnpy7kOm/7/AxaYoaRbjVB4LFZLySZlWn8exGs3A4OLJR966cVvU26N7X9TWxl+Jsw7dzAqKT6g=="],
++
++    "kleur": ["kleur@4.1.5", "", {}, "sha512-o+NO+8WrRiQEE4/7nwRJhN1HWpVmJm511pBHUxPLtp0BUISzlBplORYSmTclCnJvQq2tKu/sgl3xVpkc7ZWuQQ=="],
++
++    "libphonenumber-js": ["libphonenumber-js@1.13.10", "", {}, "sha512-xJxrdqvbl2rtn2MaUJrUejz8J7/uZNC0V77oks2LxYrO/+ZtVpRmz+fEQMuu6VusnEB1fmpByiLS1WXecOnAnw=="],
++
++    "lightningcss": ["lightningcss@1.32.0", "", { "dependencies": { "detect-libc": "^2.0.3" }, "optionalDependencies": { "lightningcss-android-arm64": "1.32.0", "lightningcss-darwin-arm64": "1.32.0", "lightningcss-darwin-x64": "1.32.0", "lightningcss-freebsd-x64": "1.32.0", "lightningcss-linux-arm-gnueabihf": "1.32.0", "lightningcss-linux-arm64-gnu": "1.32.0", "lightningcss-linux-arm64-musl": "1.32.0", "lightningcss-linux-x64-gnu": "1.32.0", "lightningcss-linux-x64-musl": "1.32.0", "lightningcss-win32-arm64-msvc": "1.32.0", "lightningcss-win32-x64-msvc": "1.32.0" } }, "sha512-NXYBzinNrblfraPGyrbPoD19C1h9lfI/1mzgWYvXUTe414Gz/X1FD2XBZSZM7rRTrMA8JL3OtAaGifrIKhQ5yQ=="],
++
++    "lightningcss-android-arm64": ["lightningcss-android-arm64@1.32.0", "", { "os": "android", "cpu": "arm64" }, "sha512-YK7/ClTt4kAK0vo6w3X+Pnm0D2cf2vPHbhOXdoNti1Ga0al1P4TBZhwjATvjNwLEBCnKvjJc2jQgHXH0NEwlAg=="],
++
++    "lightningcss-darwin-arm64": ["lightningcss-darwin-arm64@1.32.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-RzeG9Ju5bag2Bv1/lwlVJvBE3q6TtXskdZLLCyfg5pt+HLz9BqlICO7LZM7VHNTTn/5PRhHFBSjk5lc4cmscPQ=="],
++
++    "lightningcss-darwin-x64": ["lightningcss-darwin-x64@1.32.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-U+QsBp2m/s2wqpUYT/6wnlagdZbtZdndSmut/NJqlCcMLTWp5muCrID+K5UJ6jqD2BFshejCYXniPDbNh73V8w=="],
++
++    "lightningcss-freebsd-x64": ["lightningcss-freebsd-x64@1.32.0", "", { "os": "freebsd", "cpu": "x64" }, "sha512-JCTigedEksZk3tHTTthnMdVfGf61Fky8Ji2E4YjUTEQX14xiy/lTzXnu1vwiZe3bYe0q+SpsSH/CTeDXK6WHig=="],
++
++    "lightningcss-linux-arm-gnueabihf": ["lightningcss-linux-arm-gnueabihf@1.32.0", "", { "os": "linux", "cpu": "arm" }, "sha512-x6rnnpRa2GL0zQOkt6rts3YDPzduLpWvwAF6EMhXFVZXD4tPrBkEFqzGowzCsIWsPjqSK+tyNEODUBXeeVHSkw=="],
++
++    "lightningcss-linux-arm64-gnu": ["lightningcss-linux-arm64-gnu@1.32.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-0nnMyoyOLRJXfbMOilaSRcLH3Jw5z9HDNGfT/gwCPgaDjnx0i8w7vBzFLFR1f6CMLKF8gVbebmkUN3fa/kQJpQ=="],
++
++    "lightningcss-linux-arm64-musl": ["lightningcss-linux-arm64-musl@1.32.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-UpQkoenr4UJEzgVIYpI80lDFvRmPVg6oqboNHfoH4CQIfNA+HOrZ7Mo7KZP02dC6LjghPQJeBsvXhJod/wnIBg=="],
++
++    "lightningcss-linux-x64-gnu": ["lightningcss-linux-x64-gnu@1.32.0", "", { "os": "linux", "cpu": "x64" }, "sha512-V7Qr52IhZmdKPVr+Vtw8o+WLsQJYCTd8loIfpDaMRWGUZfBOYEJeyJIkqGIDMZPwPx24pUMfwSxxI8phr/MbOA=="],
++
++    "lightningcss-linux-x64-musl": ["lightningcss-linux-x64-musl@1.32.0", "", { "os": "linux", "cpu": "x64" }, "sha512-bYcLp+Vb0awsiXg/80uCRezCYHNg1/l3mt0gzHnWV9XP1W5sKa5/TCdGWaR/zBM2PeF/HbsQv/j2URNOiVuxWg=="],
++
++    "lightningcss-win32-arm64-msvc": ["lightningcss-win32-arm64-msvc@1.32.0", "", { "os": "win32", "cpu": "arm64" }, "sha512-8SbC8BR40pS6baCM8sbtYDSwEVQd4JlFTOlaD3gWGHfThTcABnNDBda6eTZeqbofalIJhFx0qKzgHJmcPTnGdw=="],
++
++    "lightningcss-win32-x64-msvc": ["lightningcss-win32-x64-msvc@1.32.0", "", { "os": "win32", "cpu": "x64" }, "sha512-Amq9B/SoZYdDi1kFrojnoqPLxYhQ4Wo5XiL8EVJrVsB8ARoC1PWW6VGtT0WKCemjy8aC+louJnjS7U18x3b06Q=="],
++
++    "locate-character": ["locate-character@3.0.0", "", {}, "sha512-SW13ws7BjaeJ6p7Q6CO2nchbYEc3X3J6WrmTTDto7yMPqVSZTUyY5Tjbid+Ab8gLnATtygYtiDIJGQRRn2ZOiA=="],
++
++    "lucide-svelte": ["lucide-svelte@1.0.1", "", { "peerDependencies": { "svelte": "^3 || ^4 || ^5.0.0-next.42" } }, "sha512-WvzZgk0pqzgda+AErLvgWxHkfg/+GgUwqKMRHvzt0IqyMdmyEDzDCk3Z+Wo/3y753oIgx8u9Q4eUbWkghFa8Jg=="],
++
++    "lz-string": ["lz-string@1.5.0", "", { "bin": { "lz-string": "bin/bin.js" } }, "sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ=="],
++
++    "magic-string": ["magic-string@0.30.21", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.5" } }, "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ=="],
++
++    "memoize-weak": ["memoize-weak@1.0.2", "", {}, "sha512-gj39xkrjEw7nCn4nJ1M5ms6+MyMlyiGmttzsqAUsAKn6bYKwuTHh/AO3cKPF8IBrTIYTxb0wWXFs3E//Y8VoWQ=="],
++
++    "meshoptimizer": ["meshoptimizer@1.1.1", "", {}, "sha512-oRFNWJRDA/WTrVj7NWvqa5HqE1t9MYDj2VaWirQCzCCrAd2GHrqR/sQezCxiWATPNlKTcRaPRHPJwIRoPBAp5g=="],
++
++    "mode-watcher": ["mode-watcher@1.1.0", "", { "dependencies": { "runed": "^0.25.0", "svelte-toolbelt": "^0.7.1" }, "peerDependencies": { "svelte": "^5.27.0" } }, "sha512-mUT9RRGPDYenk59qJauN1rhsIMKBmWA3xMF+uRwE8MW/tjhaDSCCARqkSuDTq8vr4/2KcAxIGVjACxTjdk5C3g=="],
++
++    "motion": ["motion@12.43.0", "", { "dependencies": { "framer-motion": "^12.43.0", "tslib": "^2.4.0" }, "peerDependencies": { "@emotion/is-prop-valid": "*", "react": "^18.0.0 || ^19.0.0", "react-dom": "^18.0.0 || ^19.0.0" }, "optionalPeers": ["@emotion/is-prop-valid", "react", "react-dom"] }, "sha512-BQgQbSa9Hn3/mtbib0MK53y6JSANa+YKUKlaYnWzAVDH424RYQ5LVpV3pNiWH00BA2z4ojsSdMzqT7g2FQwjuQ=="],
++
++    "motion-dom": ["motion-dom@12.43.0", "", { "dependencies": { "motion-utils": "^12.39.0" } }, "sha512-azKON4d9S65PEoFUiQTMTgPheEmzf2QngdRc50AKfJp9Q9mmcBVw22c8eMq9k8kxOFHdL7+WZY7N/5F/lwiDag=="],
++
++    "motion-utils": ["motion-utils@12.39.0", "", {}, "sha512-8nadJAJjTtqRkmRF36FoJTrywK9nnFmnPwnSMyxaOCU7GDjN9RTMJIxx9De8ErM+vpPhMccr/6fo5WciyQLnMQ=="],
++
++    "mri": ["mri@1.2.0", "", {}, "sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA=="],
++
++    "mrmime": ["mrmime@2.0.1", "", {}, "sha512-Y3wQdFg2Va6etvQ5I82yUhGdsKrcYox6p7FfL1LbK2J4V01F9TGlepTIhnK24t7koZibmg82KGglhA1XK5IsLQ=="],
++
++    "ms": ["ms@2.1.3", "", {}, "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA=="],
++
++    "nanoid": ["nanoid@6.0.1", "", { "bin": { "nanoid": "bin/nanoid.js" } }, "sha512-3wVS3i51pE2pi1k5FFL/95BGfVS0kSsvDVuGXHOtxox/TywUmtgq+3qiTOTbs9J7KfHaXPiN171k/A6dBnaXFw=="],
++
++    "normalize-url": ["normalize-url@8.1.1", "", {}, "sha512-JYc0DPlpGWB40kH5g07gGTrYuMqV653k3uBKY6uITPWds3M0ov3GaWGp9lbE3Bzngx8+XkfzgvASb9vk9JDFXQ=="],
++
++    "picocolors": ["picocolors@1.1.1", "", {}, "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="],
++
++    "picomatch": ["picomatch@4.0.5", "", {}, "sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A=="],
++
++    "postcss": ["postcss@8.5.25", "", { "dependencies": { "nanoid": "^3.3.16", "picocolors": "^1.1.1", "source-map-js": "^1.2.1" } }, "sha512-DTPx3RWSSnWyzLxQnlH0rJP+EW5ekl16ZU4/psbIhA0e53kJfdgaN5vKM+xP7yJtXVu+nfdVFmlgFDEKAe4Pyw=="],
++
++    "property-expr": ["property-expr@2.0.6", "", {}, "sha512-SVtmxhRE/CGkn3eZY1T6pC8Nln6Fr/lu1mKSgRud0eC73whjGfoAogbn78LkD8aFL0zz3bAFerKSnOl7NlErBA=="],
++
++    "pure-rand": ["pure-rand@6.1.0", "", {}, "sha512-bVWawvoZoBYpp6yIoQtQXHZjmz35RSVHnUOTefl8Vcjr8snTPY1wnpSPMWekcFwbxI6gtmT7rSYPFvz71ldiOA=="],
++
++    "readdirp": ["readdirp@4.1.2", "", {}, "sha512-GDhwkLfywWL2s6vEjyhri+eXmfH6j1L7JE27WhqLeYzoh/A3DBaYGEj2H/HFZCn/kMfim73FXxEJTw06WtxQwg=="],
++
++    "rollup": ["rollup@4.62.4", "", { "dependencies": { "@types/estree": "1.0.9" }, "optionalDependencies": { "@napi-rs/lzma-linux-x64-gnu": "1.5.1", "@rollup/rollup-android-arm-eabi": "4.62.4", "@rollup/rollup-android-arm64": "4.62.4", "@rollup/rollup-darwin-arm64": "4.62.4", "@rollup/rollup-darwin-x64": "4.62.4", "@rollup/rollup-freebsd-arm64": "4.62.4", "@rollup/rollup-freebsd-x64": "4.62.4", "@rollup/rollup-linux-arm-gnueabihf": "4.62.4", "@rollup/rollup-linux-arm-musleabihf": "4.62.4", "@rollup/rollup-linux-arm64-gnu": "4.62.4", "@rollup/rollup-linux-arm64-musl": "4.62.4", "@rollup/rollup-linux-loong64-gnu": "4.62.4", "@rollup/rollup-linux-loong64-musl": "4.62.4", "@rollup/rollup-linux-ppc64-gnu": "4.62.4", "@rollup/rollup-linux-ppc64-musl": "4.62.4", "@rollup/rollup-linux-riscv64-gnu": "4.62.4", "@rollup/rollup-linux-riscv64-musl": "4.62.4", "@rollup/rollup-linux-s390x-gnu": "4.62.4", "@rollup/rollup-linux-x64-gnu": "4.62.4", "@rollup/rollup-linux-x64-musl": "4.62.4", "@rollup/rollup-openbsd-x64": "4.62.4", "@rollup/rollup-openharmony-arm64": "4.62.4", "@rollup/rollup-win32-arm64-msvc": "4.62.4", "@rollup/rollup-win32-ia32-msvc": "4.62.4", "@rollup/rollup-win32-x64-gnu": "4.62.4", "@rollup/rollup-win32-x64-msvc": "4.62.4", "fsevents": "~2.3.2" }, "bin": { "rollup": "dist/bin/rollup" } }, "sha512-RXOqwaPsBGjMNMa4sQjDjHieHEZDFoj/Rdr46l2MU5DfEs16wHJPC2RPTPHWhNl+M3aI472LLqFkFKut4SblOg=="],
++
++    "runed": ["runed@0.35.1", "", { "dependencies": { "dequal": "^2.0.3", "esm-env": "^1.0.0", "lz-string": "^1.5.0" }, "peerDependencies": { "@sveltejs/kit": "^2.21.0", "svelte": "^5.7.0" }, "optionalPeers": ["@sveltejs/kit"] }, "sha512-2F4Q/FZzbeJTFdIS/PuOoPRSm92sA2LhzTnv6FXhCoENb3huf5+fDuNOg1LNvGOouy3u/225qxmuJvcV3IZK5Q=="],
++
++    "sade": ["sade@1.8.1", "", { "dependencies": { "mri": "^1.1.0" } }, "sha512-xal3CZX1Xlo/k4ApwCFrHVACi9fBqJ7V+mwhBsuf/1IOKbBy098Fex+Wa/5QMubw09pSZ/u8EY8PWgevJsXp1A=="],
++
++    "set-cookie-parser": ["set-cookie-parser@3.1.2", "", {}, "sha512-5/r/lTwbJ3zQ+qwdUFZYeRNqda7P5HD8zQKqlSjdGt1/S0cjLAphHusj4Y58ahDtWn/g32xrIS58/ikOvwl0Lw=="],
++
++    "sirv": ["sirv@3.0.2", "", { "dependencies": { "@polka/url": "^1.0.0-next.24", "mrmime": "^2.0.0", "totalist": "^3.0.0" } }, "sha512-2wcC/oGxHis/BoHkkPwldgiPSYcpZK3JU28WoMVv55yHJgcZ8rlXvuG9iZggz+sU1d4bRgIGASwyWqjxu3FM0g=="],
++
++    "source-map-js": ["source-map-js@1.2.1", "", {}, "sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA=="],
++
++    "style-to-object": ["style-to-object@1.0.14", "", { "dependencies": { "inline-style-parser": "0.2.7" } }, "sha512-LIN7rULI0jBscWQYaSswptyderlarFkjQ+t79nzty8tcIAceVomEVlLzH5VP4Cmsv6MtKhs7qaAiwlcp+Mgaxw=="],
++
++    "superstruct": ["superstruct@2.0.2", "", {}, "sha512-uV+TFRZdXsqXTL2pRvujROjdZQ4RAlBUS5BTh9IGm+jTqQntYThciG/qu57Gs69yjnVUSqdxF9YLmSnpupBW9A=="],
++
++    "svelte": ["svelte@5.56.8", "", { "dependencies": { "@jridgewell/remapping": "^2.3.4", "@jridgewell/sourcemap-codec": "^1.5.0", "@sveltejs/acorn-typescript": "^1.0.10", "@types/estree": "^1.0.5", "@types/trusted-types": "^2.0.7", "acorn": "^8.12.1", "aria-query": "5.3.1", "axobject-query": "^4.1.0", "clsx": "^2.1.1", "devalue": "^5.8.1", "esm-env": "^1.2.1", "esrap": "^2.2.12", "is-reference": "^3.0.3", "locate-character": "^3.0.0", "magic-string": "^0.30.11", "zimmerframe": "^1.1.2" } }, "sha512-PY8LOw7xP6c8IOiVqdo0sbbZVYhXRSfklOQLAUyGBKqjTX0wx/z4l/9J+PmBpmlLnxzEb1NqltxQ5/wZme/Cmg=="],
++
++    "svelte-check": ["svelte-check@4.7.4", "", { "dependencies": { "@jridgewell/trace-mapping": "^0.3.25", "@sveltejs/load-config": "^0.2.1", "chokidar": "^4.0.1", "fdir": "^6.2.0", "picocolors": "^1.0.0", "sade": "^1.7.4" }, "peerDependencies": { "svelte": "^4.0.0 || ^5.0.0-next.0", "typescript": "^5.0.0 || ^6.0.0" }, "bin": { "svelte-check": "bin/svelte-check" } }, "sha512-IW9ot9YqAoyv8FvyN+eb4ZTe8zgcKZrJLNYU6dzSKkGwEBsSPc4K7lmQ8bKn8W2YMXM6WDfZSSVOaGtekyUfOQ=="],
++
++    "svelte-sonner": ["svelte-sonner@1.1.1", "", { "dependencies": { "runed": "^0.28.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-5cd3p7wa4cq0NsqslMwdlPb7x1JglEZ/GKrLePWNr5bCxR1nagAVrY01FRFrXfUGs41miLt3C327+8XJo5BzZw=="],
++
++    "svelte-toolbelt": ["svelte-toolbelt@0.10.6", "", { "dependencies": { "clsx": "^2.1.1", "runed": "^0.35.1", "style-to-object": "^1.0.8" }, "peerDependencies": { "svelte": "^5.30.2" } }, "sha512-YWuX+RE+CnWYx09yseAe4ZVMM7e7GRFZM6OYWpBKOb++s+SQ8RBIMMe+Bs/CznBMc0QPLjr+vDBxTAkozXsFXQ=="],
++
++    "sveltekit-superforms": ["sveltekit-superforms@2.30.2", "", { "dependencies": { "devalue": "^5.8.1", "memoize-weak": "^1.0.2", "ts-deepmerge": "^8.0.0" }, "optionalDependencies": { "@exodus/schemasafe": "^1.3.0", "@standard-schema/spec": "^1.1.0", "@typeschema/class-validator": "^0.3.0", "@valibot/to-json-schema": "^1.7.1", "@vinejs/vine": "^3.0.1", "arktype": "^2.2.2", "class-validator": "^0.14.4", "effect": "^3.21.4", "joi": "^17.13.4", "json-schema-to-ts": "^3.1.1", "superstruct": "^2.0.2", "typebox": "^1.3.3", "valibot": "^1.4.2", "yup": "^1.7.1", "zod": "^4.4.3", "zod-v3-to-json-schema": "^4.0.0" }, "peerDependencies": { "@sveltejs/kit": "1.x || 2.x", "svelte": "3.x || 4.x || >=5.0.0-next.51" } }, "sha512-6sR70ZfjFMAfdNure/Bu26o1rY32+WGxebko1L8jUFS+qZw5fxIHBPkUaTpNBkOIlJZ/UJwoNCYCm5xK2Z7Kqw=="],
++
++    "tabbable": ["tabbable@6.5.0", "", {}, "sha512-wieBHXygIm7OyQOu5hQlkk62/WyCFYGlWg7L6/ZCUZwx0o398Zkn4pVmMyfYhfMG8kGrj/Krt8eIk6UKC6VzwA=="],
++
++    "tailwind-merge": ["tailwind-merge@3.6.0", "", {}, "sha512-uxL7qAVQriqRQPAyK3pj66VqskWqoZ37PW94jwOTwNfq/z9oyu1V+eqrZqtR2+fCiXdYOZe/Modt8GtvqNzu+w=="],
++
++    "tailwindcss": ["tailwindcss@4.3.3", "", {}, "sha512-gOhV3P7ufE62QDGg1zVaTgCR+EtPv92k2nIhVcVKcLmxT1sUBsQGhnZj175j+MqRt4zLF7ic+sCYjfhxMxj7YQ=="],
++
++    "tapable": ["tapable@2.3.3", "", {}, "sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A=="],
++
++    "three": ["three@0.185.1", "", {}, "sha512-5aojFCXKwnjBRZvUnt3WFfEcvUJgkN5LlijRFN95hMy8WVkG4I0QNcJE+OuWvuJ0bOdStrbfXn0pkd6/QyiAlg=="],
++
++    "tiny-case": ["tiny-case@1.0.3", "", {}, "sha512-Eet/eeMhkO6TX8mnUteS9zgPbUMQa4I6Kkp5ORiBD5476/m+PIRiumP5tmh5ioJpH7k51Kehawy2UDfsnxxY8Q=="],
++
++    "tinyglobby": ["tinyglobby@0.2.17", "", { "dependencies": { "fdir": "^6.5.0", "picomatch": "^4.0.4" } }, "sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g=="],
++
++    "toposort": ["toposort@2.0.2", "", {}, "sha512-0a5EOkAUp8D4moMi2W8ZF8jcga7BgZd91O/yabJCFY8az+XSzeGyTKs0Aoo897iV1Nj6guFq8orWDS96z91oGg=="],
++
++    "totalist": ["totalist@3.0.1", "", {}, "sha512-sf4i37nQ2LBx4m3wB74y+ubopq6W/dIzXg0FDGjsYnZHVa1Da8FH853wlL2gtUhg+xJXjfk3kUZS3BRoQeoQBQ=="],
++
++    "ts-algebra": ["ts-algebra@2.0.0", "", {}, "sha512-FPAhNPFMrkwz76P7cdjdmiShwMynZYN6SgOujD1urY4oNm80Ou9oMdmbR45LotcKOXoy7wSmHkRFE6Mxbrhefw=="],
++
++    "ts-deepmerge": ["ts-deepmerge@8.0.0", "", {}, "sha512-133O+10nJmVI8w5xeVZPEv5PIrv7iaUae07wv1aH8XJH95Ur6YIhWAPhPyP1YPlbPS9fCVcNIZTu7m8urRVF0A=="],
++
++    "tslib": ["tslib@2.8.1", "", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
++
++    "tw-animate-css": ["tw-animate-css@1.4.0", "", {}, "sha512-7bziOlRqH0hJx80h/3mbicLW7o8qLsH5+RaLR2t+OHM3D0JlWGODQKQ4cxbK7WlvmUxpcj6Kgu6EKqjrGFe3QQ=="],
++
++    "type-fest": ["type-fest@2.19.0", "", {}, "sha512-RAH822pAdBgcNMAfWnCBU3CFZcfZ/i1eZjwFU/dsLKumyuuP3niueg2UAukXYF0E2AAoc82ZSSf9J0WQBinzHA=="],
++
++    "typebox": ["typebox@1.3.10", "", {}, "sha512-L0MT00X96q0P30f1NrGULgaSbmu8hfTjWbLULeVoM+j5u0jR5wyefoDquX2NmRa39f0KiNIBo1wWSaVvHJTZlA=="],
++
++    "typescript": ["typescript@5.6.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-hjcS1mhfuyi4WW8IWtjP7brDrG2cuDZukyrYrSauoXGNgx0S7zceP07adYkJycEr56BOUTNPzbInooiN3fn1qw=="],
++
++    "valibot": ["valibot@1.4.2", "", { "peerDependencies": { "typescript": ">=5" }, "optionalPeers": ["typescript"] }, "sha512-gjdCvJ6d3RyHAneqxMYMW9QMCwYMb3jpOO0IyHZV1bnRHFBHrX3VkIILt5XYR0WhwHiH7Mty8ovuPZ/O3gamrg=="],
++
++    "validator": ["validator@13.15.35", "", {}, "sha512-TQ5pAGhd5whStmqWvYF4OjQROlmv9SMFVt37qoCBdqRffuuklWYQlCNnEs2ZaIBD1kZRNnikiZOS1eqgkar0iw=="],
++
++    "vite": ["vite@6.4.3", "", { "dependencies": { "esbuild": "^0.25.0", "fdir": "^6.4.4", "picomatch": "^4.0.2", "postcss": "^8.5.3", "rollup": "^4.34.9", "tinyglobby": "^0.2.13" }, "optionalDependencies": { "fsevents": "~2.3.3" }, "peerDependencies": { "@types/node": "^18.0.0 || ^20.0.0 || >=22.0.0", "jiti": ">=1.21.0", "less": "*", "lightningcss": "^1.21.0", "sass": "*", "sass-embedded": "*", "stylus": "*", "sugarss": "*", "terser": "^5.16.0", "tsx": "^4.8.1", "yaml": "^2.4.2" }, "optionalPeers": ["@types/node", "jiti", "less", "lightningcss", "sass", "sass-embedded", "stylus", "sugarss", "terser", "tsx", "yaml"], "bin": { "vite": "bin/vite.js" } }, "sha512-NTKlcQjlAK7MlQoyb6LgaqHc8sso/pVyUJYWMws3jg21uTJw/LddqIFPcPqP6PzpgbIcZyKI85sFE4HBrQDA8A=="],
++
++    "vitefu": ["vitefu@1.1.3", "", { "peerDependencies": { "vite": "^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0" }, "optionalPeers": ["vite"] }, "sha512-ub4okH7Z5KLjb6hDyjqrGXqWtWvoYdU3IGm/NorpgHncKoLTCfRIbvlhBm7r0YstIaQRYlp4yEbFqDcKSzXSSg=="],
++
++    "yup": ["yup@1.7.1", "", { "dependencies": { "property-expr": "^2.0.5", "tiny-case": "^1.0.3", "toposort": "^2.0.2", "type-fest": "^2.19.0" } }, "sha512-GKHFX2nXul2/4Dtfxhozv701jLQHdf6J34YDh2cEkpqoo8le5Mg6/LrdseVLrFarmFygZTlfIhHx/QKfb/QWXw=="],
++
++    "zimmerframe": ["zimmerframe@1.1.4", "", {}, "sha512-B58NGBEoc8Y9MWWCQGl/gq9xBCe4IiKM0a2x7GZdQKOW5Exr8S1W24J6OgM1njK8xCRGvAJIL/MxXHf6SkmQKQ=="],
++
++    "zod": ["zod@4.4.3", "", {}, "sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ=="],
++
++    "zod-v3-to-json-schema": ["zod-v3-to-json-schema@4.0.0", "", { "peerDependencies": { "zod": "^3.25 || ^4.0.14" } }, "sha512-KixLrhX/uPmRFnDgsZrzrk4x5SSJA+PmaE5adbfID9+3KPJcdxqRobaHU397EfWBqfQircrjKqvEqZ/mW5QH6w=="],
++
++    "@tailwindcss/oxide-wasm32-wasi/@emnapi/core": ["@emnapi/core@1.11.3", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.3", "tslib": "^2.4.0" }, "bundled": true }, "sha512-zLpS5asjEb7lq8jYLq37N6XKaE41DIexlY1rF/z4/tIl3wo13Sqm28fRyfIsKZD+NZ8mM5RoKkpW/rBcuoSZSg=="],
++
++    "@tailwindcss/oxide-wasm32-wasi/@emnapi/runtime": ["@emnapi/runtime@1.11.3", "", { "dependencies": { "tslib": "^2.4.0" }, "bundled": true }, "sha512-Xz4Tpyki7XyrpbUK1jR1AhdAdaXyhhY4lZ3neLodmhpuWfy2PAQN5B46sAiU4liOXGLkHypn/qU+jvfWSCYYLA=="],
++
++    "@tailwindcss/oxide-wasm32-wasi/@emnapi/wasi-threads": ["@emnapi/wasi-threads@1.2.3", "", { "dependencies": { "tslib": "^2.4.0" }, "bundled": true }, "sha512-ELEBe8PsLvvJ6QMr0zLt8ffvOHW/dc1m3CEzNMg7aJUv3bMaoDtw2TXyDAwkYBuroxxuHEwhRTLJSe5sya547g=="],
++
++    "@tailwindcss/oxide-wasm32-wasi/@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.2.2", "", { "dependencies": { "@tybys/wasm-util": "^0.10.3" }, "peerDependencies": { "@emnapi/core": "^1.7.1 || ^2.0.0-alpha.3", "@emnapi/runtime": "^1.7.1 || ^2.0.0-alpha.3" }, "bundled": true }, "sha512-JfB4kuJQjaoHuCTseIINHtHWeJnvgEcxjwA5t/Y00ZgaOO1Crz3fjT/p8kT28zA/Caz7oiUMn3d6H2yOVCVwuw=="],
++
++    "@tailwindcss/oxide-wasm32-wasi/@tybys/wasm-util": ["@tybys/wasm-util@0.10.3", "", { "dependencies": { "tslib": "^2.4.0" }, "bundled": true }, "sha512-F3fo1MYrRJYL3zER0OUOmkutjr1Vp23m7OsSgp7nq4SP6OqX6C/56XFIPAl5bt3zaBRjmW7SGz3u/6LwFpYcOg=="],
++
++    "@tailwindcss/oxide-wasm32-wasi/tslib": ["tslib@2.8.1", "", { "bundled": true }, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
++
++    "formsnap/svelte-toolbelt": ["svelte-toolbelt@0.5.0", "", { "dependencies": { "clsx": "^2.1.1", "style-to-object": "^1.0.8" }, "peerDependencies": { "svelte": "^5.0.0-next.126" } }, "sha512-t3tenZcnfQoIeRuQf/jBU7bvTeT3TGkcEE+1EUr5orp0lR7NEpprflpuie3x9Dn0W9nOKqs3HwKGJeeN5Ok1sQ=="],
++
++    "mode-watcher/runed": ["runed@0.25.0", "", { "dependencies": { "esm-env": "^1.0.0" }, "peerDependencies": { "svelte": "^5.7.0" } }, "sha512-7+ma4AG9FT2sWQEA0Egf6mb7PBT2vHyuHail1ie8ropfSjvZGtEAx8YTmUjv/APCsdRRxEVvArNjALk9zFSOrg=="],
++
++    "mode-watcher/svelte-toolbelt": ["svelte-toolbelt@0.7.1", "", { "dependencies": { "clsx": "^2.1.1", "runed": "^0.23.2", "style-to-object": "^1.0.8" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-HcBOcR17Vx9bjaOceUvxkY3nGmbBmCBBbuWLLEWO6jtmWH8f/QoWmbyUfQZrpDINH39en1b8mptfPQT9VKQ1xQ=="],
++
++    "postcss/nanoid": ["nanoid@3.3.17", "", { "bin": { "nanoid": "bin/nanoid.cjs" } }, "sha512-xQLf0A3HOMlgHq0n247/LRuAOYmB7dXJ/DvAxGvsSBij45XtBSmQycu+F8ODbHwns/XyFZagyL1+J0Offw1E0g=="],
++
++    "svelte-sonner/runed": ["runed@0.28.0", "", { "dependencies": { "esm-env": "^1.0.0" }, "peerDependencies": { "svelte": "^5.7.0" } }, "sha512-k2xx7RuO9hWcdd9f+8JoBeqWtYrm5CALfgpkg2YDB80ds/QE4w0qqu34A7fqiAwiBBSBQOid7TLxwxVC27ymWQ=="],
++
++    "mode-watcher/svelte-toolbelt/runed": ["runed@0.23.4", "", { "dependencies": { "esm-env": "^1.0.0" }, "peerDependencies": { "svelte": "^5.7.0" } }, "sha512-9q8oUiBYeXIDLWNK5DfCWlkL0EW3oGbk845VdKlPeia28l751VpfesaB/+7pI6rnbx1I6rqoZ2fZxptOJLxILA=="],
++  }
++}
+diff --git a/database/dex.db b/database/dex.db
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/database/migrations/001_init.sql b/database/migrations/001_init.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/database/migrations/002_settings.sql b/database/migrations/002_settings.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/database/migrations/003_widgets.sql b/database/migrations/003_widgets.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/database/migrations/004_plugins.sql b/database/migrations/004_plugins.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/database/migrations/005_history.sql b/database/migrations/005_history.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/database/seeds/default.sql b/database/seeds/default.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/docs.txt b/docs.txt
+new file mode 100644
+index 0000000000000000000000000000000000000000..3afec5501fb0a4491c732f833b6335165480dcfc
+--- /dev/null
++++ b/docs.txt
+@@ -0,0 +1,89 @@
++docs
++├── 00-vision
++│   ├── 00_Manifesto.md
++│   ├── 01_Vision.md
++│   ├── 02_Principles.md
++│   ├── 03_Glossary.md
++│   └── 04_NonGoals.md
++├── 10-product
++│   ├── 10_Master_PRD.md
++│   ├── 11_Product_Roadmap.md
++│   ├── 12_User_Personas.md
++│   ├── 13_User_Stories.md
++│   ├── 14_Feature_Matrix.md
++│   ├── 15_Workspace_Runtime.md
++│   ├── 16_User_Flows.md
++│   └── 17_UX_Principles.md
++├── 20-architecture
++│   ├── 20_System_Architecture.md
++│   ├── 21_Frontend.md
++│   ├── 22_Backend.md
++│   ├── 23_Database.md
++│   ├── 24_EventBus.md
++│   ├── 25_Graphics.md
++│   ├── 26_AI.md
++│   ├── 27_Plugins.md
++│   ├── 28_Search.md
++│   └── 29_Security.md
++├── 30-specs
++│   ├── Automation.md
++│   ├── CLI.md
++│   ├── Journal.md
++│   ├── Knowledge.md
++│   ├── Manifest.md
++│   ├── PluginAPI.md
++│   ├── Search.md
++│   ├── Secrets.md
++│   ├── Snapshot.md
++│   ├── Theme.md
++│   ├── WidgetAPI.md
++│   └── Workspace.md
++├── 40-engineering
++│   ├── Accessibility.md
++│   ├── CI.md
++│   ├── CodingStandards.md
++│   ├── GitWorkflow.md
++│   ├── Performance.md
++│   ├── Release.md
++│   └── Testing.md
++├── 50-adr
++│   ├── 0001-layer-ownership.md
++│   ├── 0001-workspace-first.md
++│   ├── 0002-offline-first.md
++│   ├── 0002-typed-ipc-contract.md
++│   ├── 0003-cli-first.md
++│   ├── 0003-design-tokens.md
++│   ├── 0004-plugin-system.md
++│   ├── 0004-transparent-compositing.md
++│   ├── 0005-native-integration.md
++│   ├── 0005-plugin-boundary.md
++│   └── 0006-threejs-renderer.md
++├── 60-rfc
++│   ├── AIAgents.md
++│   ├── CloudSync.md
++│   ├── Marketplace.md
++│   ├── Voice.md
++│   └── WorkspaceSharing.md
++├── 70-api
++│   ├── CLI.md
++│   ├── Commands.md
++│   ├── Events.md
++│   └── PluginsWidgets.md
++├── 80-guides
++│   ├── CreatingPlugin.md
++│   ├── CreatingTheme.md
++│   ├── CreatingWidget.md
++│   ├── CreatingWorkspace.md
++│   └── UsingAI.md
++├── 90-dev
++│   ├── Build.md
++│   ├── Debug.md
++│   ├── Profiling.md
++│   ├── ProjectStructure.md
++│   └── RunLocally.md
++├── api.md
++├── architecture.md
++├── database.md
++├── plugin-sdk.md
++├── roadmap.md
++└── ui-guidelines.md
+diff --git a/docs/00-vision/00_Manifesto.md b/docs/00-vision/00_Manifesto.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..75c28264d02b31f51dd9cfca63c4cf774c3fdb4f
+--- /dev/null
++++ b/docs/00-vision/00_Manifesto.md
+@@ -0,0 +1,125 @@
++# DEX Manifesto
++
++## Purpose
++
++This manifesto is the identity of DEX. It states why DEX exists, what DEX
++is, what DEX is not, and the values that govern every decision made in its
++name. It is the root document of the documentation tree: every other
++document answers to it, and when a decision conflicts with it, the
++manifesto wins.
++
++This is not a specification. It contains no interfaces, no schemas, and no
++implementation. It is the reason those documents exist.
++
++## Background — the missing layer
++
++A developer's work does not live in applications. It lives in workspaces: a
++terminal with the right sessions, an editor with the right files open, a
++browser on the right page, a service running, a process tree in the right
++state, and the context of what was being done. Applications are tools
++inside that context — but no layer of the system treats the workspace
++itself as an object.
++
++The window manager manages windows. The desktop environment manages a
++desktop. The IDE manages a project inside a single application. The
++operating system manages processes and files. None of them manages the
++developer's workspace: the complete, live state of a development effort.
++The result is that starting work means re-assembling context by hand, every
++time, on every machine.
++
++DEX exists to fill that gap with a Workspace Runtime — the operating layer
++that activates, restores, and orchestrates complete development workspaces.
++
++## Identity
++
++DEX is a Workspace Runtime.
++
++It is the operating layer between the developer and the Linux system. It
++treats the development workspace as a first-class object: declared,
++activated, restored, and orchestrated.
++
++```mermaid
++flowchart LR
++    DEV["Developer"] --> DEX["DEX — Workspace Runtime"]
++    DEX --> OS["Linux / Wayland / window manager"]
++    DEX --> APPS["applications: terminal, editor, browser, shell"]
++    DEX --> FS["filesystem, processes, configuration"]
++```
++
++DEX sits between the developer and the system, but it does not own the
++system. It integrates and orchestrates; it does not replace. The full
++boundaries of what DEX will not do are stated in
++[`04_NonGoals.md`](04_NonGoals.md).
++
++## What DEX is not
++
++DEX is not a desktop environment. Managing a desktop of icons, panels, and
++menus is not its purpose.
++
++DEX is not a window manager. It does not own compositing or window layout;
++it composes with the window manager that does.
++
++DEX is not an IDE. It does not host the editor or the debugger; it
++orchestrates them.
++
++DEX is not an Electron dashboard. It is not a web surface over the
++desktop; it is a native layer over the operating system.
++
++DEX is not a launcher. Searching and launching are capabilities, not its
++identity.
++
++DEX is not an AI application. Intelligence is an optional capability that
++must degrade gracefully; the runtime works fully without it.
++
++## Why it exists
++
++Starting a day of development should not be a manual assembly job. One act
++of activation should restore the complete context of a project: the
++windows, the processes, the sessions, the state. DEX exists to make the
++workspace as durable and as recoverable as the filesystem — and to make
++that recovery scriptable, so that a workspace can be declared once and
++recreated anywhere.
++
++## Values
++
++Twelve values govern the project. Each is stated as a rule, because
++documents live longer than debates. [`02_Principles.md`](02_Principles.md)
++develops each value in full as immutable engineering rules; this section is
++the compact creed.
++
++| Value | Rule |
++|---|---|
++| Workspace First | The workspace is the atomic unit of the developer's day. Everything is organized around activating and restoring complete workspaces. |
++| Offline First | The machine works fully without a network. Local state is the source of truth; synchronization is layered on top, never required. |
++| CLI First | Every capability is scriptable from the command line. A capability that cannot be automated is a capability that does not exist. |
++| Plugin First | Extensibility is designed into the platform from the start, bounded by a hard security boundary — never added as an afterthought. |
++| Native First | Performance and integration with the host Linux system come before cross-platform reach. |
++| Context over Applications | Applications are means, not ends. DEX is organized around the developer's context and treats applications as tools within it. |
++| Lightweight Core | The core does as little as possible, well. Everything that can live outside the core lives outside it. |
++| Strong Typing | Every seam between components is a typed contract. Unchecked boundaries are where systems rot. |
++| Composition over Inheritance | Capabilities are composed from small pieces with clear boundaries, not inherited from large ones. |
++| Feature First Architecture | The codebase is structured around product features, so the architecture maps to the product rather than to a framework. |
++| Integrate, Don't Replace | DEX composes with the terminal, the editor, the browser, and the shell. It never seeks to absorb them. |
++| AI is Optional | Intelligence is a feature, not an identity. Every AI capability degrades gracefully to a fully manual workflow. |
++
++## Mission
++
++DEX's mission is to become the standard Workspace Runtime for Linux
++developers: the layer that makes a development workspace as durable, as
++scriptable, and as recoverable as a file.
++
++The long-term test of DEX is not the adoption of its components but the
++durability of its concept. DEX should outlive any single tool it
++integrates, any single window manager it composes with, and any single
++feature it ships. [`01_Vision.md`](01_Vision.md) states this future in
++full.
++
++## Related Documents
++
++- Long-term vision: [`01_Vision.md`](01_Vision.md)
++- The twelve values developed in full: [`02_Principles.md`](02_Principles.md)
++- Canonical terminology: [`03_Glossary.md`](03_Glossary.md)
++- Scope discipline — what DEX will not do: [`04_NonGoals.md`](04_NonGoals.md)
++- Product definition: [`../10-product/10_Master_PRD.md`](../10-product/10_Master_PRD.md)
++- The Workspace Runtime concept: [`../10-product/15_Workspace_Runtime.md`](../10-product/15_Workspace_Runtime.md)
++- System architecture: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
+\ No newline at end of file
+diff --git a/docs/00-vision/01_Vision.md b/docs/00-vision/01_Vision.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..4e6e8a644ae277d9db573b970dad254d38ae4f43
+--- /dev/null
++++ b/docs/00-vision/01_Vision.md
+@@ -0,0 +1,87 @@
++# DEX Vision
++
++## Purpose
++
++The long-term vision of DEX: where the project is going, on what
++horizons, and how the project knows it has arrived. This document is
++deliberately free of implementation. It exists so that short-term
++decisions can be checked against a destination.
++
++## Background
++
++DEX exists because a developer's work lives in Workspaces that no layer of
++the system treats as objects. The Manifesto states that problem and the
++identity that answers it. This document states where that answer leads:
++what the Workspace Runtime becomes as it matures.
++
++```mermaid
++timeline
++    title DEX Horizons
++    Today : Workspace Runtime on Linux
++           : local-first, typed, plugin-bounded
++    5 years : daily-driver layer for Linux developers
++            : portable Workspaces
++            : healthy extension ecosystem
++    10 years : the standard Workspace Runtime
++             : Workspaces as a portable format
++             : optional intelligence over local memory
++```
++
++## Five-Year Vision
++
++- DEX is a daily driver for Linux developers: the layer they reach for
++  first when they sit down to work.
++- A Workspace is a portable object. One command restores a complete work
++  session — windows, sessions, services, Context — and a Workspace created
++  on one machine activates on another.
++- The extension ecosystem is real: a catalog of Plugins and Widgets that
++  extend the Runtime without weakening its boundary.
++- The Knowledge Vault is the developer's durable memory: notes, decisions,
++  and history survive across Workspaces and machines, always local.
++- The CLI is the complete surface of the Runtime; the graphical shell is a
++  polished client of the same surface, and the two never disagree.
++
++## Ten-Year Vision
++
++- DEX is the standard Workspace Runtime for Linux: the assumed operating
++  layer, the way the shell and the package manager are assumed.
++- Workspaces are a portable, documented format that moves between machines,
++  between teams, and between contributors — the way containers moved
++  applications.
++- Intelligence is a natural, optional layer over the Knowledge Vault:
++  assistance that knows the developer's Context because it reads local
++  memory, and that disappears without cost when disabled.
++- The platform has outlived the tools it integrates. The terminal, the
++  editor, and the browser it orchestrates today are replaceable; the
++  Workspace Runtime is not.
++
++## Success Criteria
++
++- **Restoration.** A developer restores a complete work session with one
++  command, from a Snapshot or from a Manifest, on any machine DEX runs on.
++- **Portability.** A Workspace declared by its Workspace Manifest activates
++  on a second machine without manual re-assembly.
++- **Auditability.** The core remains small enough for one engineer to
++  reason about end to end; the extension boundary holds in the presence of
++  third-party Plugins.
++- **Ecosystem.** Adoption is measured by daily-driver use and extension
++  quality, not by component count. The strongest signal is a user who
++  chooses DEX on a fresh machine.
++- **Durability.** The concepts outlive the components: Workspaces,
++  Manifests, and the Knowledge Vault remain the vocabulary of the product
++  as it evolves.
++
++## What DEX should become
++
++DEX should become the operating layer that makes a developer's Workspace
++as durable, as scriptable, and as recoverable as a file — the layer
++without which Linux development feels incomplete.
++
++## Related Documents
++
++- Identity: [`00_Manifesto.md`](00_Manifesto.md)
++- The twelve values: [`02_Principles.md`](02_Principles.md)
++- Canonical terminology: [`03_Glossary.md`](03_Glossary.md)
++- Scope discipline: [`04_NonGoals.md`](04_NonGoals.md)
++- Product roadmap: [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- The Workspace Runtime concept: [`../10-product/15_Workspace_Runtime.md`](../10-product/15_Workspace_Runtime.md)
+\ No newline at end of file
+diff --git a/docs/00-vision/02_Principles.md b/docs/00-vision/02_Principles.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..8d9b4ad9cc0137b2fb7f0b472014004a8bfde80a
+--- /dev/null
++++ b/docs/00-vision/02_Principles.md
+@@ -0,0 +1,186 @@
++# DEX Principles
++
++## Purpose
++
++These twelve principles are the immutable engineering rules of DEX. Every
++architectural decision references this document; every Architecture
++Decision Record is judged against it. A decision that violates a principle
++must be rejected, or must be accompanied by an explicit, documented
++exception that names the principle it suspends and the cost it accepts.
++
++The principles are stated as rules, not preferences. Documents live longer
++than debates; the rules settle the arguments in advance.
++
++## 1. Workspace First
++
++**Rule:** The Workspace is the atomic unit of the developer's day.
++Everything in DEX is organized around declaring, activating, and restoring
++complete Workspaces.
++
++**Why:** A developer's work lives in Workspaces, not in applications.
++Organizing the system around Workspaces is what makes DEX a Workspace
++Runtime rather than a launcher or a dashboard.
++
++**Consequences for architecture:** The Runtime's primary objects and
++operations are Workspace-shaped. Windows, processes, and sessions are
++subordinate artifacts of a Workspace, and the data model is centered on
++the Workspace, the Workspace Manifest, Workspace Activation, and the
++Workspace Snapshot.
++
++## 2. Offline First
++
++**Rule:** The machine is fully functional with no network. Local state is
++the source of truth; synchronization is layered on top, never required.
++
++**Why:** A developer's machine must not depend on connectivity. The
++Runtime, the Knowledge Vault, and every Workspace must work on a laptop
++with the network cable pulled.
++
++**Consequences for architecture:** No remote dependency in the core.
++Synchronization is an opt-in extension, never a precondition. Secrets and
++knowledge stay local; anything that leaves the machine does so by explicit
++request.
++
++## 3. CLI First
++
++**Rule:** Every capability is reachable and scriptable from the command
++line. A capability that cannot be automated is a capability that does not
++exist.
++
++**Why:** Scripting, composition, and repeatability are non-negotiable for
++a developer tool. The CLI is the stable, complete surface; the graphical
++shell is a second client of the same surface.
++
++**Consequences for architecture:** Every Runtime operation has a CLI form
++with a stable interface. The CLI and the shell drive the same commands,
++so what works in one works in the other, and nothing is GUI-only.
++
++## 4. Plugin First
++
++**Rule:** Extensibility is designed into the platform from the start,
++bounded by a hard security boundary — never added as an afterthought.
++
++**Why:** A platform is defined as much by its extension boundary as by its
++core. Retrofitting a plugin system after the core is built produces an
++insecure one.
++
++**Consequences for architecture:** The plugin boundary is fixed in
++Phase 0 (ADR-0005): Plugins are Rust-hosted, manifest-validated, and
++capability-gated; Widgets render in isolated contexts with no direct IPC.
++
++## 5. Native First
++
++**Rule:** Performance and integration with the host Linux system come
++before cross-platform reach.
++
++**Why:** DEX is a native layer over the operating system, not a web
++surface. Native behavior — Wayland integration, GPU compositing,
++keyboard-first input, filesystem and Hyprland access — is the product.
++
++**Consequences for architecture:** Rust owns all system access; the shell
++window is transparent and composited; there is no Electron. Cross-platform
++reach is a later consideration, never a constraint on the Linux design.
++
++## 6. Context over Applications
++
++**Rule:** Applications are means, not ends. DEX is organized around the
++developer's Context and treats applications as tools within it.
++
++**Why:** The user's mental model is "what am I working on", not "which
++program is in front of me". Interfaces that lead with Context respect that
++model; interfaces that lead with applications re-create the desktop
++environment DEX is not.
++
++**Consequences for architecture:** The active Workspace and its Context
++are the top-level model of the shell. Application windows are artifacts of
++Context — launched, arranged, and restored by the Runtime.
++
++## 7. Lightweight Core
++
++**Rule:** The core does as little as possible, well. Everything that can
++live outside the core lives outside it.
++
++**Why:** A small core is auditable, testable, and stable. Every feature
++carried in the core is carried forever, in every build, on every user.
++
++**Consequences for architecture:** The core is the Workspace Runtime, the
++IPC and security boundary, and the lifecycle machinery. Features live in
++`features/`, extensions live in Plugins, and the core surface stays small
++enough to hold in one head.
++
++## 8. Strong Typing
++
++**Rule:** Every seam between components is a typed contract. Unchecked
++boundaries are where systems rot.
++
++**Why:** DEX crosses a language boundary — TypeScript and Rust — at every
++IPC call. Without schema validation at both edges, a mismatch becomes a
++runtime failure in production instead of a type error in the editor.
++
++**Consequences for architecture:** Every IPC command is schema-validated
++at both edges (ADR-0002). Registries reject duplicates, invalid payloads
++are dropped, and the wire contract lives in exactly two places: the
++command registry and the Rust handler.
++
++## 9. Composition over Inheritance
++
++**Rule:** Capabilities are composed from small pieces with clear
++boundaries, not inherited from large ones.
++
++**Why:** Inheritance couples what should vary. Composition keeps each
++piece small, testable, and replaceable — the difference between a platform
++and a monolith.
++
++**Consequences for architecture:** Features are vertical slices composed of
++components, services, stores, types, and utilities. Shared logic is
++promoted to `core/` or `ui/primitives/`; i

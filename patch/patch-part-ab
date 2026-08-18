@@ -1,0 +1,2292 @@
+t is never copy-pasted and never
++subclassed into a hierarchy.
++
++## 10. Feature First Architecture
++
++**Rule:** The codebase is structured around product features, so the
++architecture maps to the product rather than to a framework.
++
++**Why:** When the repository mirrors the product, a new engineer finds the
++feature they are asked to change, and the cost of a feature is visible in
++its folder.
++
++**Consequences for architecture:** Business features live in
++`features/<feature>/` owning their components, services, stores, types,
++and utilities. Features never import other features; shared infrastructure
++moves to `core/`.
++
++## 11. Integrate, Don't Replace
++
++**Rule:** DEX composes with the terminal, the editor, the browser, and the
++shell. It never seeks to absorb them.
++
++**Why:** The tools a developer already uses are the tools they are fastest
++with. Replacing them would make DEX a competitor to its own ecosystem
++instead of the layer that orchestrates it.
++
++**Consequences for architecture:** DEX drives external tools — launches
++them, restores their state, feeds them Context — and re-implements only
++what no existing tool provides. A feature that duplicates an existing tool
++is a candidate for removal, not a roadmap item.
++
++## 12. AI is Optional
++
++**Rule:** Intelligence is a feature, not an identity. Every AI capability
++degrades gracefully to a fully manual workflow.
++
++**Why:** DEX must be complete without a model, an API key, or a network.
++AI is valuable exactly when it is optional: when its absence costs nothing
++and its presence never blocks the core path.
++
++**Consequences for architecture:** AI capabilities sit behind Providers and
++are never on the critical path of the Workspace Runtime. The Knowledge
++Vault works without intelligence; intelligence is a consumer of the Vault.
++
++## Related Documents
++
++- Identity: [`00_Manifesto.md`](00_Manifesto.md)
++- Canonical terminology: [`03_Glossary.md`](03_Glossary.md)
++- Boundary of scope: [`04_NonGoals.md`](04_NonGoals.md)
++- System architecture: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Architecture decisions: [`../50-adr/`](../50-adr/)
+\ No newline at end of file
+diff --git a/docs/00-vision/03_Glossary.md b/docs/00-vision/03_Glossary.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..d3567dea27509351d0505d21914d0f9e521585f0
+--- /dev/null
++++ b/docs/00-vision/03_Glossary.md
+@@ -0,0 +1,201 @@
++# DEX Glossary
++
++## Purpose
++
++This glossary is the single source of truth for DEX terminology. Every
++document in this tree — vision, product, architecture, specification,
++guide — uses these terms and these definitions, without synonyms and
++without exception. If a document needs a concept that is not defined here,
++the concept does not belong in DEX documentation until it is defined here.
++
++The glossary defines concepts, not implementation. It says what a thing
++*is*, not how it is built. Implementation detail lives in the
++specifications; each term points to the document that owns its contract.
++
++```mermaid
++mindmap
++  root((DEX))
++    Workspace family
++      Workspace
++      Workspace Manifest
++      Workspace Activation
++      Workspace Snapshot
++      Workspace Service
++    Memory family
++      Knowledge Vault
++      Memory Provider
++      Context
++    Extension family
++      Plugin
++      Widget
++      Provider
++    Runtime family
++      Workspace Runtime
++      Runtime
++```
++
++## Terms
++
++### Workspace
++
++The atomic unit of a developer's work. A Workspace is a declared,
++self-contained environment that bundles the configuration, tooling, and
++state for one development effort: the applications, sessions, and services
++that make up a project, together with the Context of the work in progress.
++A Workspace is declared by a Workspace Manifest and brought to life by
++Workspace Activation.
++
++### Workspace Runtime
++
++The operating layer provided by DEX that activates, restores, and
++orchestrates complete development Workspaces on Linux. The Workspace
++Runtime is the identity of DEX: it is what DEX *is*. It sits between the
++developer and the operating system, integrates rather than replaces, and
++treats the Workspace as a first-class object.
++
++### Workspace Manifest
++
++The declarative, versioned document that defines a Workspace: what it
++contains, what runs when it is activated, and what state it captures. The
++Manifest is the contract between a Workspace and the Workspace Runtime —
++the same declaration activates a Workspace on any machine.
++
++*Contract: [`../30-specs/Manifest.md`](../30-specs/Manifest.md)*
++
++### Workspace Activation
++
++The operation by which the Workspace Runtime brings a Workspace to life:
++launching its sessions and Workspace Services, restoring its windows and
++state, and re-establishing Context. Activation is the central act of DEX —
++the transition from "declared" to "live".
++
++*Product definition: [`../10-product/15_Workspace_Runtime.md`](../10-product/15_Workspace_Runtime.md) ·
++Contract: [`../30-specs/Workspace.md`](../30-specs/Workspace.md)*
++
++### Workspace Snapshot
++
++A point-in-time capture of a Workspace's runtime state, taken on demand or
++on schedule. A Snapshot makes it possible to restore a Workspace to exactly
++where work left off — after a reboot, on another machine, or after a failed
++experiment.
++
++*Contract: [`../30-specs/Snapshot.md`](../30-specs/Snapshot.md)*
++
++### Workspace Service
++
++A managed subsystem that a Workspace declares and depends on — a database,
++a build daemon, a development server. The Workspace Runtime starts,
++supervises, and stops Workspace Services as part of Activation and of
++leaving a Workspace, so the state of a project's supporting processes is
++part of the Workspace, not an accident of what happened to be running.
++
++*Contract: [`../30-specs/Workspace.md`](../30-specs/Workspace.md)*
++
++### Knowledge Vault
++
++DEX's persistent, local memory layer: the durable store of a developer's
++Context, notes, and history, spanning Workspaces and time. The Knowledge
++Vault is the foundation of DEX's memory and of every AI capability; it is
++owned by the Knowledge subsystem and it is always local.
++
++*Contract: [`../30-specs/Knowledge.md`](../30-specs/Knowledge.md)*
++
++### Memory Provider
++
++An adapter that connects the Knowledge Vault to a storage or model backend
++— a local database, an embedding store, a model endpoint. A Memory
++Provider implements a fixed interface; swapping the backend never changes
++the Vault's contract.
++
++*Contract: [`../30-specs/Knowledge.md`](../30-specs/Knowledge.md)*
++
++### Plugin
++
++A Rust-hosted, capability-gated extension to the Workspace Runtime,
++declared by a manifest, validated by the host, and executed in native
++code. A Plugin extends the Runtime's command and event surface with exactly
++the capabilities granted to it — never more, and never inside the
++privileged webview.
++
++*Contract: [`../30-specs/PluginAPI.md`](../30-specs/PluginAPI.md) ·
++Decision: [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)*
++
++### Widget
++
++A sandboxed UI extension, rendered in an isolated context with no IPC
++access of its own. A Widget's every effect is mediated by the Workspace
++Runtime through shell-mediated commands; a Widget never imports
++`@tauri-apps/api`.
++
++*Contract: [`../30-specs/WidgetAPI.md`](../30-specs/WidgetAPI.md)*
++
++### Provider
++
++An adapter that implements a well-defined backend interface — storage,
++memory, notification, model. A Provider is the seam that keeps DEX's core
++independent of any specific service. Memory Provider is the specific case
++in the Knowledge domain.
++
++*Architecture: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md) ·
++Knowledge: [`../30-specs/Knowledge.md`](../30-specs/Knowledge.md)*
++
++### Runtime
++
++The executing DEX host: the process(es) that load Plugins, run Workspace
++Services, dispatch commands and events, and own system access. "The
++Runtime" is the live instance of the Workspace Runtime.
++
++*Architecture: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)*
++
++### Context
++
++The developer's working state: which Workspace is active, what is open,
++what was in progress. DEX is organized around Context rather than around
++applications: applications are tools within Context, not the organizing
++principle.
++
++*Product definition: [`../10-product/15_Workspace_Runtime.md`](../10-product/15_Workspace_Runtime.md)*
++
++## Automation Terms
++
++**Trigger** — An event that starts a Workflow execution (file change, cron schedule, CLI command, startup).
++
++**Condition** — A test evaluated before a Workflow action executes; if false, the action is skipped.
++
++**Action** — A single operation performed by a Workflow (run command, send notification, activate Workspace).
++
++**Result** — The outcome of a Workflow action (success, failure, partial).
++
++**Workflow** — A sequence of Trigger → Condition → Action → Result steps that automate a development routine.
++
++**Macro** — A recorded sequence of keyboard, mouse, or shell operations that can be replayed.
++
++**Scheduler** — The Runtime component that fires Triggers on cron schedules or system events.
++
++**Smart Action** — An AI-generated Workflow created from natural language description.
++
++*Contract: [`../30-specs/Automation.md`](../30-specs/Automation.md)*
++
++## Other Terms
++
++**Desktop Experience** — Alternative expansion of DEX; used in architecture docs but not the canonical product name.
++
++**omnizya-dex** — The Rust crate name for the DEX backend (library target: `omnizya_dex_lib`).
++
++## Rules of use
++
++- Use these terms exactly as defined; never invent synonyms. "Project" does
++  not replace "Workspace"; "memory" does not replace "Knowledge Vault";
++  "extension" does not replace "Plugin" or "Widget".
++- When a term's formal contract exists, its specification owns the detail;
++  every other document references it instead of re-explaining it.
++- A term defined here may not be redefined elsewhere. Documents that need a
++  narrower sense refer back to this glossary and state the qualifier.
++
++## Related Documents
++
++- Identity: [`00_Manifesto.md`](00_Manifesto.md)
++- The twelve values: [`02_Principles.md`](02_Principles.md)
++- The Workspace Runtime concept: [`../10-product/15_Workspace_Runtime.md`](../10-product/15_Workspace_Runtime.md)
++- System architecture: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Specifications (formal contracts): [`../30-specs/`](../30-specs/)
+\ No newline at end of file
+diff --git a/docs/00-vision/04_NonGoals.md b/docs/00-vision/04_NonGoals.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..2483e7d18190d5da231f3e6487084d251588a9a5
+--- /dev/null
++++ b/docs/00-vision/04_NonGoals.md
+@@ -0,0 +1,74 @@
++# DEX Non-Goals
++
++## Purpose
++
++What DEX intentionally does not do. This document is the boundary that
++prevents scope creep and keeps the core lightweight. A proposal that lands
++here is rejected for the foreseeable future; overturning a non-goal is a
++manifesto-level decision, not a roadmap decision.
++
++Non-goals are negative statements of the same strength as the Principles.
++Where a Principle says what DEX is, this document says what DEX is not and
++will not become.
++
++## Identity boundaries
++
++The Manifesto states these as identity; this document states them as
++enforced scope.
++
++- **Not a desktop environment.** DEX does not manage a desktop of icons,
++  panels, and menus.
++- **Not a window manager.** DEX does not own compositing or window layout;
++  it composes with the window manager of the host system.
++- **Not an IDE.** DEX does not host an editor or a debugger; it
++  orchestrates them.
++- **Not an Electron dashboard.** DEX is a native layer over the operating
++  system, not a web surface over the desktop.
++- **Not a launcher.** Searching and launching are capabilities within the
++  Workspace Runtime, not its purpose.
++- **Not an AI application.** Intelligence is an optional capability that
++  degrades gracefully; it is never the reason DEX exists.
++
++## Scope non-goals
++
++- **DEX does not replace the tools it integrates.** The terminal, the
++  editor, the browser, and the shell remain external and first-class. A
++  feature that duplicates an existing tool is rejected by principle 11.
++- **DEX is not cross-platform-first.** Native First (principle 5) means
++  Linux excellence precedes any other platform. Windows and macOS ports
++  are not constraints on the design.
++- **DEX is not a cloud service.** There is no account, no mandatory
++  synchronization, and no telemetry by default. Offline First (principle 2)
++  is not a mode of DEX; it is DEX.
++- **DEX is not a web application.** There is no server-side runtime, no
++  remote-first architecture, and no browser-only mode.
++- **DEX does not define its own window manager or compositor.** The host
++  system owns windows and compositing; DEX orchestrates through them.
++- **DEX does not lock data into proprietary formats.** Workspace Manifests,
++  Snapshots, and Vault data are open, documented contracts (the
++  specifications). Lock-in contradicts the durability the project exists
++  for.
++- **DEX is not a general-purpose automation platform.** Automation targets
++  the development workflow — Workspaces, services, tooling — not the
++  consumer desktop.
++- **DEX is not AI-dependent.** No core capability may require a model, an
++  API key, or a network. AI is Optional (principle 12) and the core path
++  never crosses it.
++
++## How non-goals are enforced
++
++- A proposal that violates a non-goal is rejected at review with a
++  citation to this document.
++- A proposal to *overturn* a non-goal requires a new Architecture Decision
++  Record that names the non-goal, states the cost of keeping it, and is
++  reviewed against the Manifesto.
++- Roadmap milestones may not schedule non-goal work; the roadmap and this
++  document are checked against each other at each phase gate.
++
++## Related Documents
++
++- Identity: [`00_Manifesto.md`](00_Manifesto.md)
++- The twelve values: [`02_Principles.md`](02_Principles.md)
++- Canonical terminology: [`03_Glossary.md`](03_Glossary.md)
++- Product roadmap: [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- Architecture decisions: [`../50-adr/`](../50-adr/)
+\ No newline at end of file
+diff --git a/docs/10-product/10_Master_PRD.md b/docs/10-product/10_Master_PRD.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..e9f2a29107e141eb017f86fa8e724756949e7c92
+--- /dev/null
++++ b/docs/10-product/10_Master_PRD.md
+@@ -0,0 +1,245 @@
++# DEX Master Product Requirements Document
++
++## Purpose
++
++This document is the product contract for DEX. It states what DEX is for,
++who it serves, and the testable requirements each product domain must
++satisfy. It is the single reference for "what the product must do"; the
++roadmap (`11_Product_Roadmap.md`) states *when* each requirement ships, and
++the specifications (`../30-specs/`) state *how* each requirement is
++contracted.
++
++This document is not a specification. It contains no schemas, no interfaces,
++and no implementation. It is the requirements those documents answer to.
++
++## Background
++
++A developer's work lives in Workspaces: a terminal with the right sessions,
++an editor with the right files, a browser on the right page, a service
++running, and the Context of what was being done. No layer of the system
++treats the Workspace itself as an object. The window manager manages
++windows; the desktop manages a desktop; the IDE manages a project inside a
++single application. None manages the complete, live state of a development
++effort.
++
++DEX fills that gap with a Workspace Runtime — the operating layer that
++activates, restores, and orchestrates complete development Workspaces on
++Linux. It integrates with the tools a developer already uses; it does not
++replace them. It is local-first, scriptable, and extensible behind a hard
++security boundary.
++
++```mermaid
++flowchart LR
++    subgraph DOMAINS["DEX product domains"]
++        WR["Workspace Runtime"]
++        KV["Knowledge Vault"]
++        PL["Plugins & Widgets"]
++        CLI["CLI"]
++        TH["Theming"]
++        AU["Automation"]
++        AI["AI (optional)"]
++    end
++
++    WR --> KV
++    WR --> CLI
++    WR --> TH
++    WR --> AU
++    KV --> AI
++    PL --> WR
++    AU --> WR
++```
++
++The Workspace Runtime is the core domain; every other domain either serves
++it, extends it, or consumes it. The Knowledge Vault is the memory layer that
++AI consumes; AI is never on the critical path.
++
++## Goals
++
++- **Workspace First.** The Workspace is the atomic unit of the developer's
++  day. One act of Workspace Activation restores the complete Context of a
++  development effort.
++- **Offline First.** The machine is fully functional with no network. Local
++  state is the source of truth.
++- **CLI First.** Every capability is scriptable from the command line. The
++  CLI is the complete surface; the graphical shell is a second client of the
++  same surface.
++- **Plugin First.** Extensibility is designed in from the start, bounded by
++  a hard security boundary.
++- **Native First.** Performance and integration with the host Linux system
++  come before cross-platform reach.
++- **Integrate, Don't Replace.** DEX composes with the terminal, the editor,
++  the browser, and the shell; it never seeks to absorb them.
++- **AI is Optional.** Intelligence degrades gracefully to a fully manual
++  workflow.
++
++## Non-Goals
++
++DEX is not a desktop environment, a window manager, an IDE, an Electron
++dashboard, a launcher, or an AI application. It does not replace the tools
++it integrates, is not cross-platform-first, is not a cloud service, is not a
++web application, does not define its own compositor, does not lock data into
++proprietary formats, and is not AI-dependent. The full boundary is stated in
++[`../00-vision/04_NonGoals.md`](../00-vision/04_NonGoals.md) and is binding
++on every requirement below.
++
++## Personas
++
++DEX serves five primary personas, summarized here and developed in full in
++[`12_User_Personas.md`](12_User_Personas.md):
++
++| Persona | Core need |
++|---|---|
++| Core Linux Developer | A daily-driver Workspace Runtime on Hyprland that restores complete Context in one act. |
++| Multi-Project Consultant | Fast, reliable switching between many Workspaces without losing state. |
++| Terminal-First Engineer | A complete, scriptable CLI surface that never diverges from the shell. |
++| Plugin/Widget Author | A bounded, documented extension surface with a hard security boundary. |
++| AI-Curious User | Optional intelligence over local memory that degrades gracefully when disabled. |
++
++## Requirements by Domain
++
++Requirements are numbered and testable. Each is a statement of user-facing
++behavior; the specification that owns its contract is referenced where one
++exists.
++
++### Workspace Runtime
++
++- **WR-1 Activation.** The Runtime SHALL bring a Workspace to life from its
++  Workspace Manifest: launching its sessions and Workspace Services,
++  restoring its windows and state, and re-establishing Context. *Contract:
++  [`../30-specs/Workspace.md`](../30-specs/Workspace.md).*
++- **WR-2 Restoration.** The Runtime SHALL restore a Workspace from a
++  Workspace Snapshot to exactly where work left off, after a reboot, on
++  another machine, or after a failed experiment. *Contract:
++  [`../30-specs/Snapshot.md`](../30-specs/Snapshot.md).*
++- **WR-3 Snapshots.** The Runtime SHALL capture a Workspace Snapshot on
++  demand and on schedule, and SHALL make each Snapshot restorable
++  independently.
++- **WR-4 Workspace Services.** The Runtime SHALL start, supervise, and stop
++  the Workspace Services a Workspace declares, as part of Activation and of
++  leaving a Workspace, so supporting processes are part of the Workspace
++  rather than an accident of what was running.
++- **WR-5 Declarative Manifests.** A Workspace declared by its Workspace
++  Manifest SHALL activate on any machine the Runtime runs on, without manual
++  re-assembly. *Contract: [`../30-specs/Manifest.md`](../30-specs/Manifest.md).*
++- **WR-6 Context.** The Runtime SHALL track which Workspace is active, what
++  is open, and what was in progress, and SHALL present Context as the
++  top-level model of the shell.
++
++### Knowledge Vault and Memory Providers
++
++- **KV-1 Durable Memory.** The Knowledge Vault SHALL persist a developer's
++  Context, notes, and history across Workspaces and time, always local.
++  *Contract: [`../30-specs/Knowledge.md`](../30-specs/Knowledge.md).*
++- **KV-2 Provider Abstraction.** The Vault SHALL connect to storage and
++  model backends through Memory Providers that implement a fixed interface,
++  so swapping a backend never changes the Vault's contract.
++- **KV-3 Offline Operation.** The Vault SHALL operate fully with no network;
++  synchronization, where present, is an opt-in extension and never a
++  precondition.
++- **KV-4 Query.** The Vault SHALL support querying stored Context and notes
++  through the CLI and the shell, with results that are deterministic and
++  local.
++
++### Plugins and Widgets
++
++- **PW-1 Plugin Boundary.** A Plugin SHALL be a Rust-hosted, capability-gated
++  extension declared by a manifest, validated by the host, and executed in
++  native code. *Contract: [`../30-specs/PluginAPI.md`](../30-specs/PluginAPI.md);
++  Decision: [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md).*
++- **PW-2 Least Privilege.** A Plugin SHALL receive exactly the capabilities
++  it declares, never more, and never inside the privileged webview.
++- **PW-3 Widget Isolation.** A Widget SHALL render in an isolated context
++  with no IPC access of its own; every effect SHALL be mediated by the
++  Runtime through shell-mediated commands. *Contract:
++  [`../30-specs/WidgetAPI.md`](../30-specs/WidgetAPI.md).*
++- **PW-4 Lifecycle.** The Runtime SHALL install, update, and remove Plugins
++  and Widgets with schema-validated manifests and versioned contracts.
++
++### CLI (CLI First)
++
++- **CLI-1 Complete Surface.** Every Runtime capability SHALL have a CLI form
++  with a stable interface. A capability that cannot be automated is a
++  capability that does not exist. *Contract: [`../30-specs/CLI.md`](../30-specs/CLI.md).*
++- **CLI-2 Parity.** The CLI and the graphical shell SHALL drive the same
++  commands, so what works in one works in the other, and nothing is
++  GUI-only.
++- **CLI-3 Scriptability.** CLI output SHALL be machine-parseable and
++  deterministic, suitable for composition in scripts and automation.
++
++### Theming
++
++- **TH-1 Token-Driven.** All visual styling SHALL derive from the design
++  token system; components SHALL consume semantic tokens only. *Decision:
++  [`../50-adr/0003-design-tokens.md`](../50-adr/0003-design-tokens.md).*
++- **TH-2 Live Switching.** The user SHALL switch themes at runtime, with the
++  change applied before the next paint and persisted across sessions.
++  *Contract: [`../30-specs/Theme.md`](../30-specs/Theme.md).*
++- **TH-3 Transparency.** The shell window SHALL remain transparent; visual
++  backdrop SHALL come from glass surfaces, never an opaque window paint.
++  *Decision: [`../50-adr/0004-transparent-compositing.md`](../50-adr/0004-transparent-compositing.md).*
++
++### Automation
++
++- **AU-1 Workflow Engine.** The user SHALL define workflows as
++  trigger → action → condition → result, and the Runtime SHALL execute them
++  deterministically. *Contract: [`../30-specs/Automation.md`](../30-specs/Automation.md).*
++- **AU-2 Scheduling.** The user SHALL schedule workflows by cron, by event,
++  and at startup.
++- **AU-3 Scope.** Automation SHALL target the development workflow —
++  Workspaces, Workspace Services, and tooling — not the consumer desktop.
++
++### AI (Optional, Degrading Gracefully)
++
++- **AI-1 Optionality.** No core capability SHALL require a model, an API key,
++  or a network. The Workspace Runtime and the Knowledge Vault SHALL work
++  fully without intelligence.
++- **AI-2 Graceful Degradation.** Every AI capability SHALL degrade to a fully
++  manual workflow when disabled, with no loss of existing state or data.
++- **AI-3 Local Memory.** AI capabilities SHALL consume the Knowledge Vault
++  through Memory Providers and SHALL never be on the critical path of the
++  Workspace Runtime.
++
++## Cross-Cutting Constraints
++
++- **Offline First.** The Runtime, the Knowledge Vault, and every Workspace
++  SHALL work on a machine with no network. Secrets and knowledge stay local;
++  anything that leaves the machine does so by explicit request.
++- **Linux Native.** DEX SHALL be a native layer over Linux/Wayland, with all
++  system access owned by Rust. The frontend SHALL never touch the
++  filesystem, SQLite, or the shell directly.
++- **Security.** The shell SHALL ship a strict Content Security Policy; every
++  Plugin and Widget SHALL be capability-gated and manifest-validated. The
++  extension boundary SHALL hold in the presence of third-party code.
++- **Performance budgets.** The Runtime SHALL meet: cold start < 500 ms;
++  60 FPS sustained for compositor-only motion; < 200 MB idle RAM. These are
++  hard budgets, not targets.
++
++## Success Metrics
++
++- **Restoration.** A developer restores a complete work session with one
++  command, from a Snapshot or from a Manifest, on any machine the Runtime
++  runs on.
++- **Portability.** A Workspace declared by its Manifest activates on a second
++  machine without manual re-assembly.
++- **Daily Driver.** A developer chooses DEX on a fresh machine and reaches
++  for it first when they sit down to work.
++- **Ecosystem.** Adoption is measured by daily-driver use and extension
++  quality, not by component count.
++- **Durability.** The concepts — Workspace, Workspace Manifest, Workspace
++  Snapshot, Knowledge Vault — remain the vocabulary of the product as it
++  evolves, outliving any single tool it integrates.
++
++## Related Documents
++
++- Identity and values: [`../00-vision/00_Manifesto.md`](../00-vision/00_Manifesto.md)
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Scope boundary: [`../00-vision/04_NonGoals.md`](../00-vision/04_NonGoals.md)
++- Roadmap and milestones: [`11_Product_Roadmap.md`](11_Product_Roadmap.md)
++- Personas: [`12_User_Personas.md`](12_User_Personas.md)
++- User stories: [`13_User_Stories.md`](13_User_Stories.md)
++- Feature matrix: [`14_Feature_Matrix.md`](14_Feature_Matrix.md)
++- The Workspace Runtime concept: [`15_Workspace_Runtime.md`](15_Workspace_Runtime.md)
++- User flows: [`16_User_Flows.md`](16_User_Flows.md)
++- UX principles: [`17_UX_Principles.md`](17_UX_Principles.md)
++- System architecture: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Formal contracts: [`../30-specs/`](../30-specs/)
+\ No newline at end of file
+diff --git a/docs/10-product/11_Product_Roadmap.md b/docs/10-product/11_Product_Roadmap.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..7c8b97b317a9e9d79efa5c5fc16267d67edd851a
+--- /dev/null
++++ b/docs/10-product/11_Product_Roadmap.md
+@@ -0,0 +1,188 @@
++# DEX Product Roadmap
++
++## Purpose
++
++The roadmap is the product-level plan for DEX: ten phases, thirty-four
++milestones, and the deliverables that carry each milestone to a working
++vertical slice. It is the source of truth for what ships and in what order.
++Architecture reference: `20-architecture/20_System_Architecture.md` +
++`50-adr/`.
++
++## Background
++
++DEX is a Workspace Runtime built in phases. Phase 0 establishes the layer
++model and infrastructure that every later feature depends on; each subsequent
++phase adds a capability surface — shell, graphics, widgets, native system
++access, core applications, AI, automation, plugins — until the platform is
++production-ready.
++
++## Phase Gate
++
++Every milestone ends with a working vertical slice and green checks
++(`bun run check`, `cargo check`, `bun run tauri dev`).
++
++## Success Criteria
++
++**Technical**
++
++- Cold start < 500 ms
++- 60 FPS sustained (compositor-only motion, no layout thrash)
++- < 200 MB idle RAM
++- Native Wayland performance — no Electron-style lag
++
++**Product**
++
++- Daily driver for developers
++- Deep Hyprland integration (workspaces, windows, rules, socket events)
++- Extensible widget + plugin ecosystem
++- AI augments the user — never replaces them
++
++## Development Rhythm
++
++| Phase | Milestones | Est. commits | Outcome |
++|---|---|---|---|
++| 0 Foundation | 4 | 20–30 | Solid engineering foundation |
++| 1 Desktop Shell | 4 | 30–40 | Functional desktop shell |
++| 2 Graphics Engine | 4 | 30–50 | GPU visuals engine |
++| 3 Widget Platform | 4 | 40–60 | Widget ecosystem |
++| 4 Native System Layer | 5 | 50–70 | Deep Linux integration |
++| 5 Core Desktop Apps | 6 | 80–120 | Core desktop applications |
++| 6 AI Platform | 5 | 60–100 | AI assistant platform |
++| 7 Automation | 4 | 40–70 | Automation engine |
++| 8 Plugin Platform | 4 | 50–80 | Plugin ecosystem |
++| 9 Production | 5 | 40–60 | Production-ready v1.0 |
++
++```mermaid
++timeline
++    title DEX Phases
++    0 Foundation : layer model, design system, typed IPC, tooling
++    1 Desktop Shell : window, HUD, components, theme
++    2 Graphics Engine : Three.js core, effects, animation, perf
++    3 Widget Platform : SDK, layout, persistence, marketplace
++    4 Native System Layer : Rust core, filesystem, SQLite, Hyprland, notifications
++    5 Core Desktop Apps : launcher, terminal, explorer, dashboard, workspace, settings
++    6 AI Platform : LLM provider, memory, intent, widgets, voice
++    7 Automation : workflow engine, scheduler, macros, smart actions
++    8 Plugin Platform : SDK, API, marketplace, sandboxing
++    9 Production : performance, testing, packaging, docs, release
++```
++
++## Phase 0 — Foundation (current)
++
++**Goal:** the layer every feature depends on. No business features.
++
++- [x] **M0.1 Project Architecture** — folder structure, layered architecture
++      (ADR-0001), coding standards, ADRs, engineering docs
++- [x] **M0.2 Design System** — tokens, typography, colors, icons, motion,
++      theme engine (ADR-0003/0004, `ui/styles`, `ui/primitives`, `ui/themes`)
++- [x] **M0.3 Core Infrastructure** — typed IPC layer + command registry,
++      contract clients, event bus, theme store, logger, error envelope
++      (ADR-0002, ADR-0005; `core/api`, `core/services`, `core/utils`)
++- [ ] **M0.4 Development Tooling** — ESLint, Prettier, Rustfmt, Clippy,
++      test runner, git hooks, CI skeleton
++
++## Phase 1 — Desktop Shell
++
++**Goal:** first usable shell surface, proving the seams end to end.
++
++- [ ] **M1.1 Window** — transparent, fullscreen, multi-monitor, DPI-aware
++- [ ] **M1.2 HUD** — TopBar, Dock, StatusBar, Viewport wiring
++- [ ] **M1.3 UI Components** — GlassPanel, Button, Card, Tooltip, Modal,
++      ContextMenu, Dropdown (complete the primitive set)
++- [ ] **M1.4 Theme** — dark, cyber, dynamic; live switching end to end
++
++## Phase 2 — Graphics Engine
++
++**Goal:** GPU visuals under the DOM chrome (`graphics/`).
++
++- [ ] **M2.1 Three.js Core** — renderer, scene, camera, lights
++- [ ] **M2.2 Effects** — bloom, fog, background, grid, particles
++- [ ] **M2.3 Animation Engine** — timeline, motion manager, transition manager
++- [ ] **M2.4 Performance** — object pooling, texture cache, FPS monitor
++
++## Phase 3 — Widget Platform
++
++**Goal:** the widget ecosystem on top of the engine.
++
++- [ ] **M3.1 Widget SDK** — registry, metadata, lifecycle
++- [ ] **M3.2 Layout Engine** — drag, resize, snap, dock, float
++- [ ] **M3.3 Persistence** — SQLite-backed positions/sizes/settings
++- [ ] **M3.4 Widget Marketplace API** — discovery, install, update
++
++## Phase 4 — Native System Layer
++
++**Goal:** deep Linux integration, all Rust-owned.
++
++- [ ] **M4.1 Rust Core** — commands, IPC, services (first real domains)
++- [ ] **M4.2 Filesystem** — browse, watch, search
++- [ ] **M4.3 SQLite** — access layer, repository pattern, migrations
++- [ ] **M4.4 Hyprland** — socket, windows, workspaces, focus, rules
++- [ ] **M4.5 Notifications**
++
++## Phase 5 — Core Desktop Apps
++
++**Goal:** the everyday desktop applications, feature-first.
++
++- [ ] **M5.1 Launcher** — search, execute, recent
++- [ ] **M5.2 Terminal** — PTY, tabs, sessions
++- [ ] **M5.3 File Explorer** — tree, preview, favorites
++- [ ] **M5.4 Dashboard** — CPU, RAM, GPU, network, storage
++- [ ] **M5.5 Workspace Manager** — overview, window switcher, layouts
++- [ ] **M5.6 Settings** — theme, plugins, AI, system
++
++## Phase 6 — AI Platform
++
++**Goal:** local-first AI that augments the desktop.
++
++- [ ] **M6.1 LLM Provider** — Ollama, OpenAI, Anthropic
++- [ ] **M6.2 Memory** — conversations, desktop state, context
++- [ ] **M6.3 Intent Engine** — "Open Firefox" → intent → Rust → Hyprland → done
++- [ ] **M6.4 AI Widgets** — chat, search, assistant
++- [ ] **M6.5 Voice** — STT, TTS, wake word
++
++## Phase 7 — Automation
++
++**Goal:** programmable desktop.
++
++- [ ] **M7.1 Workflow Engine** — trigger → action → condition → result
++- [ ] **M7.2 Scheduler** — cron, events, startup
++- [ ] **M7.3 Macros** — keyboard, mouse, shell
++- [ ] **M7.4 Smart Actions** — AI-generated workflows
++
++## Phase 8 — Plugin Platform
++
++**Goal:** third-party extensibility with a hard security boundary (ADR-0005).
++
++- [ ] **M8.1 SDK** — commands, widgets, services
++- [ ] **M8.2 API** — permissions, versioning, lifecycle
++- [ ] **M8.3 Marketplace** — browse, install, update, remove
++- [ ] **M8.4 Sandboxing** — permission system
++
++## Phase 9 — Production
++
++**Goal:** ship v1.0.
++
++- [ ] **M9.1 Performance** — profiling, benchmarks, memory
++- [ ] **M9.2 Testing** — unit, integration, UI, Rust
++- [ ] **M9.3 Packaging** — Arch, AppImage, Flatpak
++- [ ] **M9.4 Documentation** — user, developer, API, SDK
++- [ ] **M9.5 Release** — v1.0
++
++## Long-Term Vision (v2)
++
++Multi-user profiles · cloud sync · remote desktop · distributed AI agents ·
++VR/AR workspace · web dashboard · mobile companion · collaborative
++workspaces · opt-in telemetry · enterprise deployment.
++
++## Related Documents
++
++- System architecture and boundaries: `20-architecture/20_System_Architecture.md`
++- Product definition and requirements: `10-product/10_Master_PRD.md`
++- User personas: `10-product/12_User_Personas.md`
++- User stories: `10-product/13_User_Stories.md`
++- Feature matrix: `10-product/14_Feature_Matrix.md`
++- Workspace Runtime: `10-product/15_Workspace_Runtime.md`
++- User flows: `10-product/16_User_Flows.md`
++- UX principles: `10-product/17_UX_Principles.md`
++- Architecture decisions: `50-adr/`
++- Future proposals: `60-rfc/`
+\ No newline at end of file
+diff --git a/docs/10-product/12_User_Personas.md b/docs/10-product/12_User_Personas.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..78866836d8e1b87d53326cb08a12b9cf8f2d4987
+--- /dev/null
++++ b/docs/10-product/12_User_Personas.md
+@@ -0,0 +1,195 @@
++# DEX User Personas
++
++## Purpose
++
++Five personas describe the people DEX is built for. Each persona is a
++composite of the needs the Workspace Runtime serves; no persona is
++hypothetical. When a requirement, a flow, or an interface choice is in
++doubt, the test is: does it serve one of these personas without costing
++another?
++
++Personas are product artifacts, not engineering ones. They define what DEX
++must do for a user; the Master PRD (`10_Master_PRD.md`) converts that into
++numbered, testable requirements.
++
++```mermaid
++mindmap
++  root((DEX users))
++    Core Linux Developer
++      daily driver on Hyprland
++      restores Context in one act
++    Multi-Project Consultant
++      many Workspaces, fast switching
++      state never lost
++    Terminal-First Engineer
++      CLI is the complete surface
++      scriptable, deterministic
++    Plugin / Widget Author
++      bounded extension surface
++      hard security boundary
++    AI-Curious User
++      optional intelligence
++      degrades gracefully
++```
++
++## 1. Core Linux Developer
++
++**Snapshot.** Ada is a Rust and systems developer who has used Arch Linux
++with Hyprland as her daily driver for years. She has a carefully tuned
++setup — a hand-rolled terminal multiplexer layout, a specific editor
++config, a browser profile per project — and she guards it. Her machine is
++her instrument.
++
++**Goals.** Start work the moment she sits down; keep her environment
++exactly as she left it; never re-assemble Context by hand; keep the machine
++fast and native.
++
++**Pains.** Every morning is a manual reconstruction: opening the right
++sessions, restarting the right daemons, remembering which branch she was
++on. Rebooting after a kernel update costs her twenty minutes of context.
++Moving between her laptop and desktop means rebuilding everything.
++
++**Workflow.** She lives in a terminal and a browser. Her day is one or two
++Workspaces, each with a terminal multiplexer session tree, an editor
++instance, and a development server that must be running and supervised. She
++expects keyboard access to everything and a transparent, composited shell
++that shows her wallpaper through the glass.
++
++**What DEX must do for her.** Declare her environment once as a Workspace
++Manifest; activate it with one command or keybinding, restoring windows,
++sessions, Workspace Services, and Context; capture a Workspace Snapshot so
++that a reboot costs nothing; and do all of it within the performance
++budgets — cold start under 500 ms, 60 FPS, under 200 MB idle — or she will
++uninstall it.
++
++## 2. Multi-Project Consultant
++
++**Snapshot.** Ben works on three to five client engagements a week, each
++with its own toolchain, its own credential situation, and its own rhythm. He
++moves between them several times a day. His work is measured in switching
++cost.
++
++**Goals.** Leave one engagement and arrive in another with zero loss of
++state; keep engagements separated so a build daemon from one never pollutes
++another; return to any engagement weeks later and find it exactly where he
++left it.
++
++**Pains.** Context switching between projects is where his time disappears:
++closing down one stack, starting another, remembering where each was.
++Stray services left running from an old engagement eat resources and cause
++confusing failures.
++
++**Workflow.** He uses separate Workspaces per engagement. A Work Session
++begins with Workspace Activation of the engagement's Workspace; it ends with
++leaving it — the Runtime supervises each Workspace's Workspace Services and
++stops them on leave. Snapshots let him park an engagement mid-flight and
++resume it after a gap of weeks.
++
++**What DEX must do for him.** Make Workspace Activation and leave fast,
++reliable, and complete; keep Workspace Services scoped to their Workspace;
++let him snapshot and restore an engagement's state without depending on his
++memory of what was running.
++
++## 3. Terminal-First Engineer
++
++**Snapshot.** Chloe does everything from a terminal. She scripts her setup,
++automates her build, and greps her own muscle memory. A GUI feature she
++cannot reach from the command line might as well not exist; a GUI feature
++that *disagrees* with the CLI is a bug.
++
++**Goals.** A complete, stable, scriptable surface for every Runtime
++capability; deterministic, machine-parseable output; the same behavior from
++the CLI and from the graphical shell, always.
++
++**Pains.** Products that bolt a CLI onto a GUI produce two surfaces that
++drift apart — the shell shows one state and the command line shows another.
++Products whose output is designed for human eyes break her scripts.
++
++**Workflow.** She drives the Runtime from a terminal multiplexer: `dex
++workspace activate`, `dex snapshot create`, `dex vault query`, composed in
++shell scripts and triggered by automation. When she opens the graphical
++shell, it is a second client of the same commands, and the two never
++disagree.
++
++**What DEX must do for her.** Expose every capability through the CLI with a
++stable interface (CLI First); make CLI output deterministic and
++machine-parseable; guarantee parity between the CLI and the shell because
++both drive the same commands.
++
++## 4. Plugin / Widget Author
++
++**Snapshot.** Dana builds tools for other developers. She has written
++plugins for editors, extensions for shells, and widgets for dashboards.
++She is security-conscious: she has seen extension ecosystems rot when the
++extension boundary was an afterthought.
++
++**Goals.** A documented, stable extension surface; a hard security boundary
++so her code runs with exactly the capabilities it declares and can never
++touch anything else; a marketplace path for distributing her Plugins and
++Widgets.
++
++**Pains.** Extension APIs that change between versions; permission systems
++that are either toothless or opaque; widget frameworks that give UI code
++raw system access and then have to be patched forever.
++
++**Workflow.** She writes a Plugin in Rust, declares its manifest with the
++capabilities it needs, installs it, and tests it against the Runtime's
++versioned contract. For a Widget, she works against the sandboxed API where
++every effect is mediated by shell-mediated commands — no direct IPC.
++
++**What DEX must do for her.** Provide a schema-validated manifest and a
++versioned, documented Plugin/Widget contract; enforce least privilege so
++her Plugin gets exactly what it declares; keep the Widget sandbox honest so
++Widget code never reaches the privileged webview.
++
++## 5. AI-Curious User
++
++**Snapshot.** Evan wants assistance over his own work: a chat over his
++notes, a suggestion drawn from his own history. He is skeptical of cloud
++dependencies and privacy leakage, and he will not let a model stand between
++him and his machine.
++
++**Goals.** Intelligence that reads his local Context and Knowledge Vault;
++zero dependence on AI for the core path; complete, cost-free degradation
++when he disables it.
++
++**Pains.** Assistants that know nothing about his actual work. Assistant
++features that block or degrade the primary workflow when the network drops
++or the model endpoint changes. His notes and history being uploaded anywhere
++without his explicit consent.
++
++**Workflow.** He uses the Knowledge Vault to store Context and notes as a
++normal part of Work Sessions. Optionally, he connects a Memory Provider to a
++local model endpoint and asks questions over the Vault. When he disables the
++Provider, the Vault, the Workspace Runtime, and every Workflow continue to
++work unchanged.
++
++**What DEX must do for him.** Make the Knowledge Vault fully functional and
++useful without any AI; keep every AI capability behind Providers and off the
++critical path; make disabling AI cost nothing and lose nothing.
++
++## Persona-Priority Matrix
++
++When product decisions conflict, this matrix settles the priority for a
++given capability area.
++
++| Capability area | Primary persona | Secondary |
++|---|---|---|
++| Workspace Activation / Restoration | Core Linux Developer | Multi-Project Consultant |
++| Workspace Snapshots | Multi-Project Consultant | Core Linux Developer |
++| CLI surface | Terminal-First Engineer | Core Linux Developer |
++| Plugin/Widget boundary | Plugin/Widget Author | Core Linux Developer |
++| Knowledge Vault | AI-Curious User | Terminal-First Engineer |
++| AI features | AI-Curious User | — |
++| Theming / shell feel | Core Linux Developer | — |
++
++## Related Documents
++
++- Master product requirements: [`10_Master_PRD.md`](10_Master_PRD.md)
++- User stories: [`13_User_Stories.md`](13_User_Stories.md)
++- Feature matrix: [`14_Feature_Matrix.md`](14_Feature_Matrix.md)
++- The Workspace Runtime concept: [`15_Workspace_Runtime.md`](15_Workspace_Runtime.md)
++- User flows: [`16_User_Flows.md`](16_User_Flows.md)
++- UX principles: [`17_UX_Principles.md`](17_UX_Principles.md)
++- Roadmap: [`11_Product_Roadmap.md`](11_Product_Roadmap.md)
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
+\ No newline at end of file
+diff --git a/docs/10-product/13_User_Stories.md b/docs/10-product/13_User_Stories.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..f82a6b46c684b599806dd5ad5abe891b466618bf
+--- /dev/null
++++ b/docs/10-product/13_User_Stories.md
+@@ -0,0 +1,188 @@
++# DEX User Stories
++
++## Purpose
++
++User stories translate the personas into concrete, testable capabilities.
++Each story follows the form *As a <persona>, I want <capability>, so that
++<value>*, and carries one or two acceptance criteria that define when the
++story is done. Stories are grouped by product domain and map to the
++requirements in the Master PRD (`10_Master_PRD.md`) and the milestones in
++the roadmap (`11_Product_Roadmap.md`).
++
++A story is not a specification. It states the user-facing behavior; the
++specification that owns the contract is referenced where one exists.
++
++```mermaid
++flowchart LR
++    P["Persona"] --> S["User Story"]
++    S --> AC["Acceptance Criteria"]
++    S --> R["PRD Requirement"]
++    S --> M["Roadmap Milestone"]
++```
++
++## Workspace Activation
++
++- **As a** Core Linux Developer, **I want** to activate a Workspace from its
++  Workspace Manifest with one command, **so that** my complete Context —
++  windows, sessions, Workspace Services, and state — is restored without
++  manual assembly.
++  - **AC:** Activation launches every declared session and Workspace Service
++    and restores window layout.
++  - **AC:** Activation completes within the cold-start budget (< 500 ms to
++    interactive).
++- **As a** Multi-Project Consultant, **I want** to switch from one active
++  Workspace to another without losing either, **so that** I can move between
++  engagements in seconds.
++  - **AC:** Leaving a Workspace stops its Workspace Services; activating the
++    next starts its own.
++- **As a** Terminal-First Engineer, **I want** to trigger Workspace
++  Activation from the CLI, **so that** I can script the start of a work
++  session.
++
++## Restoration
++
++- **As a** Core Linux Developer, **I want** to restore a Workspace from a
++  Workspace Snapshot after a reboot, **so that** a kernel update or a crash
++  costs me nothing.
++  - **AC:** Restoration returns the Workspace to exactly where work left off.
++- **As a** Multi-Project Consultant, **I want** to restore an engagement's
++  Workspace on a different machine, **so that** I can pick up where I left
++  off when I change hardware.
++  - **AC:** A Workspace declared by its Manifest activates on a second
++    machine without manual re-assembly.
++
++## Snapshots
++
++- **As a** Multi-Project Consultant, **I want** to capture a Workspace
++  Snapshot on demand, **so that** I can park an engagement mid-flight and
++  resume it weeks later.
++  - **AC:** A Snapshot captures the Workspace's runtime state and is
++    restorable independently.
++- **As a** Core Linux Developer, **I want** to schedule automatic Snapshots,
++  **so that** I have a recovery point even when I forget to capture one.
++  - **AC:** Scheduled Snapshots run without user interaction and do not
++    interrupt the active Work Session.
++
++## Workspace Services
++
++- **As a** Core Linux Developer, **I want** the Runtime to supervise my
++  development server as a Workspace Service, **so that** it starts with
++  Activation and stops when I leave the Workspace.
++  - **AC:** The Workspace Service is started on Activation and stopped on
++    leave.
++- **As a** Multi-Project Consultant, **I want** each engagement's Workspace
++  Services scoped to its own Workspace, **so that** a build daemon from one
++  engagement never pollutes another.
++
++## Knowledge Vault
++
++- **As a** Terminal-First Engineer, **I want** to store Context and notes in
++  the Knowledge Vault from the CLI, **so that** my memory of a Workspace
++  survives across sessions and machines.
++  - **AC:** Vault entries are persisted locally and queryable.
++- **As a** AI-Curious User, **I want** to query the Knowledge Vault over my
++  own history, **so that** I can recall what I was doing and why.
++  - **AC:** Queries return deterministic, local results.
++- **As a** AI-Curious User, **I want** the Vault to work with no network,
++  **so that** my memory is never hostage to connectivity.
++- **As a** AI-Curious User, **I want** to connect a Memory Provider to a
++  local model endpoint, **so that** I can ask questions over the Vault
++  without uploading my notes anywhere.
++
++## Plugins
++
++- **As a** Plugin/Widget Author, **I want** to declare a Plugin's
++  capabilities in a schema-validated manifest, **so that** the Runtime
++  grants exactly what I declare and nothing more.
++  - **AC:** A manifest with unknown fields is rejected at install.
++- **As a** Plugin/Widget Author, **I want** a versioned Plugin contract,
++  **so that** my Plugin keeps working across Runtime updates.
++- **As a** Core Linux Developer, **I want** to install a Plugin and have it
++  extend the Runtime's command and event surface, **so that** the platform
++  grows without weakening its boundary.
++  - **AC:** A Plugin runs in native code with exactly its granted
++    capabilities, never inside the privileged webview.
++
++## Widgets
++
++- **As a** Plugin/Widget Author, **I want** to build a Widget against a
++  sandboxed API, **so that** my UI code has no IPC access of its own.
++  - **AC:** A Widget's every effect is mediated by shell-mediated commands.
++- **As a** Core Linux Developer, **I want** to add a Widget to my shell,
++  **so that** I can surface the information I care about at a glance.
++  - **AC:** A Widget renders in an isolated context and never imports the
++    privileged API.
++- **As a** Core Linux Developer, **I want** to arrange and persist Widget
++  positions, **so that** my layout survives restarts.
++
++## CLI
++
++- **As a** Terminal-First Engineer, **I want** every Runtime capability
++  reachable from the CLI, **so that** nothing is GUI-only.
++  - **AC:** Every capability has a CLI form with a stable interface.
++- **As a** Terminal-First Engineer, **I want** deterministic,
++  machine-parseable CLI output, **so that** I can compose the Runtime in
++  scripts.
++- **As a** Terminal-First Engineer, **I want** the CLI and the shell to
++  drive the same commands, **so that** the two surfaces never disagree.
++  - **AC:** A state change made in the shell is reflected in the CLI and
++    vice versa.
++
++## Automation
++
++- **As a** Terminal-First Engineer, **I want** to define a workflow as
++  trigger → action → condition → result, **so that** I can automate my
++  development routine.
++  - **AC:** A workflow executes deterministically and reports its result.
++- **As a** Core Linux Developer, **I want** to schedule a workflow at
++  startup, **so that** my environment is ready before I sit down.
++- **As a** Core Linux Developer, **I want** automation scoped to the
++  development workflow, **so that** it orchestrates Workspaces and tooling
++  rather than the consumer desktop.
++
++## Theming
++
++- **As a** Core Linux Developer, **I want** to switch themes at runtime,
++  **so that** the shell matches my environment without a restart.
++  - **AC:** The theme change applies before the next paint and persists.
++- **As a** Core Linux Developer, **I want** the shell to stay transparent
++  and composited, **so that** my wallpaper and desktop show through the
++  glass.
++- **As a** Core Linux Developer, **I want** visual consistency driven by
++  design tokens, **so that** the shell reads as one system.
++
++## AI Optionality
++
++- **As a** AI-Curious User, **I want** to disable all AI capabilities,
++  **so that** the Runtime and the Knowledge Vault keep working unchanged.
++  - **AC:** Disabling AI loses no state and degrades no core capability.
++- **As a** AI-Curious User, **I want** AI to consume the Knowledge Vault
++  through Providers, **so that** intelligence is never on the critical path.
++- **As a** Core Linux Developer, **I want** the core path to never require a
++  model, an API key, or a network, **so that** DEX is complete without AI.
++
++## Story-to-Requirement Map
++
++| Story group | PRD requirement | Roadmap milestone |
++|---|---|---|
++| Activation | WR-1, WR-6 | M5.5, M4.4 |
++| Restoration | WR-2 | M5.5 |
++| Snapshots | WR-3 | M5.5 |
++| Workspace Services | WR-4 | M4.1, M5.5 |
++| Knowledge Vault | KV-1–KV-4 | M6.2 |
++| Plugins | PW-1, PW-2, PW-4 | M8.1–M8.4 |
++| Widgets | PW-3, PW-4 | M3.1–M3.4 |
++| CLI | CLI-1–CLI-3 | M4.1 |
++| Automation | AU-1–AU-3 | M7.1–M7.4 |
++| Theming | TH-1–TH-3 | M1.4 |
++| AI Optionality | AI-1–AI-3 | M6.1–M6.5 |
++
++## Related Documents
++
++- Master product requirements: [`10_Master_PRD.md`](10_Master_PRD.md)
++- Personas: [`12_User_Personas.md`](12_User_Personas.md)
++- Feature matrix: [`14_Feature_Matrix.md`](14_Feature_Matrix.md)
++- The Workspace Runtime concept: [`15_Workspace_Runtime.md`](15_Workspace_Runtime.md)
++- User flows: [`16_User_Flows.md`](16_User_Flows.md)
++- Roadmap: [`11_Product_Roadmap.md`](11_Product_Roadmap.md)
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
+\ No newline at end of file
+diff --git a/docs/10-product/14_Feature_Matrix.md b/docs/10-product/14_Feature_Matrix.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..433081bbb8af2a0911e829f34561b9ba78bb1718
+--- /dev/null
++++ b/docs/10-product/14_Feature_Matrix.md
+@@ -0,0 +1,167 @@
++# DEX Feature Matrix
++
++## Purpose
++
++The feature matrix maps every feature named in the roadmap
++(`11_Product_Roadmap.md`) to its product domain, phase, and milestone, and
++records its status. It is grounded strictly in the roadmap: only features
++the roadmap names appear here, and no feature is assigned a phase or
++milestone the roadmap does not state.
++
++This matrix answers two questions: *what ships* and *in what order*. The
++requirements behind each feature are in the Master PRD
++(`10_Master_PRD.md`); the user value behind each feature is in the user
++stories (`13_User_Stories.md`).
++
++```mermaid
++gantt
++    title Feature Delivery by Phase
++    dateFormat YYYY
++    axisFormat %Y
++    section Phase 0 — Foundation
++    M0.1 Project Architecture       :a0, 2026, 1M
++    M0.2 Design System              :a1, 2026, 1M
++    M0.3 Core Infrastructure        :a2, 2026, 1M
++    M0.4 Development Tooling        :a3, 2026, 1M
++    section Phase 1 — Desktop Shell
++    M1.1 Window                     :b0, 2026, 1M
++    M1.2 HUD                        :b1, 2026, 1M
++    M1.3 UI Components              :b2, 2026, 1M
++    M1.4 Theme                      :b3, 2026, 1M
++    section Phase 2 — Graphics Engine
++    M2.1 Three.js Core              :c0, 2026, 1M
++    M2.2 Effects                    :c1, 2026, 1M
++    M2.3 Animation Engine           :c2, 2026, 1M
++    M2.4 Performance                :c3, 2026, 1M
++    section Phase 3 — Widget Platform
++    M3.1 Widget SDK                 :d0, 2026, 1M
++    M3.2 Layout Engine              :d1, 2026, 1M
++    M3.3 Persistence                :d2, 2026, 1M
++    M3.4 Widget Marketplace API     :d3, 2026, 1M
++    section Phase 4 — Native System Layer
++    M4.1 Rust Core                  :e0, 2026, 1M
++    M4.2 Filesystem                 :e1, 2026, 1M
++    M4.3 SQLite                     :e2, 2026, 1M
++    M4.4 Hyprland                   :e3, 2026, 1M
++    M4.5 Notifications              :e4, 2026, 1M
++    section Phase 5 — Core Desktop Apps
++    M5.1 Launcher                   :f0, 2026, 1M
++    M5.2 Terminal                   :f1, 2026, 1M
++    M5.3 File Explorer              :f2, 2026, 1M
++    M5.4 Dashboard                  :f3, 2026, 1M
++    M5.5 Workspace Manager          :f4, 2026, 1M
++    M5.6 Settings                   :f5, 2026, 1M
++    section Phase 6 — AI Platform
++    M6.1 LLM Provider               :g0, 2026, 1M
++    M6.2 Memory                     :g1, 2026, 1M
++    M6.3 Intent Engine              :g2, 2026, 1M
++    M6.4 AI Widgets                 :g3, 2026, 1M
++    M6.5 Voice                      :g4, 2026, 1M
++    section Phase 7 — Automation
++    M7.1 Workflow Engine            :h0, 2026, 1M
++    M7.2 Scheduler                  :h1, 2026, 1M
++    M7.3 Macros                     :h2, 2026, 1M
++    M7.4 Smart Actions              :h3, 2026, 1M
++    section Phase 8 — Plugin Platform
++    M8.1 SDK                        :i0, 2026, 1M
++    M8.2 API                        :i1, 2026, 1M
++    M8.3 Marketplace                :i2, 2026, 1M
++    M8.4 Sandboxing                 :i3, 2026, 1M
++    section Phase 9 — Production
++    M9.1 Performance                :j0, 2026, 1M
++    M9.2 Testing                    :j1, 2026, 1M
++    M9.3 Packaging                  :j2, 2026, 1M
++    M9.4 Documentation              :j3, 2026, 1M
++    M9.5 Release                    :j4, 2026, 1M
++```
++
++## Matrix
++
++Status: **Built** = delivered in Phase 0 (milestone checked in the roadmap).
++**Planned** = scheduled in the roadmap and not yet delivered.
++
++| Feature | Domain | Phase | Milestone | Status |
++|---|---|---|---|---|
++| Project Architecture (layer model, ADRs, coding standards, engineering docs) | Foundation | 0 | M0.1 | Built |
++| Design System (tokens, typography, colors, icons, motion, theme engine) | Theming | 0 | M0.2 | Built |
++| Core Infrastructure (typed IPC, command registry, contract clients, event bus, theme store, logger, error envelope) | Core Infrastructure | 0 | M0.3 | Built |
++| Development Tooling (ESLint, Prettier, Rustfmt, Clippy, test runner, git hooks, CI skeleton) | Engineering | 0 | M0.4 | Planned |
++| Window (transparent, fullscreen, multi-monitor, DPI-aware) | Desktop Shell | 1 | M1.1 | Planned |
++| HUD (TopBar, Dock, StatusBar, Viewport) | Desktop Shell | 1 | M1.2 | Planned |
++| UI Components (GlassPanel, Button, Card, Tooltip, Modal, ContextMenu, Dropdown) | UI Primitives | 1 | M1.3 | Planned |
++| Theme (dark, cyber, dynamic; live switching) | Theming | 1 | M1.4 | Planned |
++| Three.js Core (renderer, scene, camera, lights) | Graphics | 2 | M2.1 | Planned |
++| Effects (bloom, fog, background, grid, particles) | Graphics | 2 | M2.2 | Planned |
++| Animation Engine (timeline, motion manager, transition manager) | Graphics | 2 | M2.3 | Planned |
++| Graphics Performance (object pooling, texture cache, FPS monitor) | Graphics | 2 | M2.4 | Planned |
++| Widget SDK (registry, metadata, lifecycle) | Widgets | 3 | M3.1 | Planned |
++| Layout Engine (drag, resize, snap, dock, float) | Widgets | 3 | M3.2 | Planned |
++| Widget Persistence (SQLite-backed positions/sizes/settings) | Widgets | 3 | M3.3 | Planned |
++| Widget Marketplace API (discovery, install, update) | Widgets | 3 | M3.4 | Planned |
++| Rust Core (commands, IPC, services — first real domains) | Native System Layer | 4 | M4.1 | Planned |
++| Filesystem (browse, watch, search) | Native System Layer | 4 | M4.2 | Planned |
++| SQLite (access layer, repository pattern, migrations) | Native System Layer | 4 | M4.3 | Planned |
++| Hyprland (socket, windows, workspaces, focus, rules) | Native System Layer | 4 | M4.4 | Planned |
++| Notifications | Native System Layer | 4 | M4.5 | Planned |
++| Launcher (search, execute, recent) | Core Desktop Apps | 5 | M5.1 | Planned |
++| Terminal (PTY, tabs, sessions) | Core Desktop Apps | 5 | M5.2 | Planned |
++| File Explorer (tree, preview, favorites) | Core Desktop Apps | 5 | M5.3 | Planned |
++| Dashboard (CPU, RAM, GPU, network, storage) | Core Desktop Apps | 5 | M5.4 | Planned |
++| Workspace Manager (overview, window switcher, layouts) | Workspace Runtime | 5 | M5.5 | Planned |
++| Settings (theme, plugins, AI, system) | Core Desktop Apps | 5 | M5.6 | Planned |
++| LLM Provider (Ollama, OpenAI, Anthropic) | AI | 6 | M6.1 | Planned |
++| Memory (conversations, desktop state, Context) | Knowledge Vault | 6 | M6.2 | Planned |
++| Intent Engine (utterance → intent → command → action) | AI | 6 | M6.3 | Planned |
++| AI Widgets (chat, search, assistant) | AI | 6 | M6.4 | Planned |
++| Voice (STT, TTS, wake word) | AI | 6 | M6.5 | Planned |
++| Workflow Engine (trigger → action → condition → result) | Automation | 7 | M7.1 | Planned |
++| Scheduler (cron, events, startup) | Automation | 7 | M7.2 | Planned |
++| Macros (keyboard, mouse, shell) | Automation | 7 | M7.3 | Planned |
++| Smart Actions (AI-generated workflows) | Automation | 7 | M7.4 | Planned |
++| Plugin SDK (commands, widgets, services) | Plugins | 8 | M8.1 | Planned |
++| Plugin API (permissions, versioning, lifecycle) | Plugins | 8 | M8.2 | Planned |
++| Plugin Marketplace (browse, install, update, remove) | Plugins | 8 | M8.3 | Planned |
++| Plugin Sandboxing (permission system) | Plugins | 8 | M8.4 | Planned |
++| Performance (profiling, benchmarks, memory) | Engineering | 9 | M9.1 | Planned |
++| Testing (unit, integration, UI, Rust) | Engineering | 9 | M9.2 | Planned |
++| Packaging (Arch, AppImage, Flatpak) | Engineering | 9 | M9.3 | Planned |
++| Documentation (user, developer, API, SDK) | Engineering | 9 | M9.4 | Planned |
++| Release (v1.0) | Engineering | 9 | M9.5 | Planned |
++
++## Domain Count
++
++| Domain | Features |
++|---|---|
++| Engineering | 6 |
++| Desktop Shell | 3 |
++| Theming | 2 |
++| Graphics | 4 |
++| Widgets | 4 |
++| Native System Layer | 5 |
++| Core Desktop Apps | 5 |
++| Workspace Runtime | 1 (M5.5) + Workspace semantics across M4.x |
++| Knowledge Vault | 1 (M6.2) |
++| AI | 4 |
++| Automation | 4 |
++| Plugins | 4 |
++| Foundation / Core Infrastructure | 3 |
++
++## Reading the Matrix
++
++- The Workspace Runtime is not a single row; it is the product's core domain
++  and its semantics are delivered across milestones — Hyprland integration
++  (M4.4), the Rust command surface (M4.1), and the Workspace Manager
++  (M5.5). See [`15_Workspace_Runtime.md`](15_Workspace_Runtime.md).
++- Status reflects the roadmap only. M0.4 is the only Phase 0 milestone not
++  yet delivered; it is scheduled and open.
++- The phase gate applies to every milestone: each ends with a working
++  vertical slice and green checks.
++
++## Related Documents
++
++- Roadmap and milestones: [`11_Product_Roadmap.md`](11_Product_Roadmap.md)
++- Master product requirements: [`10_Master_PRD.md`](10_Master_PRD.md)
++- User stories: [`13_User_Stories.md`](13_User_Stories.md)
++- The Workspace Runtime concept: [`15_Workspace_Runtime.md`](15_Workspace_Runtime.md)
++- System architecture: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
+\ No newline at end of file
+diff --git a/docs/10-product/15_Workspace_Runtime.md b/docs/10-product/15_Workspace_Runtime.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..6caaba899646242cdbab74eb96ea5c61cec802c6
+--- /dev/null
++++ b/docs/10-product/15_Workspace_Runtime.md
+@@ -0,0 +1,173 @@
++# The Workspace Runtime
++
++## Purpose
++
++This document is the product definition of DEX's core concept: the Workspace
++Runtime. It states what the Workspace Runtime does for the user, the
++user-facing lifecycle of a Workspace, and how the Runtime relates to the
++host operating system and to the tools a developer already uses. It is a
++product document: it describes behavior and workflow, not implementation.
++
++The formal contracts for the Workspace and its Manifest live in the
++specifications; this document references them rather than re-explaining
++them. Canonical terminology is defined in the Glossary
++([`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)).
++
++## What the Workspace Runtime does for the user
++
++The Workspace Runtime is the operating layer between the developer and the
++Linux system. It treats the Workspace — the complete, live state of a
++development effort — as a first-class object that can be declared,
++activated, restored, and orchestrated.
++
++For the user, this means three things:
++
++1. **One act of Workspace Activation restores Context.** Windows, sessions,
++   Workspace Services, and state come back together, so starting work is not
++   a manual assembly job.
++2. **A Workspace is durable and recoverable.** A Workspace Snapshot or a
++   Workspace Manifest restores the Workspace after a reboot, on another
++   machine, or after a failed experiment — as recoverable as a file.
++3. **A Workspace is scriptable.** The same declaration activates the
++   Workspace anywhere, and every operation is reachable from the command
++   line.
++
++```mermaid
++flowchart LR
++    DEV["Developer"] --> RT["Workspace Runtime"]
++    RT --> OS["Linux / Wayland / window manager"]
++    RT --> TOOLS["terminal, editor, browser, shell"]
++    RT --> WS["Workspace: sessions, services, Context"]
++```
++
++The Runtime sits between the developer and the system, but it does not own
++the system. It integrates and orchestrates; it does not replace.
++
++## The user-facing Workspace lifecycle
++
++A Workspace moves through a lifecycle the user drives. Each stage is a
++deliberate act with a clear outcome.
++
++```mermaid
++stateDiagram-v2
++    [*] --> Declared: write Workspace Manifest
++    Declared --> Active: Workspace Activation
++    Active --> Active: work
++    Active --> Snapshot: capture Workspace Snapshot
++    Snapshot --> Active: restore
++    Active --> Left: leave Workspace
++    Left --> Active: Workspace Activation
++    Left --> [*]
++```
++
++- **Declare.** The user writes a Workspace Manifest: what the Workspace
++  contains, what runs when it is activated, and what state it captures. The
++  Manifest is the contract between the Workspace and the Runtime — the same
++  declaration activates the Workspace on any machine. *Contract:
++  [`../30-specs/Manifest.md`](../30-specs/Manifest.md).*
++- **Activate.** The user activates the Workspace. The Runtime brings it to
++  life: launching its sessions and Workspace Services, restoring its windows
++  and state, and re-establishing Context. Activation is the central act of
++  DEX — the transition from "declared" to "live". *Contract:
++  [`../30-specs/Workspace.md`](../30-specs/Workspace.md).*
++- **Work.** The user works. The Runtime supervises the Workspace's Workspace
++  Services and tracks Context — which Workspace is active, what is open,
++  what was in progress.
++- **Snapshot.** On demand or on schedule, the user captures a Workspace
++  Snapshot: a point-in-time capture of the Workspace's runtime state. A
++  Snapshot makes it possible to restore the Workspace to exactly where work
++  left off. *Contract: [`../30-specs/Snapshot.md`](../30-specs/Snapshot.md).*
++- **Leave.** The user leaves the Workspace. The Runtime stops its Workspace
++  Services and parks its state, so the Workspace is cleanly suspended rather
++  than an accident of what happened to be running.
++- **Restore.** From a Snapshot or from the Manifest, the user restores the
++  Workspace — after a reboot, on another machine, or after a failed
++  experiment.
++
++## Activation, in sequence
++
++Activation is the central act, so it is worth showing in sequence: the user
++issues one command, and the Runtime composes the Workspace from its declared
++parts.
++
++```mermaid
++sequenceDiagram
++    participant U as User
++    participant RT as Workspace Runtime
++    participant SVC as Workspace Services
++    participant WM as Window Manager
++    participant APP as Applications
++
++    U->>RT: activate <workspace>
++    RT->>RT: read Workspace Manifest
++    RT->>SVC: start declared Workspace Services
++    SVC-->>RT: ready
++    RT->>APP: launch sessions (terminal, editor, browser)
++    APP-->>RT: running
++    RT->>WM: restore window layout
++    WM-->>RT: arranged
++    RT->>RT: re-establish Context
++    RT-->>U: Workspace active
++```
++
++The user issues one command; the Runtime composes the Workspace from its
++declared parts and reports the Workspace active.
++
++## Relationship to the host OS
++
++The Workspace Runtime is a layer over the host operating system, not a
++replacement for it. The host owns windows and compositing; the Runtime
++orchestrates through them. The Runtime does not define its own window
++manager or compositor, and it does not manage a desktop of icons, panels,
++and menus. It composes with the window manager of the host system — on
++Hyprland/Wayland — and leaves the desktop, wallpaper, and compositor output
++visible through the transparent shell.
++
++## Relationship to existing tools: Integrate, Don't Replace
++
++The Runtime composes with the terminal, the editor, the browser, and the
++shell. It drives them — launches them, restores their state, feeds them
++Context — and re-implements only what no existing tool provides. A feature
++that duplicates an existing tool is a candidate for removal, not a roadmap
++item.
++
++The tools a developer already uses are the tools they are fastest with.
++Replacing them would make DEX a competitor to its own ecosystem instead of
++the layer that orchestrates it.
++
++## CLI and shell: two clients of the same Runtime
++
++The Workspace Runtime has one surface, and two clients present it.
++
++- **The CLI is the complete surface.** Every Runtime capability is reachable
++  and scriptable from the command line. A capability that cannot be
++  automated is a capability that does not exist. *Contract:
++  [`../30-specs/CLI.md`](../30-specs/CLI.md).*
++- **The graphical shell is a second client of the same surface.** It drives
++  the same commands, so what works in one works in the other, and nothing is
++  GUI-only.
++
++The two clients never disagree, because they are not two implementations —
++they are two presentations of one Runtime.
++
++```mermaid
++flowchart LR
++    CLI["CLI"] --> RT["Workspace Runtime"]
++    SHELL["Graphical shell"] --> RT
++    RT --> WS["Workspace"]
++```
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Identity: [`../00-vision/00_Manifesto.md`](../00-vision/00_Manifesto.md)
++- Master product requirements: [`10_Master_PRD.md`](10_Master_PRD.md)
++- User flows: [`16_User_Flows.md`](16_User_Flows.md)
++- User stories: [`13_User_Stories.md`](13_User_Stories.md)
++- Feature matrix: [`14_Feature_Matrix.md`](14_Feature_Matrix.md)
++- Roadmap: [`11_Product_Roadmap.md`](11_Product_Roadmap.md)
++- System architecture: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Workspace contract: [`../30-specs/Workspace.md`](../30-specs/Workspace.md)
++- Manifest contract: [`../30-specs/Manifest.md`](../30-specs/Manifest.md)
++- Snapshot contract: [`../30-specs/Snapshot.md`](../30-specs/Snapshot.md)
++- CLI contract: [`../30-specs/CLI.md`](../30-specs/CLI.md)
+\ No newline at end of file
+diff --git a/docs/10-product/16_User_Flows.md b/docs/10-product/16_User_Flows.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..2f4e3fe3490cf7a030705d8dc7f78f0551be7784
+--- /dev/null
++++ b/docs/10-product/16_User_Flows.md
+@@ -0,0 +1,250 @@
++# DEX User Flows
++
++## Purpose
++
++Seven user flows describe how a user accomplishes the core tasks of DEX
++through the Workspace Runtime. Each flow states its trigger, its steps, its
++outcome, and how failures are handled. Flows are written from the user's
++perspective; the contracts that make each step possible live in the
++specifications and the lifecycle that underlies them in
++[`15_Workspace_Runtime.md`](15_Workspace_Runtime.md).
++
++```mermaid
++mindmap
++  root((User flows))
++    Start a work session
++    Restore after reboot
++    Capture a Snapshot
++    Create a Workspace
++    Install a Plugin
++    Add a Widget
++    Query the Knowledge Vault
++```
++
++## 1. Start a work session
++
++**Trigger.** The user sits down to work on an existing Workspace.
++
++**Steps.**
++
++1. The user invokes Workspace Activation, from the CLI (`dex workspace
++   activate <name>`) or from the shell.
++2. The Runtime reads the Workspace Manifest.
++3. The Runtime starts the declared Workspace Services.
++4. The Runtime launches the Workspace's sessions (terminal, editor, browser).
++5. The Runtime restores the window layout through the window manager.
++6. The Runtime re-establishes Context.
++
++**Outcome.** The user is in a complete, live Workspace with Context intact.
++
++**Failure handling.** If any declared Workspace Service fails to start, the
++Runtime reports the failure by service name and continues activating the
++rest; the user can retry the failed service without restarting the
++Workspace.
++
++```mermaid
++flowchart TD
++    A["User issues activate <workspace>"] --> B["Runtime reads Workspace Manifest"]
++    B --> C["Runtime starts Workspace Services"]
++    C --> D["Runtime launches sessions"]
++    D --> E["Runtime restores window layout"]
++    E --> F["Runtime re-establishes Context"]
++    F --> G["Workspace active"]
++    C -- service fails --> C1["Report failure by service name"] --> D
++```
++
++## 2. Restore after reboot
++
++**Trigger.** The machine rebooted — kernel update, crash, or a fresh boot.
++
++**Steps.**
++
++1. The user starts a session and invokes restore (`dex workspace restore
++   <name>`), or the Runtime restores the Workspace at startup if it was
++   active when the machine shut down.
++2. The Runtime reads the most recent Workspace Snapshot, or the Workspace
++   Manifest if no Snapshot exists.
++3. The Runtime restores the Workspace to the captured state: services,
++   sessions, windows, Context.
++4. The user confirms the Workspace is exactly where they left it.
++
++**Outcome.** A reboot costs no Context; the Workspace is back exactly where
++work left off.
++
++**Failure handling.** If no Snapshot exists, the Runtime restores from the
++Manifest and reports the difference; the user can continue from the declared
++baseline.
++
++```mermaid
++sequenceDiagram
++    participant U as User
++    participant RT as Workspace Runtime
++    participant SNAP as Snapshot store
++
++    U->>RT: restore <workspace>
++    alt Snapshot exists
++        RT->>SNAP: read latest Workspace Snapshot
++        SNAP-->>RT: captured state
++    else no Snapshot
++        RT->>RT: restore from Workspace Manifest (baseline)
++    end
++    RT->>RT: restore services, sessions, windows, Context
++    RT-->>U: Workspace restored
++```
++
++## 3. Capture a Snapshot
++
++**Trigger.** The user wants a recovery point, or a scheduled capture fires.
++
++**Steps.**
++
++1. The user invokes `dex snapshot create <workspace>` (or the schedule
++   fires).
++2. The Runtime captures the Workspace's runtime state — processes, sessions,
++   windows, Context — without interrupting the Work Session.
++3. The Runtime stores the Snapshot in local storage.
++
++**Outcome.** A restorable point-in-time capture of the Workspace exists.
++
++**Failure handling.** If a capture cannot complete atomically, the Runtime
++discards the partial Snapshot and reports the failure; the previous
++Snapshot remains valid.
++
++```mermaid
++flowchart TD
++    A["Trigger: user or schedule"] --> B["Runtime captures Workspace state"]
++    B --> C{"Capture atomic?"}
++    C -- yes --> D["Store Snapshot"]
++    C -- no --> E["Discard partial Snapshot"] --> F["Report failure; prior Snapshot stays valid"]
++```
++
++## 4. Create a Workspace from scratch
++
++**Trigger.** The user is starting a new development effort.
++
++**Steps.**
++
++1. The user creates a Workspace from the CLI or shell (`dex workspace new
++   <name>`).
++2. The user declares the Workspace Manifest: sessions to open, Workspace
++   Services to run, files to restore.
++3. The user activates the Workspace to verify the declaration.
++4. The user works; the Runtime supervises the Workspace.
++
++**Outcome.** A new, declared Workspace that can be activated, restored, and
++portable to another machine.
++
++**Failure handling.** If the Manifest fails validation, the Runtime reports
++the invalid field; the Workspace is not created until the declaration is
++valid.
++
++```mermaid
++flowchart TD
++    A["User creates new Workspace"] --> B["User declares Workspace Manifest"]
++    B --> C{"Manifest valid?"}
++    C -- no --> C1["Report invalid field"] --> B
++    C -- yes --> D["User activates Workspace"]
++    D --> E["User works; Runtime supervises"]
++```
++
++## 5. Install a Plugin
++
++**Trigger.** The user wants a capability the core does not provide.
++
++**Steps.**
++
++1. The user discovers a Plugin in the marketplace (`dex plugin install
++   <name>`).
++2. The Runtime downloads and schema-validates the Plugin manifest.
++3. The Runtime grants exactly the capabilities the Plugin declares.
++4. The Plugin's command and event surface becomes available.
++
++**Outcome.** The Runtime is extended with exactly the declared
++capabilities, and the extension boundary holds.
++
++**Failure handling.** If the manifest fails validation or requests
++undeclared capabilities, the Runtime rejects the install and reports why;
++the Plugin is not installed.
++
++```mermaid
++flowchart TD
++    A["User discovers Plugin"] --> B["Runtime validates Plugin manifest"]
++    B --> C{"Manifest valid?"}
++    C -- no --> D["Reject install; report reason"]
++    C -- yes --> E["Grant declared capabilities only"]
++    E --> F["Plugin surface available"]
++```
++
++## 6. Add a Widget
++
++**Trigger.** The user wants information at a glance in the shell.
++
++**Steps.**
++
++1. The user chooses a Widget from the available set.
++2. The Runtime renders the Widget in an isolated context.
++3. The Widget's effects are mediated by shell-mediated commands; it has no
++   IPC access of its own.
++4. The user places the Widget; its position persists.
++
++**Outcome.** A sandboxed Widget surfaces the information the user cares
++about, with no weakening of the security boundary.
++
++**Failure handling.** If the Widget fails to render or misbehaves, the
++Runtime isolates the failure — the Widget is suspended or removed, and the
++shell and other Widgets are unaffected.
++
++```mermaid
++flowchart TD
++    A["User chooses a Widget"] --> B["Runtime renders Widget in isolated context"]
++    B --> C["Widget effects mediated by shell commands"]
++    C --> D["User places Widget; position persists"]
++    B -- failure --> E["Suspend or remove Widget; shell unaffected"]
++```
++
++## 7. Query the Knowledge Vault
++
++**Trigger.** The user wants to recall Context, notes, or history from the
++Knowledge Vault.
++
++**Steps.**
++
++1. The user queries the Vault from the CLI (`dex vault query <term>`) or
++   the shell.
++2. The Runtime resolves the query against local Vault storage.
++3. The Runtime returns deterministic, local results.
++
++**Outcome.** The user retrieves durable memory of their own work, offline,
++with no dependency on connectivity.
++
++**Failure handling.** If the query is malformed, the Runtime returns a
++validation error with no partial results; the Vault remains consistent.
++
++```mermaid
++flowchart TD
++    A["User queries Knowledge Vault"] --> B{"Query valid?"}
++    B -- no --> C["Return validation error; no partial results"]
++    B -- yes --> D["Resolve against local Vault storage"]
++    D --> E["Return deterministic, local results"]
++```
++
++## Flow-Requirement Map
++
++| Flow | PRD requirements | Lifecycle stage |
++|---|---|---|
++| Start a work session | WR-1, WR-6 | Declare → Activate |
++| Restore after reboot | WR-2, WR-3 | Restore |
++| Capture a Snapshot | WR-3 | Snapshot |
++| Create a Workspace from scratch | WR-5 | Declare |
++| Install a Plugin | PW-1, PW-2, PW-4 | Extension |
++| Add a Widget | PW-3, PW-4 | Extension |
++| Query the Knowledge Vault | KV-1–KV-4 | Memory |
++
++## Related Documents
++
++- The Workspace Runtime concept: [`15_Workspace_Runtime.md`](15_Workspace_Runtime.md)
++- Master product requirements: [`10_Master_PRD.md`](10_Master_PRD.md)
++- User stories: [`13_User_Stories.md`](13_User_Stories.md)
++- Personas: [`12_User_Personas.md`](12_User_Personas.md)
++- UX principles: [`17_UX_Principles.md`](17_UX_Principles.md)
++- Formal contracts: [`../30-specs/`](../30-specs/)
+\ No newline at end of file
+diff --git a/docs/10-product/17_UX_Principles.md b/docs/10-product/17_UX_Principles.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..355b43078572727622cc10245368588a9ff1cb5a
+--- /dev/null
++++ b/docs/10-product/17_UX_Principles.md
+@@ -0,0 +1,161 @@
++# DEX UX Principles
++
++## Purpose
++
++Product-level UX principles for the Workspace Runtime's graphical shell.
++These principles state how the product should feel and behave; the
++engineering rules that make them real — tokens, primitives, motion, and
++accessibility — live in the Design System
++([`../40-engineering/DesignSystem.md`](../40-engineering/DesignSystem.md))
++and the Accessibility standard
++([`../40-engineering/Accessibility.md`](../40-engineering/Accessibility.md)).
++This document is about *why* the interface behaves as it does.
++
++```mermaid
++mindmap
++  root((UX principles))
++    Keyboard first
++    Context over chrome
++    Glass over chrome
++    Progressive disclosure
++    Immediate feedback
++    Offline behavior
++    Honest errors
++    Theming
++    AI optionality
++```
++
++## Keyboard First
++
++The shell is a developer interface on a keyboard-driven system. Every
++capability reachable with a pointer is reachable from the keyboard, and the
++default interaction path is the keyboard. Focus is always visible, key
++bindings are discoverable, and no capability is pointer-only.
++
++- Why: the terminal is the user's home surface; the shell must not force a
++  mode switch.
++- Implementation: focus rings from the token system, keyboard-reachable
++  tooltips, icon-only controls labeled — see the Design System.
++
++## Context over Chrome
++
++The shell leads with Context — which Workspace is active, what is open, what
++was in progress — and treats applications as tools within it. The interface
++never re-creates the desktop environment: no icon sprawl, no launcher-first
++layout, no chrome that exists for its own sake.
++
++- Why: the user's mental model is "what am I working on", not "which program
++  is in front of me".
++- Consequence: the active Workspace and its Context are the top-level model
++  of the shell; application windows are artifacts of Context, not its
++  organizing principle.
++
++## Glass over Chrome
++
++The shell window is transparent and composited; the desktop shows through
++the glass. Panels are translucent surfaces with backdrop blur, not opaque
++boxes. This is a design decision with a functional rationale: it keeps the
++shell visually subordinate to the user's actual desktop and wallpaper, and
++it forces the shell to communicate through content rather than paint.
++
++- Why: an opaque window background would turn the Runtime into yet another
++  fullscreen application; transparency keeps it a layer *over* the system.
++- Constraint: the window never paints an opaque background; visual backdrop
++  comes from glass surfaces (ADR-0004).
++
++## Progressive Disclosure
++
++Capabilities are revealed in layers. The visible surface shows what the user
++needs for the current task; deeper capability is one deliberate step away —
++through a keybinding, a command, or an expandable panel. Nothing is hidden
++in a way that conceals its existence; nothing is dumped on the user at once.
++
++- Why: the shell must be calm at rest and deep on demand. A keyboard
++  palette, a CLI, and contextual panels provide the depth without the noise.
++
++## Immediate Feedback
++
++Every action produces a visible response within the motion contract:
++150–250 ms, transform/opacity only, on the compositor. Activation reports
++progress; a service failure names the service; a command that succeeds is
++acknowledged. The interface never leaves the user wondering whether an
++action registered.
++
++- Why: feedback is how the user builds trust that the Runtime is doing what
++  it was asked. Delayed or absent feedback reads as a hang.
++
++## Offline Behavior
++
++The shell behaves identically with no network. Nothing in the interface
++depends on connectivity; nothing dims, stalls, or degrades because the
++network is absent. If a capability needs a network — synchronizing, an AI
++request — it is offered as a separate, explicit action, never a background
++requirement.
++
++- Why: Offline First is not a mode of DEX; it is DEX. The interface must not
++  punish a user whose machine is offline.
++
++## Honest Errors
++
++Errors are reported in the user's language, name the failing object, and
++offer a next step. A failed Workspace Service is named; a rejected Plugin
++manifest states the invalid field; a malformed query returns a validation
++error with no partial results. The interface never shows a bare failure and
++never hides a failure behind a success.
++
++- Why: the developer's trust in the Runtime depends on the boundary being
++  honest. Typed errors travel the whole stack (ADR-0002); the interface
++  presents them truthfully.
++
++## Theming
++
++Themes are semantic-layer overrides: dark by default, light and cyber as
++alternatives, switchable at runtime without a restart. The shell reads as
++one system because every component consumes the same tokens; a theme change
++is a change of atmosphere, never a change of layout or behavior.
++
++- Why: a daily-driver layer must match the user's environment and mood
++  without sacrificing consistency. Tokens make theming cheap and safe
++  (ADR-0003).
++
++## AI Optionality in UX
++
++AI appears in the interface as an optional, clearly bounded capability — a
++Provider connected behind the Knowledge Vault, an assistant surface, an
++intent-driven action. When AI is disabled or the network is absent, every
++AI affordance disappears without leaving gaps, empty states, or disabled
++controls that explain what "would" be there.
++
++- Why: the interface must never make the user feel the product is missing
++  something when AI is off. The complete product is the manual product; AI
++  is an add-on that is absent by default in every sense that matters.
++
++```mermaid
++flowchart TD
++    subgraph COMPLETE["The complete product (manual)"]
++        WS["Workspace lifecycle"]
++        KV["Knowledge Vault"]
++        CLI["CLI surface"]
++    end
++    AI["AI capabilities"] --> KV
++    AI -. optional, degrading .-> COMPLETE
++```
++
++## How the principles interact
++
++Keyboard First and Context over Chrome define the shell's shape; Progressive
++Disclosure and Immediate Feedback define its rhythm; Offline Behavior,
++Honest Errors, Theming, and AI Optionality define its robustness. Glass over
++Chrome is the aesthetic that holds all of them together: a calm, transparent
++layer over the user's system, subordinate to the Context it carries.
++
++## Related Documents
++
++- Master product requirements: [`10_Master_PRD.md`](10_Master_PRD.md)
++- Personas: [`12_User_Personas.md`](12_User_Personas.md)
++- User flows: [`16_User_Flows.md`](16_User_Flows.md)
++- The Workspace Runtime concept: [`15_Workspace_Runtime.md`](15_Workspace_Runtime.md)
++- Design system (implementation): [`../40-engineering/DesignSystem.md`](../40-engineering/DesignSystem.md)
++- Accessibility standard: [`../40-engineering/Accessibility.md`](../40-engineering/Accessibility.md)
++- Identity and values: [`../00-vision/00_Manifesto.md`](../00-vision/00_Manifesto.md)
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
+\ No newline at end of file
+diff --git a/docs/20-architecture/20_System_Architecture.md b/docs/20-architecture/20_System_Architecture.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..c93b21b9c131904d28c2b1e55d9924edea27f106
+--- /dev/null
++++ b/docs/20-architecture/20_System_Architecture.md
+@@ -0,0 +1,249 @@
++# DEX System Architecture
++
++## Purpose
++
++DEX (Desktop Experience) is an **operating layer** between the user and the
++OS — built on Hyprland/Wayland for Arch Linux, packaged as a Tauri v2
++application. It is not a desktop application; it is the shell through which
++the user drives the machine.
++
++This document is the canonical architecture reference. It explains the layer
++model, the boundaries between subsystems, and the rules that keep the system
++composable and safe. Decisions recorded here are binding; structural or
++cross-cutting changes go through `50-adr/`.
++
++Stack: Svelte 5 (runes) · TypeScript (strict) · Three.js (Phase 1+) ·
++CSS variables · Bun · Tauri v2 · Rust · Tokio · Serde · SQLite (rusqlite).
++
++## Background
++
++DEX is a Workspace Runtime: the operating layer that activates, restores and
++orchestrates complete development workspaces. Because it mediates between the
++user and the OS, its architecture is a set of hard boundaries — between
++presentation and business logic, between the webview and native code, and
++between the shell and third-party extensions. Those boundaries are fixed in
++Phase 0 because they are cheap to set now and expensive to retrofit later.
++
++## Goals
++
++| Goal | Contract |
++|---|---|
++| Modularity | Feature-first; every feature is self-contained under `features/<feature>/` |
++| Boundaries | UI never touches SQLite, shell, or filesystem — Rust owns system access |
++| Typed seams | Every IPC call is schema-validated at both edges (ADR-0002) |
++| Performance | Cold start < 500 ms, 60 FPS floor, GPU-composited motion (ADR-0003/0004) |
++| Scale | Structure must hold comfortably past 100,000 LOC |
++| Desktop-native | Shell UX, not web-app UX; transparency, glass, keyboard-first |
++
++## Non-Goals
++
++- DEX is not a window manager, desktop environment, IDE, launcher, or AI
++  application. It does not replace Hyprland or the applications it hosts.
++- Business features are out of scope until Phase 1; Phase 0 ships the layer
++  model and infrastructure only.
++
++## Layer Model
++
++```mermaid
++flowchart TD
++    UI["ui/ — presentation, reusable visuals"]
++    FEAT["features/ — business features"]
++    CORE["core/ — infrastructure"]
++    GFX["graphics/ — rendering engine"]
++    IPC["Tauri IPC (invoke / events)"]
++    NATIVE["src-tauri/ — native system implementation"]
++    DB["database/ — SQL schema + migrations (truth)"]
++
++    UI --> FEAT
++    FEAT --> CORE
++    CORE --> IPC
++    IPC --> NATIVE
++    NATIVE --> DB
++
++    GFX -. consumed by .-> UI
++    GFX -. consumed by .-> FEAT
++```
++
++**Dependency rule (one-way, acyclic):** `ui → features → core → IPC → src-tauri`.
++`graphics` is consumed by `ui`/`features`; it never imports business logic.
++`core` never imports `features` or `ui`. `features` may import `core` and `ui`.
++
++## Folder Ownership
++
++```
++src/
++  lib/
++    core/          infrastructure only
++      api/         generic typed IPC plumbing (invoke, listen, errors, registry)
++      services/    IPC contract clients — one module per Rust command domain
++      stores/      cross-cutting rune state (theme, …)
++      composables/ reactive helper logic (formerly hooks/, composables/, animations/)
++      utils/       pure helpers (storage, logger, format, …)
++      config/      constants and app config
++      types/       shared domain models
++    ui/            reusable visuals only
++      layout/      the HUD shell (TopBar, Dock, StatusBar, HUD)
++      primitives/  GlassPanel, Button, Icon, Tooltip, Divider, …
++      styles/      tokens.css + design system docs
++      themes/      ThemePalette TS mirrors (light/dark/cyber)
++    features/      business features; each owns components/, services/, stores/,
++                   types/, utils/ (business logic only — never raw IPC)
++    graphics/      rendering engine contracts + future Three.js implementation
++
++src-tauri/
++    commands/      #[tauri::command] handlers — thin, delegate to services/
++    services/      domain logic (Rust)
++    system/        OS access (Hyprland, Wayland, hardware)
++    database/      SQLite access layer (rusqlite)
++    models/        serde wire models (IPC truth on the Rust side)
++    events/        event emission
++    ipc/           protocol/contract helpers
++    config/        app configuration
++    state/         managed Tauri state
++    utils/         errors (AppError), paths, logger
++
++database/          SQL schema + migrations (empty migrations are filled per feature)
++docs/              architecture + ADRs
++tests/             unit/ integration/ e2e per side
++scripts/           dev automation (build, clean, migrate, seed, release)
++```
++
++Details and rationale: ADR-0001.
++
++## Communication Boundaries
++
++- **Frontend → Rust**: features call `core/services/<domain>` contract
++  clients. Clients call `core/api` plumbing (`invoke`), which validates args
++  and results with zod schemas, then `@tauri-apps/api/core.invoke`.
++  `@tauri-apps/api` is imported nowhere outside `core/api/`.
++- **Rust → Frontend**: `core/api/events.ts` `onEvent` wrapper over Tauri
++  `listen`, with schema validation and log-and-drop on invalid payloads.
++- **SQLite**: only Rust touches it. Schema truth: `database/migrations/*.sql`.
++  Rust models (`src-tauri/src/models/`) are the IPC representation; zod schemas
++  (`core/services/`) mirror them at the frontend edge.
++- **The wire contract** for any command lives in exactly two places:
++  `core/api/commands.ts` (registry entry) and `src-tauri/src/lib.rs`
++  (`invoke_handler`). A command that is not in both is not callable.
++
++### Adding a command (the checklist)
++
++1. Rust: `src-tauri/src/commands/<domain>.rs` — `#[tauri::command]`,
++   `Result<T, AppError>`, typed serde args.
++2. Rust: declare the module and register the fn by **appending to the single
++   `generate_handler![...]`** in `src-tauri/src/lib.rs` — exactly one
++   `invoke_handler` call may exist (a second call silently shadows the
++   first, ADR-0002).
++3. TS: add `defineCommand(...)` contract + schemas in
++   `core/api/commands.ts`.
++4. TS: expose a typed function in `core/services/<domain>.ts`.
++5. Capability grant if a plugin is involved
++   (`src-tauri/capabilities/default.json`).
++
++- **Logging**: the frontend logs only through `core/utils/logger.ts` (facade
++  over `@tauri-apps/plugin-log`; the Rust plugin writes stdout + app log
++  dir). No `console.*` in new code.
++- **Plugins / CSP**: native extensions are Rust-hosted and capability-gated,
++  manifests are schema-validated, and the shell ships a strict CSP
++  (`tauri.conf.json`) — ADR-0005.
++
++## State Model
++
++- Svelte 5 rune stores (`.svelte.ts`) are the state mechanism. Cross-cutting
++  state lives in `core/stores/`; feature state in `features/<f>/stores/`.
++- Rune stores are module singletons by convention (the Svelte 5 idiom);
++  services and logic that need injection accept dependencies explicitly.
++- No legacy `svelte/store` (writable/readable). No globals beyond rune state.
++
++## Rendering & Graphics
++
++- DOM/UI is composited by the browser; the shell window is transparent, so the
++  Wayland desktop shows through (ADR-0004).
++- `graphics/` will host the Three.js renderer (Phase 1+): a WebGL canvas with
++  `alpha: true` composited under the DOM chrome. Contracts live in
++  `graphics/contracts.ts`; implementations arrive with the first feature that
++  needs GPU visuals. The renderer owns its frame loop, resources, and
++  lifecycle; it never reaches into features.
++- Animation contract: `transform`/`opacity` only, 150–250 ms,
++  `cubic-bezier(.22,.61,.36,1)`, `prefers-reduced-motion` respected
++  (ADR-0003).
++
++## Design System
++
++- Three-layer CSS custom-property tokens (`ui/styles/tokens.css`):
++  primitive → semantic → component-scoped. Components consume semantic tokens
++  only. Theme switching via `data-theme` on `<html>` (ADR-0003).
++- `ui/primitives/` holds reusable visual components; `ui/layout/` holds the
++  shell. Features compose both — they never re-implement panel/button/icon
++  styling.
++- Copy rule: UI copy is grounded and technical; no marketing voice.
++
++## Error Handling
++
++- Rust: `AppError` has a **manual `Serialize` impl** emitting exactly
++  `{ "type", "message" }`; `type` is one of the closed set `validation`,
++  `not_found`, `permission_denied`, `conflict`, `unsupported`, `internal`
++  (`src-tauri/src/utils/errors.rs`, ADR-0002).
++- TS: `core/api/tauri.ts` mirrors the set as a zod union and validates every
++  rejection; two shapes reach callers — the structured envelope and a
++  transport/string rejection — both normalized to `IpcError`.
++- Commands return `Result<T, AppError>`; contract clients surface `IpcError`
++  to features. UI code handles typed errors, never `unknown`. Infallible
++  commands return `Ok(())` / `z.null()`.
++
++## Performance Contract
++
++- Cold start < 500 ms: SPA, no heavy work at boot; theme init is sync and
++  cheap; heavy features lazy-load.
++- 60 FPS: motion on compositor-only properties; no layout thrash in effects;
++  blur is not animated.
++- Minimal allocations: module-level singleton schemas; no per-call schema
++  construction; arrays reused where hot paths exist (renderer, later).
++- Lazy where appropriate: feature modules load on demand (route/plugin
++  boundaries); `graphics/` renderer initializes on first visual need.
++
++## Engineering Conventions
++
++- Svelte 5 runes everywhere; strict TS; never `any`; no magic values (tokens/
++  constants); components < 300 lines; functions focused and pure where
++  possible; composition over inheritance; no duplicated logic; no unnecessary
++  abstractions; incremental change over rewrites (ADR-0001).
++- New dependencies require justification (minimize deps): prefer platform
++  features and existing deps (`cva`, `clsx`, `zod`).
++- Conventional commits (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`,
++  `style:`, `perf:`).
++- Verification order: `bun run check` → `cargo check` (in `src-tauri/`) →
++  `bun run tauri dev` (desktop, manual).
++
++## Evolution Rules
++
++- Every structural or cross-cutting decision gets an ADR (`50-adr/`) with
++  status, context, decision, consequences.
++- Features are vertical slices: one command domain + contract client + feature
++  module + tests; no cross-feature coupling.
++- If a pattern would be needed twice more, it is promoted to `core/` or
++  `ui/primitives/` — never copy-pasted.
++
++## Phase 0 Deliverable Status
++
++Implemented in Phase 0: layer model + ADRs (0001–0005), design tokens +
++primitives, transparency contract, typed IPC layer (`core/api`,
++`core/services` pattern), theme store, Rust command scaffolding (incl.
++`tauri-plugin-log` + `log:default` grant), strict CSP, engineering docs.
++Roadmap milestones M0.1–M0.3 are done; M0.4 (dev tooling/CI) is open.
++Business features are explicitly out of scope until Phase 1.
++
++## Related Documents
++
++- Layer ownership, IPC contract, design tokens, transparency, plugin boundary:
++  `50-adr/` (ADR-0001–0005)
++- Product roadmap and milestones: `10-product/11_Product_Roadmap.md`
++- Design system usage: `40-engineering/DesignSystem.md`
++- Frontend subsystem: `20-architecture/21_Frontend.md`
++- Backend subsystem: `20-architecture/22_Backend.md`
++- Database: `20-architecture/23_Database.md`
++- Event bus: `20-architecture/24_EventBus.md`
++- Graphics: `20-architecture/25_Graphics.md`
++- AI: `20-architecture/26_AI.md`
++- Plugins: `20-architecture/27_Plugins.md`
++- Search: `20-architecture/28_Search.md`
++- Security: `20-architecture/29_Security.md`
+\ No newline at end of file
+diff --git a/docs/20-architecture/21_Frontend.md b/docs/20-architecture/21_Frontend.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..118aa007eacb5ff61b28dc69a10039d823b32efd
+--- /dev/null
++++ b/docs/20-architecture/21_Frontend.md
+@@ -0,0 +1,248 @@
++# DEX Frontend Architecture
++
++## Purpose
++
++The frontend is the presentation layer of the Workspace Runtime: the Svelte
++application that renders the shell chrome — HUD, TopBar, Dock, StatusBar —
++and hosts the business features. It is a presentation layer by contract, not
++by accident: every capability that touches the operating system is reached
++through the typed IPC seam and executed in Rust. ADR-0001 fixes this
++boundary; the frontend owns zero system access — no SQLite, no filesystem,
++no shell.
++
++The frontend exists to satisfy four requirements:
++
++- **Cold start under 500 ms** into a transparent, composited window
++  (ADR-0004). The shell must appear instantly and never paint an opaque
++  background.
++- **A strongly typed seam to Rust** so contract drift fails at the boundary
++  with a named error instead of `undefined` deep in a component (Principle 8,
++  Strong Typing).
++- **A feature-first structure** that scales past 100k LOC without
++  cross-feature coupling (Principle 10).
++- **A locked web security posture**: the webview runs only first-party shell
++  code under a strict CSP (ADR-0005).
++
++## SPA Runtime Model
++
++DEX is a single-page application. There is no Node server in the stack; the
++Tauri webview is the only host. The build configuration enforces this and
++the SPA mode is not optional — a server would break offline, transparent,
++desktop-native behavior:
++
++- `svelte.config.js`: `adapter-static` with `fallback: "index.html"` — every
++  route falls back to the shell document.
++- `src/routes/+layout.ts`: `export const ssr = false` — nothing is rendered
++  server-side.
++- `vite.config.js`: dev server on port `1420` with `strictPort`; the desktop
++  window loads from that origin in development.
++
++The shell bootstraps in `src/routes/+layout.svelte`, in this order:
++
++1. `import "../app.css"` — wires the global reset, which `@import`s the
++   design tokens (`ui/styles/tokens.css`) first.
++2. `initTheme()` from `core/stores/theme.svelte.ts` — applies the persisted
++   theme to `<html data-theme>` before first paint.
++3. Render the slot; the root route (`src/routes/+page.svelte`) mounts the
++   HUD shell from `ui/layout/`.
++
++## Layer Model
++
++```mermaid
++flowchart TD
++    subgraph WEBVIEW["Tauri webview — the SPA"]
++        UI["ui/ — reusable visuals<br/>layout · primitives · styles · themes"]
++        FEAT["features/ — business features<br/>own components · services · stores · types · utils"]
++        CORE["core/ — infrastructure<br/>api · services · stores · composables · utils · config · types"]
++        GFX["graphics/ — rendering contracts"]
++        UI --> FEAT
++        FEAT --> CORE
++        GFX -. consumed by .-> UI
++        GFX -. consumed by .-> FEAT
++    end
++    IPC["typed IPC seam — core/api<br/>commands registry · invoke · events"]
++    NATIVE["src-tauri/ — the Runtime (Rust host)"]
++    CORE --> IPC
++    IPC --> NATIVE

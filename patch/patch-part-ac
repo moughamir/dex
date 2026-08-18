@@ -1,0 +1,2345 @@
+
++```
++
++The dependency rule is one-way and acyclic: `ui → features → core → IPC →
++src-tauri`. `core` never imports `features` or `ui`; `features` may import
++`core` and `ui`; `graphics` is consumed by `ui` and `features` and never
++imports business logic. The full folder-ownership contract lives in
++[`20_System_Architecture.md`](20_System_Architecture.md) and
++ADR-0001; this document describes how the frontend layers behave.
++
++## The Typed IPC Seam
++
++The seam is the most-used boundary in the system: every feature call that
++reaches the operating system crosses it. The purpose of the seam is
++**drift detection** — TypeScript types and Rust types and the wire format
++must agree, or the mismatch must fail loudly and locally. Zod is the
++validator; the registry is the single source of command names; the error
++envelope is the single error shape.
++
++The seam is three modules in `core/api/`, and a hard import rule:
++
++### Command registry — `core/api/commands.ts`
++
++Every callable command is described by one `CommandContract`: a name plus a
++zod schema pair for args and result. `defineCommand` registers the contract
++and **rejects duplicate names at module load** — a second command with the
++same name is a programming error, not a runtime surprise. The contract name
++must equal the Rust `#[tauri::command]` fn name. A command is not callable
++until it exists here **and** in the Rust `invoke_handler`; the wire contract
++lives in exactly these two places (ADR-0002).
++
++### Invoke wrapper — `core/api/tauri.ts`
++
++`invoke(contract, args)` validates in two directions:
++
++- **Args before the round trip** (`contract.args.parse`): a caller that
++  builds a malformed payload fails fast, before crossing to Rust.
++- **Result after the round trip** (`contract.result.parse`): a Rust reply
++  that no longer matches the contract is detected the moment it arrives,
++  reported as a contract error naming the command.
++
++Rejections are normalized through `IpcError.fromUnknown`: the structured
++`AppError` envelope is validated against the closed code set (`validation`,
++`not_found`, `permission_denied`, `conflict`, `unsupported`, `internal`);
++anything else is a transport rejection. Exactly two shapes reach callers —
++the structured envelope and a transport string — both as `IpcError`
++(ADR-0002). UI code handles typed errors, never `unknown`.
++
++### Event subscription — `core/api/events.ts`
++
++Rust pushes state changes to the shell through events. `onEvent(name,
++schema, handler)` wraps Tauri's `listen` with payload validation: invalid
++payloads are **logged and dropped**, never thrown into the handler — a
++misbehaving emitter must not crash the shell. Event names follow
++`dex.<domain>.<event>` and must be declared in the `EVENTS` registry. Only
++`src-tauri/src/events/` emits. See [`24_EventBus.md`](24_EventBus.md).
++
++### The import rule
++
++`@tauri-apps/api` is imported nowhere outside `core/api/`. The command
++registry, the invoke wrapper, and the event wrapper are the only files that
++touch the Tauri runtime API. Everything else — every feature, every
++component — talks to Rust through `core/services` contract clients.
++
++```mermaid
++sequenceDiagram
++    autonumber
++    participant F as Feature component
++    participant S as core/services contract client
++    participant A as core/api/tauri.ts invoke
++    participant R as Rust #[tauri::command]
++    F->>S: typed domain call, e.g. greet(name)
++    S->>A: invoke(COMMANDS.greet, { name })
++    A->>A: contract.args.parse() — fail fast on malformed args
++    A->>R: tauriInvoke("greet", parsedArgs)
++    R->>R: serde deserialize → handler logic
++    R-->>A: Result<GreetOutput, AppError>
++    A->>A: contract.result.parse()<br/>or IpcError.fromUnknown(rejection)
++    A-->>S: typed result, or IpcError
++    S-->>F: domain-typed result — errors are typed, never unknown
++```
++
++## Contract Clients — `core/services/`
++
++`core/services/` holds **one contract client per Rust command domain**,
++mirroring `src-tauri/src/commands/<domain>.rs` (ADR-0001/0002). A contract
++client is the only public surface a feature may use to reach Rust: a set of
++typed async functions built on the shared `invoke`, surfacing `IpcError` on
++failure. The `greet` domain is the live example today:
++
++- `core/api/commands.ts` → `COMMANDS.greet` contract
++- `core/services/greet.ts` → `greet(name): Promise<string>`
++
++Adding a command domain follows the five-step checklist in
++[`20_System_Architecture.md`](20_System_Architecture.md). New domains —
++`settings`, `system`, `terminal`, `hyprland`, `widgets`, `plugins`, `ai` —
++are declared as their owning roadmap phase lands; the contract clients for
++them do not exist yet.
++
++## State Model
++
++State lives in **module-singleton rune stores** (`.svelte.ts` files), the
++Svelte 5 idiom. A store is a module that declares reactive state with
++`$state`, derives with `$derived`, and reacts with `$effect`, then exposes
++read functions (and mutators) as the only public surface. This gives the
++shell cross-cutting state that is reactive inside components without a
++global mutable object.
++
++- Cross-cutting state lives in `core/stores/`; feature state lives in
++  `features/<feature>/stores/`.
++- Legacy `svelte/store` (`writable`/`readable`) is forbidden.
++- Services and logic that need injection accept dependencies explicitly;
++  there are no hidden globals beyond rune state.
++
++The canonical example is `core/stores/theme.svelte.ts` (ADR-0003): it owns
++the current `ThemeName`, applies it by setting `data-theme` on `<html>`,
++persists the choice through `core/utils/storage.ts`, and exposes
++`getThemeName()` / `getPalette()` for reads that stay reactive inside
++`$derived`/`$effect`. The CSS does the visual switching — no inline styles.
++`initTheme()` runs once at boot, before first paint.
++
++## Rendering and Visuals
++
++The DOM is composited by the browser over a **transparent window** — the
++Wayland desktop shows through the shell (ADR-0004). Visual backdrops come
++from glass panels (`backdrop-filter` over translucent `--dex-surface-*`
++tokens), never from an opaque window-sized paint. Layout components in
++`ui/layout/` compose the shell; primitives in `ui/primitives/` provide
++GlassPanel, Button, Icon, Tooltip, Divider. Components consume semantic
++design tokens only — no hardcoded colors, radii, or durations; the token
++architecture and its dual CSS/TS mirrors are owned by
++[`../40-engineering/DesignSystem.md`](../40-engineering/DesignSystem.md).
++
++Motion is a performance contract, not a preference: `transform`/`opacity`
++only, 150–250 ms, `cubic-bezier(.22,.61,.36,1)`, `prefers-reduced-motion`
++respected (ADR-0003). GPU visuals are delegated to `graphics/`, whose
++engine-agnostic renderer contracts live in `graphics/contracts.ts` and whose
++implementation is covered by [`25_Graphics.md`](25_Graphics.md).
++
++## Logging
++
++The frontend logs exclusively through `core/utils/logger.ts` — a facade over
++`@tauri-apps/plugin-log` (the Rust plugin writes stdout + the app log
++directory), falling back to the browser console only when running outside
++Tauri (plain `bun run dev`). No `console.*` calls appear in new code; the
++logger is the single seam for observability on the frontend. It is also the
++destination for dropped invalid event payloads, so emitter bugs stay
++traceable.
++
++## Security Posture
++
++The webview is a privileged context by design — it can reach Rust through
++the typed seam — so its attack surface is minimized at the edges:
++
++- **Strict CSP** from `tauri.conf.json`: `default-src 'self'; style-src
++  'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc:
++  http://ipc.localhost`. Even a compromised renderer cannot fetch arbitrary
++  origins or run inline scripts. Dev-mode HMR may require temporary
++  relaxation — never ship the loosened policy.
++- **Capability gating**: the webview's permissions come from
++  `src-tauri/capabilities/default.json`, not from code.
++- **Plugins and Widgets never enter the privileged webview.** Native
++  extensions are Rust-hosted; Widget UI renders in isolated contexts with no
++  IPC of its own. The boundary is owned by
++  [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++  and [`27_Plugins.md`](27_Plugins.md).
++
++## Related Documents
++
++- System architecture and boundaries: [`20_System_Architecture.md`](20_System_Architecture.md)
++- Backend subsystem (the Rust side of the seam): [`22_Backend.md`](22_Backend.md)
++- Database ownership: [`23_Database.md`](23_Database.md)
++- Event bus: [`24_EventBus.md`](24_EventBus.md)
++- Rendering engine: [`25_Graphics.md`](25_Graphics.md)
++- Plugin boundary: [`27_Plugins.md`](27_Plugins.md)
++- Layer ownership: [`../50-adr/0001-layer-ownership.md`](../50-adr/0001-layer-ownership.md)
++- Typed IPC contract: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Design tokens: [`../50-adr/0003-design-tokens.md`](../50-adr/0003-design-tokens.md)
++- Transparent compositing: [`../50-adr/0004-transparent-compositing.md`](../50-adr/0004-transparent-compositing.md)
++- Plugin boundary and CSP: [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Product roadmap: [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- Design system usage: [`../40-engineering/DesignSystem.md`](../40-engineering/DesignSystem.md)
+diff --git a/docs/20-architecture/22_Backend.md b/docs/20-architecture/22_Backend.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..e625ba8ac161c545e5ea7f6ed5032e6a4978d601
+--- /dev/null
++++ b/docs/20-architecture/22_Backend.md
+@@ -0,0 +1,165 @@
++# DEX Backend Architecture (Rust)
++
++## Purpose
++
++The backend is the native host of the Workspace Runtime: the Rust crate that
++owns all system access. It is the only place in the system that touches the
++operating system — Hyprland, Wayland, hardware, the filesystem, and SQLite —
++because Native First (Principle 5) makes native integration the product, and
++because the security boundary (ADR-0005) keeps the privileged surface small
++and auditable. The frontend never reaches the OS directly; it calls the
++backend through the typed IPC seam (ADR-0002).
++
++The backend is the crate `omnizya-dex` (`src-tauri/`), whose library target
++is `omnizya_dex_lib`. It is built on Tauri 2, Tokio, Serde, and rusqlite
++(bundled SQLite).
++
++## Process and Entry
++
++The binary entry point is `src-tauri/src/main.rs`, which calls
++`omnizya_dex_lib::run()`. `run()` in `src-tauri/src/lib.rs` builds the Tauri
++application:
++
++- registers the `opener` plugin and the `log` plugin (stdout + app log
++  directory, `LevelFilter::Trace`);
++- registers **exactly one `invoke_handler`** via a single
++  `generate_handler![...]` call;
++- runs the application context.
++
++The single-`invoke_handler` rule is a hard invariant (ADR-0002): a second
++`invoke_handler` call **silently shadows the first**, so commands registered
++in the first call would become uncallable with no error. Every new command is
++**appended** to the one existing `generate_handler![...]`; a new
++`invoke_handler` is never added.
++
++```mermaid
++flowchart TD
++    MAIN["main.rs"] --> LIB["lib.rs — Builder<br/>plugins · single invoke_handler"]
++    LIB --> CMD["commands/ — thin #[tauri::command] handlers"]
++    CMD --> SVC["services/ — domain logic"]
++    SVC --> SYS["system/ — Hyprland · Wayland · hardware"]
++    SVC --> DB["database/ — SQLite access (rusqlite)"]
++    SVC --> EV["events/ — emission"]
++    CMD --> EV
++    SVC --> MOD["models/ — serde wire models"]
++    SVC --> ST["state/ — managed Tauri state"]
++    SVC --> CFG["config/ — app configuration"]
++    CMD --> ERR["utils/ — AppError · paths · logger"]
++    SVC --> ERR
++```
++
++## Module Layout
++
++The backend is organized by responsibility, mirroring the frontend's
++`core/services` contract clients one-to-one per command domain (ADR-0001).
++
++| Module | Responsibility |
++|---|---|
++| `commands/` | Thin `#[tauri::command]` handlers. One module per command domain; each handler takes exactly one serde struct arg, returns `Result<T, AppError>`, and delegates to `services/`. |
++| `services/` | Domain logic. The real work behind a command; composed by handlers and by other services. |
++| `system/` | OS access: Hyprland, Wayland, and hardware (CPU, memory, disk, network, battery, monitor, process). |
++| `database/` | SQLite access layer over rusqlite: connection, migrations, queries, repository, schema. |
++| `models/` | Serde wire models — the IPC representation of data, mirroring the zod schemas at the frontend edge. |
++| `events/` | Event emission to the shell. Only this module emits; see [`24_EventBus.md`](24_EventBus.md). |
++| `ipc/` | Protocol and contract helpers for the IPC boundary. |
++| `config/` | Application configuration. |
++| `state/` | Managed Tauri state shared across commands. |
++| `utils/` | `AppError`, path resolution, and the logger. |
++| `plugins/`, `ai/` | Native extension host and AI providers — future phases; not yet declared. |
++
++Only real modules are declared in their `mod.rs`; modules whose owning phase
++has not landed are **not declared** and therefore not compiled. A module is
++declared when its first real file exists — never by `mod`-ing an empty file.
++Today the live modules are `commands::core` and `utils::errors`; the rest of
++the tree is scaffolding that joins as its roadmap phase lands.
++
++## Command Surface
++
++A command domain is a vertical slice: one Rust module in `commands/`, one
++contract client in `core/services/`, one registry entry in
++`core/api/commands.ts`, and one registration in the single
++`generate_handler!`. The canonical example is `commands/core.rs`:
++
++- `GreetArgs` — exactly one `#[derive(Deserialize)]` struct arg, no
++  `#[serde(rename_all = ...)]`; serde defaults (snake_case) are the wire
++  authority.
++- `GreetOutput` — a `#[derive(Serialize)]` result struct.
++- `greet(args) -> Result<GreetOutput, AppError>` — the `#[tauri::command]`.
++
++Handlers are thin by design: they deserialize, validate at the boundary, and
++delegate to `services/`. Business logic lives in services, not in handlers,
++so the command surface stays a stable, auditable facade.
++
++## Error Model
++
++Errors cross the boundary as a single, stable envelope. `AppError`
++(`utils/errors.rs`) is an enum over a **closed set** of codes:
++`validation`, `not_found`, `permission_denied`, `conflict`, `unsupported`,
++`internal`. Its `Serialize` impl is **hand-written** — a derived impl would
++key on variant names and leak Rust internals. The manual impl emits exactly
++two fields:
++
++```json
++{ "type": "not_found", "message": "Resource not found" }
++```
++
++`From` impls map `tauri::Error` and `rusqlite::Error` to `AppError::Internal`,
++so services can use `?` and still produce a valid envelope. The frontend
++mirrors the closed set as a zod union and validates every rejection
++(ADR-0002); the envelope is the only structured error shape that reaches
++callers.
++
++```mermaid
++sequenceDiagram
++    autonumber
++    participant UI as core/api/tauri.ts
++    participant CMD as command handler
++    participant SVC as service
++    participant ERR as AppError
++    participant WIRE as wire: {type, message}
++    UI->>CMD: invoke("domain.op", args)
++    CMD->>SVC: delegate
++    SVC-->>CMD: Err(AppError::NotFound)
++    CMD-->>UI: rejection (AppError)
++    ERR->>ERR: manual Serialize → exactly {type, message}
++    UI->>UI: ErrorEnvelope.safeParse — closed zod set
++    UI-->>UI: IpcError(type, message) to caller
++```
++
++## Managed State and Configuration
++
++Cross-command state lives in `state/` as managed Tauri state, injected into
++handlers rather than reached through globals. Application configuration
++lives in `config/`. Both are declared as their first consumer lands; today
++neither is live.
++
++## Events Emission
++
++The backend pushes state changes to the shell through `events/`. Emission is
++the counterpart of the frontend's `onEvent` subscription: the emitter names
++an event `dex.<domain>.<event>`, and the shell validates the payload against
++the `EVENTS` registry schema. Only `events/` emits; the full contract is
++described in [`24_EventBus.md`](24_EventBus.md).
++
++## Capabilities and Plugins
++
++The backend's reach is gated by capability grants in
++`src-tauri/capabilities/`. `default.json` grants the main window
++`core:default`, `opener:default`, and `log:default` — the minimum the shell
++needs today. New native extensions (Plugins) receive **per-plugin capability
++grants**, never default elevation; manifests are schema-validated at
++install/update (ADR-0005). The plugin host lives in `plugins/` and is owned
++by [`27_Plugins.md`](27_Plugins.md).
++
++## Related Documents
++
++- System architecture and boundaries: [`20_System_Architecture.md`](20_System_Architecture.md)
++- Frontend subsystem (the other side of the seam): [`21_Frontend.md`](21_Frontend.md)
++- Database ownership: [`23_Database.md`](23_Database.md)
++- Event bus: [`24_EventBus.md`](24_EventBus.md)
++- Plugin boundary: [`27_Plugins.md`](27_Plugins.md)
++- Layer ownership: [`../50-adr/0001-layer-ownership.md`](../50-adr/0001-layer-ownership.md)
++- Typed IPC contract: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Plugin boundary and CSP: [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Product roadmap: [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
+\ No newline at end of file
+diff --git a/docs/20-architecture/23_Database.md b/docs/20-architecture/23_Database.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..5beac4e1daf42db77d76f0b37e0989eab08e4983
+--- /dev/null
++++ b/docs/20-architecture/23_Database.md
+@@ -0,0 +1,127 @@
++# DEX Database Architecture (SQLite)
++
++## Purpose
++
++SQLite is the durable local store of the Workspace Runtime. It holds the
++state that must survive a restart — settings, widget layout, plugin
++registrations, and, in later phases, Workspace data and the Knowledge Vault.
++It is chosen for Offline First (Principle 2): the machine works fully with
++no network, and local state is the source of truth.
++
++The database has one governing rule: **only Rust touches it.** The frontend
++never opens a connection, never runs a query, and never reads the file. All
++data access flows through the typed IPC seam into Rust, which owns SQLite as
++a single writer (ADR-0001). This is a security rule, not a convenience: the
++webview is a privileged context, and keeping SQL behind the native boundary
++keeps the attack surface small and the schema authority in one place.
++
++## Ownership Model
++
++```mermaid
++flowchart LR
++    UI["frontend (webview)"] -->|never touches SQLite| IPC["typed IPC — core/services"]
++    IPC -->|invoke| RUST["Rust services/"]
++    RUST -->|rusqlite · single writer| SQLITE[("SQLite — database/dex.db")]
++    SQLITE -->|schema truth| MIG["database/migrations/*.sql"]
++```
++
++The frontend reaches data only through contract clients in `core/services/`,
++which call Rust commands. Rust services read and write through the
++`database/` access layer. The schema itself is declared in
++`database/migrations/*.sql`, which is the source of truth — the SQL files
++define the schema; the Rust models and the zod schemas are representations of
++it, not independent definitions.
++
++## Schema Truth and Migrations
++
++The schema lives in `database/migrations/` as numbered SQL files,
++`NNN_<domain>.sql`. The directory currently holds empty numbered files
++(`001_init.sql` through `005_history.sql`) and an empty committed
++`database/dex.db`; no schema is committed yet. The naming convention is the
++contract: each file is one ordered, immutable migration.
++
++Migrations are **append-only** (ADR-0001). A committed migration file is
++never edited — not to fix a typo, not to add a column. Every schema change is
++a new migration with a new number, applied in order. This makes the schema
++history a linear, replayable log: any database can be brought to the current
++schema by applying migrations in sequence, and a deployed database is never
++silently mutated by an edit to an old file.
++
++```mermaid
++flowchart TD
++    A["Feature slice needs a schema change"] --> B["Write NNN_&lt;domain&gt;.sql — append a new migration"]
++    B --> C["Apply via the Rust migrations runner"]
++    C --> D{"Migration committed?"}
++    D -->|No| E["Edit freely during review"]
++    D -->|Yes| F["Immutable — never edited (ADR-0001)"]
++    F --> G["Next change = a new migration, a new number"]
++    C --> H["Rust model in models/ + zod schema at the frontend edge"]
++```
++
++## The Rust Access Layer
++
++Rust owns SQLite through `src-tauri/src/database/`, an access layer over
++rusqlite (bundled). Its modules — `connection`, `migrations`, `queries`,
++`repository`, `schema` — are scaffolding today; they are declared as their
++owning roadmap milestone lands. The **repository pattern** is planned at
++roadmap M4.3 (SQLite access layer, repository pattern, migrations): services
++depend on repository interfaces rather than raw connections, so the data
++layer stays testable and the single-writer rule stays enforceable.
++
++## One Slice per Feature
++
++A schema change is never shipped alone. Each feature that owns data delivers
++its slice in one unit (ADR-0001):
++
++1. a new migration in `database/migrations/`;
++2. a Rust model in `src-tauri/src/models/` — the serde wire representation;
++3. a zod schema at the frontend edge in `core/services/` mirroring the model.
++
++The migration is the truth; the Rust model and the zod schema are its typed
++projections on each side of the IPC boundary. Because they are delivered
++together, the three can never drift silently.
++
++### Wire representation and integer precision
++
++SQLite integers arrive in Rust as `i64`/`u64`. Values beyond 2^53 lose
++precision when serialized to JavaScript, so IDs and small integers stay in
++range or are serialized as strings (ADR-0001). This is a wire-contract
++concern, not a storage concern: the schema may use integer keys, but the
++frontend-facing representation must not lose them.
++
++## Future Domains
++
++The database will own several domains as their phases land. These are
++**planned**, not committed — no schema exists for them yet, and their
++contracts are owned by the specifications:
++
++- **Workspaces** — the Workspace, its Workspace Manifest, Workspace
++  Activation, and Workspace Snapshot records. Contract:
++  [`../30-specs/Workspace.md`](../30-specs/Workspace.md),
++  [`../30-specs/Manifest.md`](../30-specs/Manifest.md),
++  [`../30-specs/Snapshot.md`](../30-specs/Snapshot.md).
++- **Knowledge Vault** — the durable local memory layer. Contract:
++  [`../30-specs/Knowledge.md`](../30-specs/Knowledge.md).
++- **Journal** — the durable event log, distinct from the in-memory event bus.
++  Contract: [`../30-specs/Journal.md`](../30-specs/Journal.md).
++- **Settings, widgets, plugins, history** — the empty numbered migration
++  files hint at these domains; their schemas are written when each owning
++  phase lands.
++
++Each domain follows the one-slice-per-feature rule: migration + Rust model +
++zod schema, delivered together, append-only.
++
++## Related Documents
++
++- System architecture and boundaries: [`20_System_Architecture.md`](20_System_Architecture.md)
++- Backend subsystem (the Rust access layer): [`22_Backend.md`](22_Backend.md)
++- Frontend subsystem (the typed seam to data): [`21_Frontend.md`](21_Frontend.md)
++- Event bus (vs. the durable Journal): [`24_EventBus.md`](24_EventBus.md)
++- Layer ownership and append-only migrations: [`../50-adr/0001-layer-ownership.md`](../50-adr/0001-layer-ownership.md)
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Product roadmap (M4.3 SQLite milestone): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- Workspace contract: [`../30-specs/Workspace.md`](../30-specs/Workspace.md)
++- Manifest contract: [`../30-specs/Manifest.md`](../30-specs/Manifest.md)
++- Snapshot contract: [`../30-specs/Snapshot.md`](../30-specs/Snapshot.md)
++- Knowledge Vault contract: [`../30-specs/Knowledge.md`](../30-specs/Knowledge.md)
++- Journal contract: [`../30-specs/Journal.md`](../30-specs/Journal.md)
+\ No newline at end of file
+diff --git a/docs/20-architecture/24_EventBus.md b/docs/20-architecture/24_EventBus.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..99b7bbce5173a614c83c438b85c79a50a5f9c5b9
+--- /dev/null
++++ b/docs/20-architecture/24_EventBus.md
+@@ -0,0 +1,156 @@
++# DEX Event Bus Architecture
++
++## Purpose
++
++The event bus is the Rust→UI push channel of the Workspace Runtime. It is
++how the Runtime tells the shell that the world changed — a Workspace was
++activated, a window gained focus, a service exited, a resource reading
++updated — without the shell polling. Push is the right model because the
++events originate on the native side (Hyprland socket events, process and
++device state) and because the shell must react to them promptly, on the
++compositor clock, not on a timer.
++
++The bus is a **typed contract** like every seam in the system (Principle 8,
++Strong Typing): the emitter names an event, the payload is schema-validated,
++and a malformed payload is dropped, never tolerated. ADR-0002 §5 fixes this
++contract; this document describes how it works, who may emit, who may
++subscribe, and how the bus relates to durable storage.
++
++## Direction and Scope
++
++The bus is one-directional: **Rust emits, the shell listens.** Tauri events
++flow from the native side to the webview; there is no shell→Rust event path
++and no peer-to-peer bus. Shell→Rust communication is commands (the typed IPC
++seam, [`21_Frontend.md`](21_Frontend.md)), not events.
++
++- **Only `src-tauri/src/events/` emits.** No command handler, service, or
++  plugin emits directly from anywhere else in the backend.
++- **Only names declared in the `EVENTS` registry may be subscribed.** An
++  undeclared name is not part of the contract and is ignored by
++  convention.
++- **A subscription is session-scoped.** `onEvent` returns an `UnlistenFn`;
++  the shell's subscriptions live for the life of the webview and are torn
++  down when the window closes.
++
++## The Contract
++
++The contract has two halves, one per side of the boundary.
++
++On the frontend, `core/api/events.ts` holds the **`EVENTS` registry**: every
++emittable event, declared with its canonical name and payload schema. Names
++follow the grammar `dex.<domain>.<event>` — the domain matches the Rust
++command domain, the event names the notification. Subscriptions go through
++`onEvent(name, schema, handler)`, which wraps Tauri's `listen`:
++
++- the payload is validated with `schema.safeParse`;
++- a valid payload is delivered to the handler with its inferred type;
++- an **invalid payload is logged and dropped** — it never reaches the
++  handler, and it never throws into the listener. A misbehaving emitter must
++  not crash the shell.
++
++On the backend, `src-tauri/src/events/` owns emission: an emitter dispatches
++a payload under a registered `dex.<domain>.<event>` name after the state
++change it reports has already happened. Emission is fire-and-forget; the bus
++does not confirm delivery.
++
++```mermaid
++sequenceDiagram
++    autonumber
++    participant E as src-tauri/src/events/ emitter
++    participant W as Tauri event channel
++    participant A as core/api/events.ts onEvent
++    participant V as EVENTS registry schema
++    participant H as feature handler
++    E->>W: emit("dex.domain.event", payload)
++    W->>A: listen callback fires
++    A->>V: schema.safeParse(payload)
++    alt payload valid
++        V-->>A: success
++        A->>H: handler(payload) — typed
++    else payload invalid
++        V-->>A: failure
++        A->>A: logError — logged and dropped
++    end
++```
++
++## Naming
++
++The registry names events `dex.<domain>.<event>`: the `dex` prefix scopes the
++namespace, the domain names the emitting subsystem (and matches a Rust
++command domain and its contract client), and the event names the
++notification. The grammar is the naming authority; the domain set grows with
++the roadmap.
++
++```mermaid
++mindmap
++  root((EVENTS registry))
++    dex.system
++      resources
++      battery
++      network
++    dex.hyprland
++      workspaces
++      windows
++      focus
++    dex.terminal
++      output
++      exit
++    dex.settings
++      changed
++    dex.widgets
++      lifecycle
++    dex.plugins
++      loaded
++      unloaded
++```
++
++These are the planned namespaces — the registry is empty today and entries
++are added when their first emitter lands (Phase 4 M4.x onward), each with a
++payload schema.
++
++## Live Bus vs. Durable Journal
++
++The event bus and the Journal are two different things and must not be
++confused:
++
++- **The live bus is in-memory and session-scoped.** It exists for the life
++  of the running shell. Events are delivered to live listeners and are
++  gone — they are not replayed, not persisted, and not recoverable after a
++  restart. Its job is reactivity, not history.
++- **The Journal is durable.** It is the persistent record of what happened,
++  owned by the database layer and readable after restart. Its contract is
++  owned by [`../30-specs/Journal.md`](../30-specs/Journal.md); its storage
++  is described in [`23_Database.md`](23_Database.md).
++
++A future event can be both delivered on the live bus and recorded in the
++Journal, but the two mechanisms have different guarantees: the bus guarantees
++delivery to listeners that exist now; the Journal guarantees retention. The
++bus never substitutes for the Journal, and the Journal never replaces the
++bus's low-latency delivery.
++
++## Current State
++
++The bus is wired but empty:
++
++- `core/api/events.ts` implements `onEvent` and the `EVENTS` registry; the
++  registry has no entries.
++- `src-tauri/src/events/` holds the emitter module scaffold; no emitter is
++  live.
++- The only Rust→shell wiring active in the Runtime is the log plugin
++  (`tauri-plugin-log`), which is command-side, not event-bus traffic.
++
++The first emitters arrive with the first business domains (Phase 4 M4.x —
++Hyprland socket events, system resource readings). Each lands as one slice:
++an emitter in `src-tauri/src/events/`, an entry in the `EVENTS` registry
++with its payload schema, and a subscription in the consuming feature.
++
++## Related Documents
++
++- System architecture and boundaries: [`20_System_Architecture.md`](20_System_Architecture.md)
++- Frontend subsystem (the `onEvent` seam): [`21_Frontend.md`](21_Frontend.md)
++- Backend subsystem (emission in `events/`): [`22_Backend.md`](22_Backend.md)
++- Database architecture (the durable Journal): [`23_Database.md`](23_Database.md)
++- Typed IPC contract (ADR-0002 §5): [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Product roadmap (Phase 4 event sources): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- Journal contract: [`../30-specs/Journal.md`](../30-specs/Journal.md)
+\ No newline at end of file
+diff --git a/docs/20-architecture/25_Graphics.md b/docs/20-architecture/25_Graphics.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..b2fbbff8dd86d1c874c9d303ffca85e2c2599450
+--- /dev/null
++++ b/docs/20-architecture/25_Graphics.md
+@@ -0,0 +1,176 @@
++# DEX Graphics Architecture
++
++## Purpose
++
++This document describes the graphics subsystem of the Workspace Runtime: the
++engine-agnostic renderer contracts, the rendering stack, the ownership
++boundary, the renderer lifecycle, and the performance contract. It explains
++*why* the shell renders the way it does and *how* the pieces compose. It is
++not an implementation guide; the formal renderer contracts live in
++`src/lib/graphics/contracts.ts` and the renderer decision is recorded in
++ADR-0006.
++
++## Background — why a graphics layer exists
++
++DEX is a transparent, GPU-composited shell over Hyprland (ADR-0004). The
++desktop, the wallpaper, and the Wayland compositor output are visible through
++the window; the shell's visual depth — backdrop scenes, particle ambience,
++window effects — is drawn by a GPU renderer into a transparent WebGL canvas
++composited **under** the DOM chrome. The DOM chrome (the HUD: TopBar, Dock,
++StatusBar) floats above that canvas on glass surfaces.
++
++Two constraints shape the design:
++
++1. **Transparency is a hard contract, not a style choice** (ADR-0004). The
++   window background is always transparent; the renderer never paints an
++   opaque backdrop. The desktop shows through both the canvas and the glass
++   panels.
++2. **The renderer is a dependency, not a framework.** The shell must not be
++   coupled to Three.js or to WebGL. Consumers depend on contracts; the
++   implementation is swappable and arrives only when a feature needs GPU
++   visuals (roadmap Phase 2, M2.1–M2.4).
++
++## Rendering stack
++
++The shell renders through a single pipeline: the Wayland compositor owns the
++screen, the webview owns the DOM, and the graphics layer owns the GPU canvas
++beneath the DOM chrome.
++
++```mermaid
++flowchart TB
++    subgraph Screen["Wayland compositor (Hyprland)"]
++        DESK["desktop / wallpaper / windows"]
++    end
++
++    subgraph Webview["Tauri webview"]
++        subgraph DOM["DOM chrome (HUD)"]
++            TOP["TopBar"]
++            DOCK["Dock"]
++            STAT["StatusBar"]
++            GLASS["glass panels (backdrop-filter)"]
++        end
++        subgraph GFX["graphics/ layer"]
++            CANVAS["WebGL canvas (alpha: true)"]
++            RENDERER["Renderer (frame loop, resources)"]
++        end
++    end
++
++    DESK --> CANVAS
++    CANVAS --> DOM
++    DOM --> Screen
++    RENDERER --> CANVAS
++```
++
++The canvas is transparent (`alpha: true`), so the compositor output passes
++through it before the DOM chrome is drawn on top. The renderer draws into the
++canvas; the DOM chrome is composited by the browser. Neither paints an opaque
++window-sized surface.
++
++## Engine-agnostic contracts
++
++The graphics layer exposes exactly three contracts, defined in
++`src/lib/graphics/contracts.ts`:
++
++| Contract | Role |
++|---|---|
++| `RgbaColor` | RGBA color in 0..1 space, as used by GPU code |
++| `RenderSurface` | The drawing surface: a canvas plus a DPR-aware `resize` |
++| `Renderer` | The shell renderer: `start()`, `render()`, `dispose()` |
++
++These contracts are engine-agnostic on purpose. Three.js is not yet a
++dependency; Phase 2 implements the contracts inside `graphics/`. Consumers in
++`ui/` and `features/` depend on the contracts and on the theme palette — never
++on WebGL or Three.js directly.
++
++## Ownership boundary
++
++The graphics layer owns everything GPU. The rule is absolute: **nothing
++outside `graphics/` touches WebGL or Three.js.** `ui/` and `features/` consume
++`graphics/contracts.ts` and the `ThemePalette` mirror from `ui/themes/*.ts`
++(ADR-0003) — never the `three` module.
++
++```mermaid
++flowchart LR
++    subgraph Consumers["ui/ and features/"]
++        UI["HUD chrome"]
++    end
++    subgraph Graphics["graphics/ layer"]
++        CONTRACTS["contracts.ts"]
++        IMPL["Three.js implementation (Phase 2)"]
++    end
++    subgraph Theme["ui/themes/*.ts"]
++        PAL["ThemePalette"]
++    end
++
++    UI -->|"consumes contracts"| CONTRACTS
++    UI -->|"reads palette"| PAL
++    CONTRACTS --> IMPL
++    IMPL -.->|"never imported by consumers"| UI
++```
++
++The renderer owns its frame loop, its resources, and its lifecycle. It never
++reaches into features, and nothing outside `graphics/` schedules frames or
++touches the canvas context.
++
++## Renderer lifecycle
++
++The renderer is a single instance owned by the graphics layer. It starts
++lazily on first visual need and stops on dispose. `dispose()` is total: it
++releases every GPU object (geometry, texture, material) and every listener —
++no orphaned buffers, no leaked state.
++
++```mermaid
++stateDiagram-v2
++    [*] --> Idle
++    Idle --> Running: start() on first visual need
++    Running --> Running: render() per frame
++    Running --> Disposed: dispose()
++    Idle --> Disposed: dispose() before start
++    Disposed --> [*]
++```
++
++The frame loop is driven by `requestAnimationFrame` and is owned exclusively
++by the renderer. It starts lazily (the renderer initializes on first visual
++need, per the performance contract) and stops with `dispose()`.
++
++## Performance contract
++
++The graphics layer is bound by the same performance contract as the rest of
++the shell (ADR-0003, `40-engineering/Performance.md`):
++
++- **60 FPS floor.** Motion runs on compositor-only properties —
++  `transform`/`opacity` — so the compositor never repaints. The renderer
++  never animates layout properties.
++- **Zero per-frame allocations in steady state.** Hot paths reuse arrays and
++  pooled objects; no per-frame garbage. Object pooling and the texture cache
++  land in M2.4.
++- **DPR-aware backing store.** The canvas is sized in device pixels via
++  `RenderSurface.resize`; resize follows the window, not the CSS box.
++- **Reduced motion.** `prefers-reduced-motion` disables ambient animation.
++- **Lazy initialization.** The renderer initializes on first visual need, not
++  at boot, keeping cold start under 500 ms.
++
++## Roadmap mapping
++
++The graphics subsystem ships in Phase 2 (roadmap M2.1–M2.4). Phase 0 ships
++only the contracts and this document; implementations arrive with the first
++feature that needs GPU visuals — no speculative engine code.
++
++| Milestone | Deliverable |
++|---|---|
++| M2.1 | Three.js core: renderer, scene, camera, lights |
++| M2.2 | Effects: bloom, fog, background, grid, particles |
++| M2.3 | Animation engine: timeline, motion manager, transition manager |
++| M2.4 | Performance: object pooling, texture cache, FPS monitor |
++
++## Related Documents
++
++- System architecture and layer model: [`20_System_Architecture.md`](20_System_Architecture.md)
++- Layer ownership: [`../50-adr/0001-layer-ownership.md`](../50-adr/0001-layer-ownership.md)
++- Design tokens and the programmatic palette mirror: [`../50-adr/0003-design-tokens.md`](../50-adr/0003-design-tokens.md)
++- Transparent window compositing: [`../50-adr/0004-transparent-compositing.md`](../50-adr/0004-transparent-compositing.md)
++- Renderer decision (recorded when the renderer is chosen, Phase 2): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- Design system and motion policy: [`../40-engineering/DesignSystem.md`](../40-engineering/DesignSystem.md)
++- Performance standard: [`../40-engineering/Performance.md`](../40-engineering/Performance.md)
++- Product roadmap (Phase 2): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
+\ No newline at end of file
+diff --git a/docs/20-architecture/26_AI.md b/docs/20-architecture/26_AI.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..68797c0ba078e9ab7dc994b90d629b5714ae433d
+--- /dev/null
++++ b/docs/20-architecture/26_AI.md
+@@ -0,0 +1,198 @@
++# DEX AI Architecture
++
++## Purpose
++
++This document describes the AI subsystem of the Workspace Runtime: the
++Provider model, the Memory Provider interface to the Knowledge Vault, the
++intent engine, AI widgets, and voice. It explains *why* AI is architected as
++an optional, local-first capability and *how* the pieces compose. It is not a
++specification; the formal contracts live in `30-specs/Knowledge.md` and the
++voice proposal in `60-rfc/Voice.md`.
++
++## Background — why AI is optional
++
++DEX is not an AI application (Manifesto; Non-Goals). Intelligence is a
++feature, not an identity. Principle 12 — **AI is Optional** — is the governing
++rule: every AI capability degrades gracefully to a fully manual workflow, and
++no core capability may require a model, an API key, or a network. The Workspace
++Runtime must be complete without any of them.
++
++Two consequences follow:
++
++1. **Local-first.** Offline First (principle 2) applies to AI as to everything
++   else. The machine works fully with no network; anything that leaves the
++   machine does so by explicit request. Local models are the default posture.
++2. **Never on the critical path.** AI capabilities sit behind Providers and
++   are never on the critical path of the Workspace Runtime. The Knowledge
++   Vault works without intelligence; intelligence is a *consumer* of the
++   Vault, never a precondition.
++
++## Provider model
++
++AI capabilities are reached through Providers — adapters that implement a
++well-defined backend interface. A Provider is the seam that keeps the core
++independent of any specific model service. The model Provider surface ships in
++Phase 6 (roadmap M6.1) with three backends: Ollama (local), OpenAI, and
++Anthropic.
++
++```mermaid
++flowchart TB
++    subgraph Core["Workspace Runtime core"]
++        AIAPI["AI capability surface"]
++    end
++    subgraph Providers["Provider layer"]
++        OLLAMA["Ollama Provider (local)"]
++        OPENAI["OpenAI Provider"]
++        ANTHROPIC["Anthropic Provider"]
++    end
++    subgraph Backends["Backends"]
++        LOCAL["local model"]
++        REMOTE["remote model endpoints"]
++    end
++
++    AIAPI --> OLLAMA
++    AIAPI --> OPENAI
++    AIAPI --> ANTHROPIC
++    OLLAMA --> LOCAL
++    OPENAI --> REMOTE
++    ANTHROPIC --> REMOTE
++```
++
++The Provider interface is fixed; swapping the backend never changes the
++capability surface. A Provider that is unavailable — no network, no local
++model, no API key — reports unavailability, and the capability degrades to the
++manual path.
++
++A Provider's name denotes its interface, not its deployment. The OpenAI
++Provider targets the OpenAI wire format, which local runtimes also speak
++(Ollama's streaming protocol matches the OpenAI wire format chunk-for-chunk,
++and OpenAI publishes open-weight Apache-2.0 models such as gpt-oss-20b/120b).
++This means any Provider can serve a local model, and any local runtime can back
++a Provider — the local-first posture (principle 2) holds without adding
++backends to the diagram.
++
++## Memory Provider and the Knowledge Vault
++
++The Knowledge Vault is DEX's persistent, local memory layer: the durable store
++of a developer's Context, notes, and history, spanning Workspaces and time. It
++is owned by the Knowledge subsystem and is always local. AI is a consumer of
++the Vault, not its owner.
++
++The **Memory Provider** is the adapter that connects the Knowledge Vault to a
++storage or model backend — a local database, an embedding store, a model
++endpoint. It implements a fixed interface; swapping the backend never changes
++the Vault's contract. The contract detail lives in `30-specs/Knowledge.md`.
++
++```mermaid
++flowchart LR
++    VAULT["Knowledge Vault (local, durable)"]
++    MP["Memory Provider (fixed interface)"]
++    subgraph Backends["Backends"]
++        DB["local database"]
++        EMBED["embedding store"]
++        MODEL["model endpoint"]
++    end
++    AI["AI capabilities"]
++
++    VAULT --> MP
++    MP --> DB
++    MP --> EMBED
++    MP --> MODEL
++    AI --> VAULT
++```
++
++The Vault works without intelligence; intelligence reads and writes it through
++the Memory Provider. This keeps memory durable and local regardless of whether
++any model is present.
++
++## Intent engine
++
++The intent engine (roadmap M6.3) translates a natural-language request into a
++command the Runtime can execute. The pipeline is: intent → command → Rust →
++Hyprland. The intent engine is a consumer of the command surface; it never
++bypasses it. A request that cannot be resolved to a command degrades to the
++manual path.
++
++```mermaid
++flowchart LR
++    REQ["user request"]
++    INTENT["intent engine"]
++    CMD["Runtime command"]
++    RUST["Rust command handler"]
++    HYPR["Hyprland"]
++
++    REQ --> INTENT
++    INTENT --> CMD
++    CMD --> RUST
++    RUST --> HYPR
++```
++
++The intent engine sits entirely behind the Provider model. When no Provider is
++available, the intent engine is absent and the user drives the same command
++surface directly.
++
++## AI widgets and voice
++
++AI widgets (roadmap M6.4) — chat, search, assistant — are Widgets: sandboxed
++UI extensions with no IPC access of their own, their effects mediated by the
++Workspace Runtime. They render in isolated contexts and never import
++`@tauri-apps/api` (ADR-0005; `30-specs/WidgetAPI.md`).
++
++Voice (roadmap M6.5) covers speech-to-text, text-to-speech, and wake word. It
++is an input/output channel for the same capability surface, never a separate
++authority. The voice proposal lives in `60-rfc/Voice.md`.
++
++## Optionality and fallback
++
++The defining property of the AI subsystem is that its absence costs nothing.
++Every AI path has a manual equivalent, and the fallback is automatic: when an
++AI capability fails or is unavailable, the user reaches the same result through
++the manual path.
++
++```mermaid
++sequenceDiagram
++    participant U as User
++    participant AI as AI capability
++    participant P as Provider
++    participant C as Runtime command surface
++
++    U->>AI: request
++    AI->>P: resolve intent
++    alt Provider available
++        P-->>AI: intent resolved
++        AI->>C: execute command
++        C-->>U: result
++    else Provider unavailable or fails
++        P-->>AI: unavailable
++        AI-->>U: fallback prompt
++        U->>C: manual command
++        C-->>U: result
++    end
++```
++
++The fallback is not an error path; it is the primary path. AI is a shortcut
++over a fully functional manual surface, and the manual surface is always
++present.
++
++## Roadmap mapping
++
++The AI subsystem ships in Phase 6 (roadmap M6.1–M6.5).
++
++| Milestone | Deliverable |
++|---|---|
++| M6.1 | LLM Provider: Ollama, OpenAI, Anthropic |
++| M6.2 | Memory: conversations, desktop state, context |
++| M6.3 | Intent Engine: intent → command → Rust → Hyprland |
++| M6.4 | AI Widgets: chat, search, assistant |
++| M6.5 | Voice: STT, TTS, wake word |
++
++## Related Documents
++
++- System architecture and layer model: [`20_System_Architecture.md`](20_System_Architecture.md)
++- AI is Optional (principle 12): [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Offline First (principle 2): [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Canonical terminology (Knowledge Vault, Memory Provider, Provider): [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Knowledge Vault and Memory Provider contract: [`../30-specs/Knowledge.md`](../30-specs/Knowledge.md)
++- Widget contract: [`../30-specs/WidgetAPI.md`](../30-specs/WidgetAPI.md)
++- Voice proposal: [`../60-rfc/Voice.md`](../60-rfc/Voice.md)
++- Product roadmap (Phase 6): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
+\ No newline at end of file
+diff --git a/docs/20-architecture/27_Plugins.md b/docs/20-architecture/27_Plugins.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..9dd6698d881ddacab07a1986c0098f2c5324a08f
+--- /dev/null
++++ b/docs/20-architecture/27_Plugins.md
+@@ -0,0 +1,159 @@
++# DEX Plugin Architecture
++
++## Purpose
++
++This document describes the plugin subsystem of the Workspace Runtime: the
++Plugin model, the Widget model, the lifecycle, versioning, and the security
++boundary. It explains *why* the extension boundary is fixed in Phase 0 and
++*how* Plugins and Widgets compose with the Runtime. It is not a specification;
++the formal contracts live in `30-specs/PluginAPI.md` and
++`30-specs/WidgetAPI.md`, and the boundary decision in ADR-0005.
++
++## Background — why the boundary is fixed first
++
++DEX will ship a widget and plugin ecosystem (roadmap Phases 3 and 8). The
++shell is a single Tauri webview with full typed IPC access; if third-party code
++ever ran inside that privileged context it could reach the filesystem through
++the same typed surface as the shell itself. The boundary must be fixed in
++Phase 0, because CSP and capability grants are cheap to set now and expensive
++to retrofit later (ADR-0005).
++
++Plugin First (principle 4) states the rule: extensibility is designed into the
++platform from the start, bounded by a hard security boundary — never added as
++an afterthought.
++
++## Plugin model
++
++A Plugin is a Rust-hosted, capability-gated extension to the Workspace
++Runtime, declared by a manifest, validated by the host, and executed in native
++code. A Plugin extends the Runtime's command and event surface with exactly
++the capabilities granted to it — never more, and never inside the privileged
++webview.
++
++Three properties define a Plugin:
++
++1. **Rust-hosted.** A Plugin is an extension of `src-tauri/`, not arbitrary
++   web code in the privileged webview. A Plugin = manifest + command/event
++   surface + capability grants, loaded and versioned by the host.
++2. **Manifest-validated.** Manifests are schema-validated (zod) at
++   install/update; unknown fields are rejected, never silently ignored.
++3. **Capability-gated.** Per-plugin capability grants live in
++   `src-tauri/capabilities/*.json`. A Plugin gets exactly the permissions it
++   declares — no default elevation.
++
++## Widget model
++
++A Widget is a sandboxed UI extension, rendered in an isolated context with no
++IPC access of its own. A Widget's every effect is mediated by the Workspace
++Runtime through shell-mediated commands; a Widget never imports
++`@tauri-apps/api`.
++
++```mermaid
++flowchart LR
++    subgraph Plugin["Plugin (Rust-hosted)"]
++        MANIFEST["manifest"]
++        SURFACE["command / event surface"]
++    end
++    subgraph Grants["capability grants"]
++        GRANT["per-plugin grants"]
++    end
++    subgraph Runtime["Workspace Runtime"]
++        LOADER["plugin loader"]
++        MEDIATE["shell-mediated commands"]
++    end
++    subgraph Widget["Widget (isolated context)"]
++        UI["rendered UI"]
++    end
++
++    MANIFEST --> LOADER
++    LOADER --> GRANT
++    GRANT --> SURFACE
++    UI --> MEDIATE
++    MEDIATE --> SURFACE
++```
++
++The Plugin extends the Runtime's native surface; the Widget renders in an
++isolated context and reaches the Runtime only through mediated commands. The
++Widget never holds IPC access of its own.
++
++## Lifecycle
++
++A Plugin moves through a fixed lifecycle, from installation to uninstallation.
++Each transition is validated by the host; a Plugin cannot skip a stage.
++
++```mermaid
++stateDiagram-v2
++    [*] --> Installed: install
++    Installed --> Validated: validate manifest (zod)
++    Validated --> Granted: grant capabilities
++    Granted --> Loaded: load
++    Loaded --> Running: run
++    Running --> Unloaded: unload
++    Unloaded --> Loaded: load
++    Unloaded --> Updated: update
++    Updated --> Validated: re-validate
++    Unloaded --> Uninstalled: uninstall
++    Uninstalled --> [*]
++```
++
++The lifecycle is: install → validate → grant → load → run → unload → update →
++uninstall. Update re-enters validation, so a changed manifest is re-checked
++before it is granted and loaded again.
++
++## Versioning
++
++Plugins are versioned by the host. A Plugin declares a version in its manifest;
++the host tracks the installed version and applies updates through the lifecycle
++above. Versioning is part of the Plugin API contract (`30-specs/PluginAPI.md`)
++and the marketplace surface (roadmap M8.3). A version change is an update, not
++a fresh install: it re-validates the manifest and re-grants capabilities before
++the new version loads.
++
++## Security boundary
++
++The plugin boundary is the security boundary of the extension ecosystem
++(ADR-0005):
++
++- Plugins are Rust-hosted and capability-gated; a Plugin gets exactly the
++  permissions it declares, with no default elevation.
++- Manifests are schema-validated at install/update; unknown fields are
++  rejected.
++- Widgets render in isolated contexts with no IPC access; all effects go
++  through shell-mediated commands.
++- The shell ships a strict CSP from Phase 0, which is the blast-radius reducer
++  even if a renderer is compromised.
++
++The full security model is described in `29_Security.md`.
++
++## Roadmap mapping
++
++The plugin subsystem ships in two phases.
++
++**Phase 3 — Widget Platform** (roadmap M3.1–M3.4):
++
++| Milestone | Deliverable |
++|---|---|
++| M3.1 | Widget SDK: registry, metadata, lifecycle |
++| M3.2 | Layout Engine: drag, resize, snap, dock, float |
++| M3.3 | Persistence: SQLite-backed positions/sizes/settings |
++| M3.4 | Widget Marketplace API: discovery, install, update |
++
++**Phase 8 — Plugin Platform** (roadmap M8.1–M8.4):
++
++| Milestone | Deliverable |
++|---|---|
++| M8.1 | SDK: commands, widgets, services |
++| M8.2 | API: permissions, versioning, lifecycle |
++| M8.3 | Marketplace: browse, install, update, remove |
++| M8.4 | Sandboxing: permission system |
++
++## Related Documents
++
++- System architecture and layer model: [`20_System_Architecture.md`](20_System_Architecture.md)
++- Plugin boundary and CSP baseline: [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++- Plugin First (principle 4): [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Canonical terminology (Plugin, Widget): [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Plugin API contract: [`../30-specs/PluginAPI.md`](../30-specs/PluginAPI.md)
++- Widget API contract: [`../30-specs/WidgetAPI.md`](../30-specs/WidgetAPI.md)
++- Security architecture: [`29_Security.md`](29_Security.md)
++- Product roadmap (Phases 3 and 8): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
+\ No newline at end of file
+diff --git a/docs/20-architecture/28_Search.md b/docs/20-architecture/28_Search.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..42369173d17dfbaebbe2d372c9f90d108fb25742
+--- /dev/null
++++ b/docs/20-architecture/28_Search.md
+@@ -0,0 +1,153 @@
++# DEX Search Architecture
++
++## Purpose
++
++This document describes the search subsystem of the Workspace Runtime: the
++searchable domains, the offline-first indexing strategy, incremental updates,
++ranking, and the security rule that search never bypasses capability grants.
++It explains *why* search is a local, indexed capability and *how* it composes
++with the rest of the system. It is not a specification; the query syntax and
++ranking contract live in `30-specs/Search.md`.
++
++## Background — why search is offline-first
++
++DEX is Offline First (principle 2): the machine is fully functional with no
++network, and local state is the source of truth. Search is a core shell
++capability — a launcher, a knowledge query, a command lookup — and it must work
++with the network cable pulled. There is no remote search service; the index is
++built over local data and lives on the machine.
++
++Search is also a capability within the Workspace Runtime, not its purpose
++(Non-Goals: DEX is not a launcher). It serves the shell: finding Workspaces,
++running commands, locating files, querying the Knowledge Vault.
++
++## Searchable domains
++
++Search spans the domains the shell manages. Each domain owns its data; search
++indexes it.
++
++```mermaid
++mindmap
++  root((Search))
++    Workspaces
++      Workspace Manifests
++      Workspace Snapshots
++    Commands
++      Runtime commands
++      Plugin commands
++    Filesystem
++      files
++      directories
++    Knowledge Vault
++      Context
++      notes
++      history
++    Widgets
++      widget metadata
++      widget results
++```
++
++| Domain | Source | Notes |
++|---|---|---|
++| Workspaces | Workspace Manifests, Workspace Snapshots | declared and captured state |
++| Commands | Runtime and Plugin command surfaces | the CLI First surface, searchable as actions |
++| Filesystem | local files and directories | arrives with M4.2 (browse, watch, search) |
++| Knowledge Vault | Context, notes, history | durable local memory |
++| Widgets | widget metadata and results | searchable surfaces from the widget ecosystem |
++
++## Indexing strategy
++
++Search is built on an embedded index over local data. The index is an offline,
++incremental view of the searchable domains, derived from the same stores the
++shell already owns. SQLite is the substrate: the database layer is Rust-owned
++and single-writer (ADR-0001), and the index lives in it or is built from it.
++
++```mermaid
++flowchart LR
++    subgraph Domains["searchable domains"]
++        WS["Workspaces"]
++        CMD["Commands"]
++        FS["Filesystem (M4.2)"]
++        VAULT["Knowledge Vault"]
++        WID["Widgets"]
++    end
++    subgraph Pipeline["indexing pipeline"]
++        CRAWL["collect changes"]
++        NORM["normalize"]
++        BUILD["build / update index"]
++    end
++    INDEX["embedded index (SQLite substrate)"]
++    QUERY["query engine"]
++    RANK["ranking"]
++    UI["search UI"]
++
++    WS --> CRAWL
++    CMD --> CRAWL
++    FS --> CRAWL
++    VAULT --> CRAWL
++    WID --> CRAWL
++    CRAWL --> NORM --> BUILD --> INDEX
++    INDEX --> QUERY --> RANK --> UI
++```
++
++The pipeline is: collect changes from the domains, normalize them, and build or
++update the index. The query engine reads the index, ranking produces an
++ordered result, and the search UI presents it. The frontend never touches the
++index or SQLite directly — all access flows through `core/services` → Rust.
++
++## Incremental updates
++
++The index is updated incrementally, not rebuilt. Each domain signals change —
++a Workspace activated or declared, a command registered, a file created or
++modified (M4.2 watch), the Knowledge Vault appended to — and the pipeline
++updates only the affected entries. Full rebuilds are a recovery operation, not
++the normal path. Incremental updates keep indexing cost proportional to change,
++so search stays responsive while the shell is in use.
++
++## Ranking
++
++Ranking orders the results across and within domains. The ranking contract —
++score composition, boosts, and result shaping — lives in `30-specs/Search.md`.
++At the architecture level, ranking operates on the indexed fields, weights
++matches by domain and by field (exact over fuzzy, identifiers over prose),
++and keeps results deterministic so the same query yields the same order.
++
++## Security — search never bypasses grants
++
++Search has no authority of its own. It returns references — a command name, a
++file path, a Workspace identifier, a Vault entry — and executing or opening a
++result is subject to the same permission model as any other action:
++
++- **Capability grants apply.** A result that resolves to a Plugin command is
++  gated by the Plugin's grants; a Plugin cannot be reached through search
++  beyond what it was granted.
++- **Schema validation applies.** Search indexes and returns typed results
++  through the command contract layer (ADR-0002); malformed index entries are
++  dropped, never surfaced.
++- **The frontend never queries the filesystem or the index directly.** All
++  search traffic flows through `core/services` → Rust, like every other system
++  access.
++
++The full trust-boundary model is described in `29_Security.md`.
++
++## Roadmap mapping
++
++Search is not a single milestone; it is a capability composed across phases.
++The launcher (M5.1) is its first full surface, and filesystem search arrives
++with the native filesystem domain (M4.2).
++
++| Milestone | Deliverable |
++|---|---|
++| M4.2 | Filesystem domain: browse, watch, search |
++| M5.1 | Launcher: search, execute, recent |
++| Phase 6 | Knowledge-backed search over the Vault |
++
++## Related Documents
++
++- System architecture and layer model: [`20_System_Architecture.md`](20_System_Architecture.md)
++- Offline First (principle 2): [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Canonical terminology (Knowledge Vault, Workspace): [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Search query and ranking contract: [`../30-specs/Search.md`](../30-specs/Search.md)
++- Knowledge Vault contract: [`../30-specs/Knowledge.md`](../30-specs/Knowledge.md)
++- Security architecture: [`29_Security.md`](29_Security.md)
++- Product roadmap: [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
+\ No newline at end of file
+diff --git a/docs/20-architecture/29_Security.md b/docs/20-architecture/29_Security.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..e505c76e96bf9ed69d37fe153f65ff8a3f4b17ea
+--- /dev/null
++++ b/docs/20-architecture/29_Security.md
+@@ -0,0 +1,168 @@
++# DEX Security Architecture
++
++## Purpose
++
++This document describes the security architecture of the Workspace Runtime:
++the trust boundaries, the Content Security Policy baseline, capability grants
++as the permission model, schema validation at every edge, secrets handling,
++the plugin supply chain, and the threat model. It explains *why* the security
++boundaries are fixed in Phase 0 and *how* the controls compose. It is not a
++specification; the secrets contract lives in `30-specs/Secrets.md` and the
++plugin boundary decision in ADR-0005.
++
++## Background — why security is fixed first
++
++DEX is an operating layer between the user and the OS. It mediates system
++access — filesystem, Hyprland, processes — through a single Tauri webview with
++full typed IPC access. The blast radius of a compromised renderer or a
++malicious extension is the whole machine. The boundaries must be fixed in
++Phase 0, because CSP and capability grants are cheap to set now and expensive
++to retrofit later (ADR-0005).
++
++The security posture rests on a small number of hard rules:
++
++- The frontend never touches the filesystem, SQLite, or the shell directly;
++  all system access flows through typed services → Rust (ADR-0001).
++- Every IPC call is schema-validated at both edges (ADR-0002).
++- The shell ships a strict CSP from Phase 0 (ADR-0005).
++- Extensions are Rust-hosted and capability-gated; Widgets render in isolated
++  contexts with no IPC access (ADR-0005).
++
++## Trust boundaries
++
++The system is divided into distinct trust domains. Each boundary is a control
++point: data crossing it is validated, and authority crossing it is granted.
++
++```mermaid
++flowchart TB
++    subgraph Webview["Webview (DOM chrome)"]
++        UI["HUD chrome"]
++        WIDGETS["Widgets (isolated contexts)"]
++    end
++    subgraph Rust["Rust core (src-tauri)"]
++        CMD["command handlers"]
++        SVC["domain services"]
++        SYS["system access (Hyprland, filesystem)"]
++        DB["SQLite"]
++    end
++    subgraph Plugins["Plugins (Rust-hosted)"]
++        PLUGIN["plugin command / event surface"]
++    end
++    subgraph System["Host system"]
++        OS["Wayland / Hyprland / filesystem / processes"]
++    end
++
++    UI -->|"typed IPC, schema-validated"| CMD
++    WIDGETS -->|"shell-mediated commands"| CMD
++    CMD --> SVC
++    SVC --> SYS
++    SVC --> DB
++    PLUGIN -->|"capability grants"| CMD
++    SYS --> OS
++```
++
++| Trust domain | Authority | Boundary control |
++|---|---|---|
++| Webview (DOM chrome) | presentation only; no system access | typed IPC, schema-validated (ADR-0002) |
++| Widgets | no IPC access of its own | isolated context; shell-mediated commands (ADR-0005) |
++| Rust core | all system access | single writer to SQLite; Rust-owned (ADR-0001) |
++| Plugins | exactly the granted capabilities | per-plugin capability grants (ADR-0005) |
++| Host system | the machine | reached only through Rust |
++
++The webview is the least trusted domain that renders untrusted content
++(Widgets); the Rust core is the authority that owns system access; Plugins are
++native but capability-gated; the host system is reached only through Rust.
++
++## Content Security Policy
++
++The shell ships a strict CSP from Phase 0 (`tauri.conf.json`, ADR-0005):
++
++```
++default-src 'self'; style-src 'self' 'unsafe-inline';
++img-src 'self' data:; connect-src ipc: http://ipc.localhost
++```
++
++The CSP is the blast-radius reducer: even a compromised renderer cannot fetch
++arbitrary origins or run inline scripts. Dev-mode HMR (Vite websocket) may
++require temporary relaxation during development — the loosened policy is never
++shipped.
++
++## Capability grants as the permission model
++
++Permissions are expressed as capability grants, not as ad-hoc checks. A grant
++is a declared, per-plugin permission in `src-tauri/capabilities/*.json`. A
++Plugin gets exactly the permissions it declares — no default elevation. The
++same model gates the shell's own plugin-backed commands. Search and other
++cross-cutting capabilities never bypass grants: a result that resolves to a
++Plugin command is gated by the Plugin's grants.
++
++## Schema validation at every edge
++
++Every seam between components is a typed contract (Strong Typing, principle 8;
++ADR-0002). Validation is enforced at both edges of every IPC call:
++
++- **Rust edge:** commands take exactly one serde-deserialized struct arg;
++  results are typed. `AppError` serializes manually to exactly
++  `{ "type", "message" }` with a closed code set.
++- **Frontend edge:** every command is described by a zod schema pair (args +
++  result); `invoke` validates args before the round trip and the result after.
++  Invalid event payloads are logged and dropped, never thrown.
++
++Schema validation is the defense against contract drift and malformed input at
++the boundary; it is not a substitute for semantic validation in command logic.
++
++## Secrets handling
++
++Secrets — API keys, tokens, credentials — are handled by the secrets subsystem
++and stay local (Offline First, principle 2). The frontend never stores or
++transmits secrets directly; secrets are accessed through the Rust core, which
++owns the credential store. The contract detail lives in `30-specs/Secrets.md`.
++Anything that leaves the machine does so by explicit request.
++
++## Plugin supply chain
++
++The plugin supply chain is controlled at every stage:
++
++- **Manifest validation.** Manifests are schema-validated (zod) at
++  install/update; unknown fields are rejected, never silently ignored.
++- **No default elevation.** A Plugin gets exactly the capabilities it declares;
++  there is no implicit trust.
++- **Rust-hosted execution.** Plugins run as native extensions of `src-tauri/`,
++  not as arbitrary web code in the privileged webview.
++- **Widget isolation.** Widget UI renders in isolated contexts with no IPC
++  access; all effects are shell-mediated.
++
++The lifecycle — install → validate → grant → load → run → unload → update →
++uninstall — is described in `27_Plugins.md`.
++
++## Threat model
++
++The threat model maps the principal threats to the controls that contain them.
++
++| Threat | Target | Control |
++|---|---|---|
++| Compromised renderer fetches arbitrary origins | webview | strict CSP (`connect-src ipc: http://ipc.localhost`) |
++| Compromised renderer runs inline scripts | webview | strict CSP (`script-src` via `default-src 'self'`) |
++| Malicious Plugin exceeds its scope | Rust core / host | per-plugin capability grants; no default elevation |
++| Malformed manifest smuggles unknown fields | plugin loader | zod manifest validation at install/update |
++| Widget reaches IPC directly | Rust core | isolated context; shell-mediated commands only |
++| Contract drift between TS and Rust | IPC boundary | schema validation at both edges (ADR-0002) |
++| Frontend touches filesystem / SQLite directly | host system | one-way dependency rule; Rust owns system access (ADR-0001) |
++| Secret exfiltration | secrets | secrets stay local; accessed only through Rust |
++
++The model is defense-in-depth: no single control is the whole boundary. CSP
++limits a compromised renderer; grants limit a Plugin; schema validation limits
++the IPC seam; the dependency rule limits the frontend's reach.
++
++## Related Documents
++
++- System architecture and layer model: [`20_System_Architecture.md`](20_System_Architecture.md)
++- Plugin boundary and CSP baseline: [`../50-adr/0005-plugin-boundary.md`](../50-adr/0005-plugin-boundary.md)
++- Typed IPC contract and boundary validation: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Layer ownership and the dependency rule: [`../50-adr/0001-layer-ownership.md`](../50-adr/0001-layer-ownership.md)
++- Strong Typing (principle 8): [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Offline First (principle 2): [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Canonical terminology (Plugin, Widget): [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- Secrets contract: [`../30-specs/Secrets.md`](../30-specs/Secrets.md)
++- Plugin architecture and lifecycle: [`27_Plugins.md`](27_Plugins.md)
++- Search security (grants never bypassed): [`28_Search.md`](28_Search.md)
+\ No newline at end of file
+diff --git a/docs/30-specs/Automation.md b/docs/30-specs/Automation.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..9ce9bd4ed7e98e6f4828ede1a802ee515eb1cf49
+--- /dev/null
++++ b/docs/30-specs/Automation.md
+@@ -0,0 +1,228 @@
++# DEX Automation Specification
++
++Contract version 1 (draft).
++
++## Purpose
++
++Automation makes the desktop programmable: a declared workflow — trigger,
++action, condition, result — that the Workspace Runtime evaluates and executes.
++Automation targets the development workflow: Workspaces, Workspace Services,
++tooling, and the terminal/editor/browser context that surrounds them. It is not
++a general-purpose consumer-desktop automation platform (see
++[`../00-vision/04_NonGoals.md`](../00-vision/04_NonGoals.md)).
++
++This document is the normative contract for the workflow model, trigger and
++action types, the scheduler, macros, smart actions, and the workflow manifest
++format. The workflow engine, scheduler, and macros ship in roadmap Phase 7
++(M7.1–M7.4); this specification is the contract that phase implements.
++
++## Why automation is workflow-shaped
++
++DEX is organized around Context, not applications (principle 6). Automation
++follows the same shape: a workflow reacts to something that happened (a
++trigger), performs a bounded action, optionally guarded by a condition, and
++produces a result. This declarative model keeps automation visible,
++scriptable (principle 3), and safe to review — an automation that is declared
++in a manifest is an automation that can be validated, scheduled, and revoked.
++
++## Workflow model
++
++A workflow is a four-part declaration:
++
++```
++trigger → condition → action → result
++```
++
++- **trigger** — the event that starts evaluation.
++- **condition** — an optional predicate evaluated before the action runs. A
++  false condition ends the workflow without acting.
++- **action** — the bounded effect the workflow performs.
++- **result** — the observable outcome, recorded for the journal and for
++  subsequent workflows.
++
++```mermaid
++flowchart LR
++    T["trigger fires"] --> C{"condition"}
++    C -->|false| END["workflow ends, no action"]
++    C -->|true| A["action"]
++    A --> R["result"]
++    R --> END2["workflow completes"]
++```
++
++### Trigger types
++
++| Type | Meaning |
++|---|---|
++| `event` | A Runtime or plugin event (for example a build finished, a Workspace activated) |
++| `cron` | A scheduled time, per the scheduler contract |
++| `startup` | Runtime startup |
++| `manual` | An explicit run via `dex automation run <workflow>` |
++
++### Action types
++
++| Type | Meaning |
++|---|---|
++| `run command` | Invoke a Runtime command through the typed surface |
++| `execute shell` | Run a shell command; gated by explicit grant, never by default |
++| `control Workspace Service` | Start, stop, or restart a declared Workspace Service |
++| `macro` | Replay a recorded keyboard, mouse, or shell macro |
++
++### Result
++
++Every run produces a result: success or failure, with the workflow id, the
++trigger that fired, and the action's outcome. Results are recorded in the
++journal and are queryable through the CLI.
++
++## Scheduler contract
++
++- **Cron semantics** — `cron` triggers follow standard five-field cron
++  semantics (`minute hour day-of-month month day-of-week`), evaluated against
++  local time.
++- **Missed-run policy** — if the Runtime is not running when a scheduled run
++  comes due, the run is missed. Missed runs are recorded as missed and are not
++  retroactively executed; the next scheduled run proceeds normally. The policy
++  is deterministic and documented: a `cron` trigger never catches up in bursts.
++- **Startup triggers** — `startup` workflows run once per Runtime start, after
++  the Runtime is ready but off the critical path of startup (per the
++  performance contract).
++- **Manual triggers** — always available, always immediate, and the fallback
++  when any other trigger is unavailable.
++
++## Macros
++
++Macros are the recording-and-replay capability of Automation.
++
++- **Keyboard macros** — a sequence of key presses and releases, replayed into
++  the focused window.
++- **Mouse macros** — a sequence of pointer moves and clicks, replayed within the
++  Wayland surface the Runtime can address.
++- **Shell macros** — a declared sequence of shell commands, executed through the
++  same gated `execute shell` path as shell actions.
++
++A macro is a first-class declared artifact: it has a name, a version, and a
++granted scope. Recording is explicit and user-initiated; a macro is never
++recorded implicitly.
++
++## Smart actions
++
++Smart actions are AI-generated workflows (roadmap M7.4). They follow the AI is
++Optional principle (principle 12) and the Non-Goals rule that no core capability
++may require a model, an API key, or a network:
++
++- A smart action is an ordinary workflow once generated; it is validated against
++  the same schema and executed by the same engine.
++- If the AI capability is unavailable (no Provider, no network, no grant), a
++  smart action degrades to the manual workflow it would have generated: the
++  user composes the same trigger/condition/action by hand.
++- Generation is never on the critical path of a scheduled or startup workflow.
++
++## Workflow manifest format
++
++A workflow is declared in a manifest, schema-validated before it can be
++scheduled or run. Unknown fields are rejected.
++
++```yaml
++# workflow manifest (illustrative)
++id: build-on-activate
++name: Build on Workspace Activation
++version: 1.0.0
++trigger:
++  type: event
++  event: dex.workspace.activated
++  filter: { workspace: "web" }
++condition:
++  has: dex.workspace.service.web-api
++action:
++  type: control-workspace-service
++  operation: restart
++  service: web-api
++result:
++  record: true
++```
++
++### Manifest fields
++
++| Field | Type | Required | Meaning |
++|---|---|---|---|
++| `id` | string | yes | Unique workflow identifier |
++| `name` | string | yes | Human-readable name |
++| `version` | string | yes | Semantic version of the workflow |
++| `trigger` | object | yes | One trigger type and its parameters |
++| `condition` | object | no | Optional predicate |
++| `action` | object | yes | One action type and its parameters |
++| `result` | object | no | Result-recording policy |
++
++## Evaluation flow
++
++```mermaid
++flowchart TD
++    T["trigger fires"]
++    T --> V["validate workflow manifest"]
++    V -->|invalid| VERR["validation error"]
++    V -->|valid| C{"condition"}
++    C -->|false| SKIP["record: skipped by condition"]
++    C -->|true| G{"action granted?"}
++    G -->|no| GERR["permission_denied"]
++    G -->|yes| A["execute action"]
++    A --> R["record result"]
++    R --> DONE["done"]
++```
++
++## Workflow domain model
++
++```mermaid
++erDiagram
++    WORKFLOW ||--o{ TRIGGER : fires
++    WORKFLOW ||--o{ CONDITION : guards
++    WORKFLOW ||--o{ ACTION : performs
++    WORKFLOW ||--o{ RUN : produces
++    TRIGGER ||--o{ RUN : starts
++    RUN ||--o{ RESULT : records
++    ACTION }o--o{ MACRO : replays
++    WORKFLOW ||--o{ MACRO : declares
++
++    WORKFLOW {
++        string id PK
++        string name
++        string version
++    }
++    TRIGGER {
++        string type
++        string event
++        string cron
++    }
++    CONDITION {
++        string predicate
++    }
++    ACTION {
++        string type
++        string operation
++    }
++    RUN {
++        string id PK
++        string workflow_id FK
++        string status
++        string trigger
++        datetime at
++    }
++    RESULT {
++        string run_id FK
++        string outcome
++        string message
++    }
++    MACRO {
++        string id PK
++        string kind
++        string scope
++    }
++```
++
++## Related Documents
++
++- Automation as development-workflow only: [`../00-vision/04_NonGoals.md`](../00-vision/04_NonGoals.md)
++- AI is Optional principle: [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- CLI surface for automation: [`CLI.md`](CLI.md)
++- Workspace Service contract: [`Workspace.md`](Workspace.md)
++- Plugin event surface: [`PluginAPI.md`](PluginAPI.md)
++- Journal: [`Journal.md`](Journal.md)
++- Automation roadmap milestones (M7.1–M7.4): [`../10-product/11_Product_Roadmap.md`](../10-product/11_Product_Roadmap.md)
+\ No newline at end of file
+diff --git a/docs/30-specs/CLI.md b/docs/30-specs/CLI.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..015372e96d2dbcb38b2dfac786a3ffc1c8f7f64d
+--- /dev/null
++++ b/docs/30-specs/CLI.md
+@@ -0,0 +1,231 @@
++# DEX CLI Specification
++
++Contract version 1 (draft).
++
++## Purpose
++
++The CLI is the complete, stable surface of the Workspace Runtime. This follows
++the CLI First principle (principle 3): every capability is reachable and
++scriptable from the command line, and a capability that cannot be automated is
++a capability that does not exist. The graphical shell is a second client of the
++same command surface — it drives the same commands, so nothing is GUI-only and
++nothing is CLI-only.
++
++This document is the *contract*: the command tree, the global flags, the output
++and exit-code guarantees, and the scripting rules that make the CLI safe to
++compose in pipelines. The user-facing reference for everyday use is
++[`../70-api/CLI.md`](../70-api/CLI.md); this specification is the normative
++contract that reference describes.
++
++## Why the CLI is the contract
++
++The shell and the CLI must not diverge. If a feature is reachable only through
++the shell, it is not scriptable and therefore, by the CLI First principle, does
++not exist. The CLI is therefore the authoritative surface: every Runtime
++operation has a CLI form with a stable interface, and the shell is implemented
++as a client of that same surface.
++
++Two consequences follow and are binding:
++
++1. **Stable output.** Machine-readable output (`--json`) is a stable contract.
++   Field names, ordering, and types do not change between minor versions without
++   a versioned change to this specification.
++2. **No interactive prompts when not a TTY.** When standard input is not a
++   terminal, the CLI never prompts. Every operation that would require a
++   decision either takes it from flags, uses a documented default, or fails with
++   a usage error (exit code 2). This is what makes the CLI safe in scripts,
++   cron, and automation.
++
++## Command tree
++
++The command tree is a single binary `dex`. Commands are grouped by domain and
++mirror the command domains of the Runtime (`core/services/<domain>.ts` ↔
++`src-tauri/src/commands/<domain>.rs`).
++
++```mermaid
++flowchart TD
++    DEX["dex"]
++    DEX --> INIT["init"]
++    DEX --> ACT["activate"]
++    DEX --> SNAP["snapshot"]
++    DEX --> REST["restore"]
++    DEX --> SVC["service"]
++    DEX --> PLG["plugin"]
++    DEX --> WGT["widget"]
++    DEX --> VAULT["vault"]
++    DEX --> THEME["theme"]
++    DEX --> JRNL["journal"]
++    DEX --> SEC["secrets"]
++    DEX --> AUTO["automation"]
++    DEX --> HELP["help"]
++    DEX --> VER["version"]
++
++    SVC --> SVC_START["start <service>"]
++    SVC --> SVC_STOP["stop <service>"]
++    SVC --> SVC_STATUS["status"]
++    SVC --> SVC_LIST["list"]
++
++    PLG --> PLG_INSTALL["install <manifest>"]
++    PLG --> PLG_LIST["list"]
++    PLG --> PLG_UPDATE["update <id>"]
++    PLG --> PLG_UNINSTALL["uninstall <id>"]
++
++    WGT --> WGT_INSTALL["install <manifest>"]
++    WGT --> WGT_LIST["list"]
++    WGT --> WGT_ENABLE["enable <id>"]
++    WGT --> WGT_DISABLE["disable <id>"]
++
++    VAULT --> VAULT_QUERY["query <terms>"]
++    VAULT --> VAULT_ADD["add <note>"]
++    VAULT --> VAULT_SEARCH["search <terms>"]
++
++    THEME --> THEME_LIST["list"]
++    THEME --> THEME_SET["set <name>"]
++    THEME --> THEME_VALIDATE["validate <manifest>"]
++
++    JRNL --> JRNL_SHOW["show"]
++    JRNL --> JRNL_EXPORT["export"]
++
++    SEC --> SEC_SET["set <key>"]
++    SEC --> SEC_GET["get <key>"]
++    SEC --> SEC_ROTATE["rotate <key>"]
++    SEC --> SEC_REVOKE["revoke <key>"]
++
++    AUTO --> AUTO_RUN["run <workflow>"]
++    AUTO --> AUTO_LIST["list"]
++    AUTO --> AUTO_VALIDATE["validate <manifest>"]
++```
++
++### Command semantics
++
++| Command | Operation | Notes |
++|---|---|---|
++| `init` | Declare a new Workspace Manifest | Writes a Manifest at the target path; see [`Manifest.md`](Manifest.md) |
++| `activate <workspace>` | Perform Workspace Activation | Brings a declared Workspace to life; see [`Workspace.md`](Workspace.md) |
++| `snapshot <workspace>` | Capture a Workspace Snapshot | Point-in-time capture; see [`Snapshot.md`](Snapshot.md) |
++| `restore <snapshot>` | Restore a Workspace from a Snapshot | Re-establishes the captured state |
++| `service …` | Manage Workspace Services | Start/stop/status/list; see [`Workspace.md`](Workspace.md) |
++| `plugin …` | Manage Plugins | Install/list/update/uninstall; see [`PluginAPI.md`](PluginAPI.md) |
++| `widget …` | Manage Widgets | Install/list/enable/disable; see [`WidgetAPI.md`](WidgetAPI.md) |
++| `vault …` | Query and write the Knowledge Vault | See [`Knowledge.md`](Knowledge.md) |
++| `theme …` | List, set, and validate themes | See [`Theme.md`](Theme.md) |
++| `journal …` | Read and export the journal | See [`Journal.md`](Journal.md) |
++| `secrets …` | Manage Secrets | Set/get/rotate/revoke; see [`Secrets.md`](Secrets.md) |
++| `automation …` | Run and validate workflows | See [`Automation.md`](Automation.md) |
++| `help [command]` | Print usage for a command | Never exits non-zero for a valid command name |
++| `version` | Print the Runtime version | Machine-readable with `--json` |
++
++## Global flags
++
++Global flags are accepted before or after the subcommand and apply to the whole
++invocation.
++
++| Flag | Type | Meaning |
++|---|---|---|
++| `--json` | boolean | Emit machine-readable JSON instead of human text |
++| `--workspace <path>` | string | Select the active Workspace by path or id; overrides the ambient Context |
++| `--verbose` | boolean | Emit additional diagnostic detail on stderr |
++
++`--workspace` selects the Workspace that a command operates on when the command
++does not take a Workspace argument of its own. When neither is given, the
++command uses the ambient Context (the currently active Workspace). A command
++that requires a Workspace and cannot resolve one fails with a `not_found` error.
++
++## Output formats
++
++### Human text (default)
++
++Human output is line-oriented, stable in structure, and free of control
++characters. It is intended for a person reading a terminal, not for parsing.
++Scripts must use `--json`.
++
++### Machine output (`--json`)
++
++With `--json`, every command emits exactly one JSON document on stdout. The
++document is a stable envelope:
++
++```json
++{
++  "ok": true,
++  "data": { }
++}
++```
++
++On failure the envelope carries the structured error:
++
++```json
++{
++  "ok": false,
++  "error": {
++    "type": "not_found",
++    "message": "workspace 'web' not found"
++  }
++}
++```
++
++The `error.type` field is drawn from the closed error-envelope set defined by
++ADR-0002: `validation`, `not_found`, `permission_denied`, `conflict`,
++`unsupported`, `internal`. The `data` shape is per-command and is part of this
++contract; it is documented in the user-facing reference
++([`../70-api/CLI.md`](../70-api/CLI.md)).
++
++## Exit codes
++
++Exit codes are a stable contract. Scripts branch on them.
++
++| Code | Meaning |
++|---|---|
++| `0` | Success |
++| `1` | Runtime error — an `internal` failure inside the Runtime |
++| `2` | Usage error — malformed invocation, unknown command, missing required flag |
++| `3` | `validation` — input failed schema or semantic validation |
++| `4` | `not_found` — a referenced entity does not exist |
++| `5` | `permission_denied` — the operation is not granted |
++| `6` | `conflict` — the operation conflicts with existing state |
++| `7` | `unsupported` — the operation is not supported in this environment |
++
++The mapping from the error-envelope `type` to the exit code is fixed and
++documented above. A transport failure (the Runtime cannot be reached) exits `1`.
++`help` and `version` exit `0` for valid invocations and `2` for malformed ones.
++
++## Scripting contract
++
++The following rules are binding so that the CLI is safe to compose:
++
++- **No prompts when not a TTY.** If standard input is not a terminal, the CLI
++  never prompts. Required decisions come from flags, documented defaults, or a
++  usage error (exit code 2).
++- **stdout carries the result; stderr carries diagnostics.** Human text and
++  `--json` results go to stdout. Warnings and `--verbose` detail go to stderr.
++  A successful command writes nothing to stderr.
++- **Stable field names.** `--json` field names and their types are stable within
++  a contract version. A breaking change is a new contract version, not a silent
++  field rename.
++- **Idempotent where documented.** Commands that declare idempotency (for
++  example `theme set` to the current theme) succeed without error on repeat.
++- **No hidden state.** Every effect of a command is observable through the
++  command surface; there is no side channel.
++
++## Completion
++
++The CLI provides shell completion for `bash`, `zsh`, and `fish`. Completion is
++generated from the same command tree that defines the CLI, so it never drifts
++from the implemented surface. Completion covers command names, subcommands, and
++the `--workspace` values known to the Runtime. The completion script is emitted
++by `dex completion <shell>` and is deterministic for a given contract version.
++
++## Related Documents
++
++- User-facing CLI reference: [`../70-api/CLI.md`](../70-api/CLI.md)
++- CLI First principle: [`../00-vision/02_Principles.md`](../00-vision/02_Principles.md)
++- Error envelope and typed IPC: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
++- Workspace Manifest: [`Manifest.md`](Manifest.md)
++- Workspace Activation and Workspace Service: [`Workspace.md`](Workspace.md)
++- Workspace Snapshot: [`Snapshot.md`](Snapshot.md)
++- Plugin contract: [`PluginAPI.md`](PluginAPI.md)
++- Widget contract: [`WidgetAPI.md`](WidgetAPI.md)
++- Knowledge Vault: [`Knowledge.md`](Knowledge.md)
++- Theme contract: [`Theme.md`](Theme.md)
++- Secrets contract: [`Secrets.md`](Secrets.md)
++- Automation contract: [`Automation.md`](Automation.md)
++- Journal: [`Journal.md`](Journal.md)
+\ No newline at end of file
+diff --git a/docs/30-specs/Journal.md b/docs/30-specs/Journal.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..60bed4c298609b2ea30280c953c2a158f6940c26
+--- /dev/null
++++ b/docs/30-specs/Journal.md
+@@ -0,0 +1,192 @@
++# Journal — Specification
++
++- **Contract version:** 1 (draft)
++- **Status:** Draft
++- **Owner:** Runtime subsystem (`src-tauri/src/services/journal/`)
++- **Canonical terminology:** [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++
++## Purpose
++
++The Journal is the append-only, durable record of Runtime and Workspace
++activity — the memory of what happened. It is distinct from the live EventBus:
++the EventBus delivers events to live subscribers in real time; the Journal
++records them durably for later query.
++
++**Why a Journal exists.** The Workspace lifecycle, the Snapshot protocol, and
++the Manifest versioning rule all make promises that only hold if *what
++happened* is itself recoverable. When a Workspace enters `failed`, when a
++restore is refused for schema drift, when a service exhausts its restart
++budget — the Journal is the record a developer or the Runtime can consult to
++understand why, after the fact, with no live subscriber attached. It is the
++contract that makes the Runtime's behavior auditable.
++
++**What this contract guarantees.**
++
++1. Entries are append-only and immutable once written.
++2. Every entry is sequenced, timestamped, and attributed to a source domain and
++   an event name.
++3. Retention and pruning are policy-driven and explicit; pruning never mutates
++   retained entries.
++4. The Journal is queryable over time ranges, by domain and Workspace, with
++   pagination.
++
++## Entry Model
++
++A journal entry is an immutable record. The sequence number is the Journal's
++backbone: it is monotonic, dense at write time, and the basis for range
++queries and pagination.
++
++| Field | Type | Description |
++|---|---|---|
++| `sequence` | `int64` | Monotonic sequence number, assigned by the Journal on append. The primary key. |
++| `timestamp` | `timestamp` | UTC instant the entry was written (RFC 3339). |
++| `source_domain` | `string` | The subsystem that produced the entry: `workspace`, `manifest`, `snapshot`, `knowledge`, `service`, `runtime`, `ipc`, … |
++| `event_name` | `string` | The stable event name, `dex.<domain>.<event>` (matching the EventBus naming rule in ADR-0002). |
++| `payload_schema_ref` | `string` | Reference to the schema that describes `payload` (e.g. a schema registry key or versioned schema name). Null when the entry has no payload. |
++| `payload` | `json` | The entry's data, conforming to `payload_schema_ref`. |
++| `workspace_id` | `uuid` | The Workspace the entry concerns; null for Runtime-global entries. |
++
++```mermaid
++erDiagram
++    JOURNAL_ENTRY {
++        int64 sequence PK
++        timestamp timestamp
++        string source_domain
++        string event_name
++        string payload_schema_ref
++        json payload
++        uuid workspace_id FK
++    }
++    WORKSPACE ||--o{ JOURNAL_ENTRY : "referenced_by"
++```
++
++**Sequence semantics.** `sequence` is assigned at append time and is
++monotonic per Journal (the Journal is a single global sequence, not a
++per-Workspace sequence, so global ordering is always available). Sequence
++numbers are never reused; a pruned Journal has gaps, and gaps are expected.
++
++## Append-Only Semantics
++
++1. **Append-only.** The Journal exposes only append and query operations. There
++   is no update, no delete-by-key, and no edit of an existing entry. The
++   schema exposes `append` and `query`; everything else is rejected.
++2. **Immutability.** An entry's fields are fixed at write time. Corrections are
++   new entries that supersede, never rewrites.
++3. **Atomic append.** Each append is a single SQLite transaction; an entry is
++   either fully visible or not present. The sequence is assigned inside the
++   transaction, so concurrent appenders never collide.
++4. **Failure handling.** A failed append is reported to the caller with an
++   `AppError` of type `internal`; the Journal does not partially write. The
++   Runtime treats Journal failure as non-fatal to Workspace operations — the
++   Journal is a record, not a dependency — but the failure is itself logged to
++   stderr via the logger facade.
++
++### Retention and pruning policy
++
++The Journal is the durable record, but durability is bounded by disk. Retention
++is policy-driven:
++
++- The default policy retains all entries, with a configurable disk budget. When
++  the budget is exceeded, the Runtime prunes oldest entries first.
++- Pruning is batch, oldest-first, by `sequence`; a prune operation deletes a
++  contiguous range of oldest entries in a transaction.
++- Pruning never mutates retained entries. After a prune, sequence numbers of
++  retained entries are unchanged; queries simply observe a lower sequence
++  floor.
++- Policy changes (budget, retention duration) are themselves Journal entries,
++  so the history of the policy is part of the record.
++- The Journal is a local, Rust-owned store; there is no remote Journal and no
++  synchronization (Offline First, Principle 2).
++
++## Query Interface
++
++Queries are typed and validated at the IPC boundary (ADR-0002), exposed through
++`core/services/journal.ts`. The Journal's query surface is:
++
++| Operation | Shape | Description |
++|---|---|---|
++| `journal.append` | `AppendEntryArgs` | Appends one entry; returns its `sequence`. Used by the Runtime's journal client; not callable by arbitrary frontend features without capability grant. |
++| `journal.query` | `JournalQueryArgs` | Range/domain/Workspace query with pagination. |
++
++```ts
++interface JournalQueryArgs {
++  from?: number;           // inclusive lower sequence bound
++  to?: number;             // inclusive upper sequence bound
++  fromTime?: string;       // ISO 8601 lower bound on timestamp
++  toTime?: string;         // ISO 8601 upper bound on timestamp
++  sourceDomains?: string[];// filter by source domain
++  workspaceId?: string;    // filter by Workspace
++  eventNames?: string[];   // filter by event name
++  limit?: number;          // page size (default 100, max 1000)
++  before?: number;         // pagination cursor: return entries with sequence < before
++}
++```
++
++```ts
++interface JournalQueryResult {
++  entries: JournalEntry[];
++  hasMore: boolean;
++}
++```
++
++**Pagination.** The `before` cursor gives stable, keyset pagination over the
++immutable sequence; there is no offset drift under concurrent appends. Filter
++combinations are AND-ed. A query never returns more than `limit` entries.
++
++## Relationship to the EventBus
++
++The EventBus and the Journal are two consumers of the same underlying activity,
++with different contracts.
++
++- **EventBus = live delivery.** The EventBus delivers events to live
++  subscribers in real time (architecture document:
++  [`../20-architecture/24_EventBus.md`](../20-architecture/24_EventBus.md)). A
++  subscriber that is not attached when an event fires does not receive it.
++- **Journal = durable record.** The Journal records entries for later query,
++  whether or not any subscriber was live. Entries outlive processes, sessions,
++  and Workspaces.
++- **The bus may feed the Journal.** A Runtime-internal bridge may subscribe the
++  Journal to the EventBus and append an entry for each subscribed event. The
++  reverse does not hold: the Journal never emits onto the bus. The bus is the
++  live path; the Journal is the record path. They share the `dex.<domain>.<event>`
++  naming rule so that an EventBus event and a Journal entry for the same
++  activity are name-identical and traceable to each other.
++- **Guarantees differ.** The EventBus offers at-least-once live delivery with
++  no durability across restarts; the Journal offers durable, append-only,
++  queryable history. A feature that needs to survive a restart must write (or
++  rely on something that writes) a Journal entry; a feature that needs a live
++  reaction must subscribe to the EventBus.
++
++```mermaid
++flowchart LR
++    SRC["source domain"] -->|emit| BUS["EventBus (live delivery)"]
++    SRC -->|append| J["Journal (durable record)"]
++    BUS -. bridge .->|subscribe & append| J
++    BUS --> SUB["live subscribers"]
++    J --> Q["journal.query (range / domain / workspace / pagination)"]
++```
++
++## Append Lifecycle
++
++```mermaid
++flowchart TD
++    A["event occurs in source domain"] --> B["Runtime journal client builds entry"]
++    B --> C{"payload_schema_ref valid?"}
++    C -- no --> D["reject: validation error"]
++    C -- yes --> E["assign sequence in transaction"]
++    E --> F["write entry"]
++    F --> G{"disk budget exceeded?"}
++    G -- yes --> H["prune oldest range (policy)"]
++    G -- no --> I["entry durable"]
++    H --> I
++```
++
++## Related Documents
++
++- Canonical terminology: [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++- EventBus (live delivery): [`../20-architecture/24_EventBus.md`](../20-architecture/24_EventBus.md)
++- System architecture: [`../20-architecture/20_System_Architecture.md`](../20-architecture/20_System_Architecture.md)
++- Workspace contract (lifecycle transitions journaled): [`Workspace.md`](Workspace.md)
++- Point-in-time restore (capture/restore journaled): [`Snapshot.md`](Snapshot.md)
++- Knowledge Vault (memory of what is known): [`Knowledge.md`](Knowledge.md)
++- Typed IPC contract: [`../50-adr/0002-typed-ipc-contract.md`](../50-adr/0002-typed-ipc-contract.md)
+\ No newline at end of file
+diff --git a/docs/30-specs/Knowledge.md b/docs/30-specs/Knowledge.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..3fb183a7edc5405df260976a2e6f8b07de64a657
+--- /dev/null
++++ b/docs/30-specs/Knowledge.md
+@@ -0,0 +1,271 @@
++# Knowledge Vault — Specification
++
++- **Contract version:** 1 (draft)
++- **Status:** Draft
++- **Owner:** Knowledge subsystem (`src-tauri/src/services/knowledge/`)
++- **Canonical terminology:** [`../00-vision/03_Glossary.md`](../00-vision/03_Glossary.md)
++
++## Purpose
++
++The Knowledge Vault is DEX's persistent, local memory layer: the durable store
++of a developer's Context, notes, and history, spanning Workspaces and time
++(Glossary). It is the foundation of DEX's memory and of every AI capability,
++and it is always local.
++
++**Why the Vault exists.** Principle 6 (Context over Applications) makes Context
++the top-level model of the shell; principle 2 (Offline First) makes local state
++the source of truth; principle 12 (AI is Optional) makes intelligence a
++*consumer* of memory, never a precondition. The Knowledge Vault is the single
++place these three principles meet: a durable, local, queryable store that
++survives across Workspaces, sessions, and reboots, and that intelligence
++capabilities may read from — or not.
++
++**What this contract guarantees.**
++
++1. The Vault is local by default; nothing leaves the machine without an
++   explicit request.
++2. Every entry is typed, versioned, and carries provenance (the Workspace it
++   belongs to, the time it was written).
++3. Queries are typed and predictable; adapters implement a fixed interface and
++   never change the Vault's contract.
++4. The Vault works fully without a model, an API key, or a network.
++
++## Storage Model
++
++The Knowledge Vault is a local SQLite database owned by Rust (ADR-0001: SQLite
++is accessed only by Rust; schema truth lives in `database/migrations/`). The
++frontend and CLI reach it only through typed contract clients in
++`core/services/knowledge.ts`. The Vault is a single database spanning all
++Workspaces; entries carry their own provenance.
++
++- **Local by construction.** The Vault database lives under the user's data
++  directory. There is no remote store, no account, and no telemetry. A
++  synchronization capability would be an opt-in extension layered on top —
++  never a precondition (Principle 2).
++- **Migrations.** Schema changes are append-only migrations (ADR-0001), shipped
++  with the Rust model and zod schema in one slice.
++- **Embedding storage.** If an embedding backend is present (via a Memory
++  Provider), vectors are stored in a provider-owned store, never inside the
++  core Vault schema. The core Vault remains usable without embeddings.
++
++## Entry Model
++
++An entry is the unit of the Vault. Every entry is an immutable record with a
++type, metadata, provenance, and timestamps.
++
++```mermaid
++erDiagram
++    ENTRY {
++        uuid entry_id PK
++        string kind
++        string title
++        text body
++        json metadata
++        uuid workspace_id FK
++        timestamp created_at
++        timestamp updated_at
++    }
++    ENTRY_META {
++        uuid entry_id FK
++        string key
++        string value
++    }
++    ENTRY_LINK {
++        uuid from_entry FK
++        uuid to_entry FK
++        string relation
++    }
++    WORKSPACE ||--o{ ENTRY : context_of
++    ENTRY ||--o{ ENTRY_META : has
++    ENTRY ||--o{ ENTRY_LINK : links_to
++```
++
++### Entry types
++
++| `kind` | Semantics | Notes |
++|---|---|---|
++| `note` | Free-form durable note. | The general-purpose unit. |
++| `decision` | A recorded decision and its rationale. | Anchored to a Workspace; carries `metadata.resolved_at`. |
++| `context` | A Context record for a Workspace: what was in progress, focus, pinned items. | One active Context per Workspace at a time; older Contexts remain as history. |
++| `activity` | A machine-derived record of activity (session opened, file visited, service started). | Written by the Runtime and feature subsystems; distinct from the Journal (see below). |
++
++### Fields
++
++| Field | Type | Description |
++|---|---|---|
++| `entry_id` | `uuid` | Stable identity (UUIDv7). |
++| `kind` | `enum` | One of the four types above. |
++| `title` | `string` | Short human-readable title. |
++| `body` | `text` | The entry's content (markdown). |
++| `metadata` | `json` | Opaque key/value metadata; reserved keys prefixed `dex.` are not permitted. |
++| `workspace_id` | `uuid` | Provenance: the Workspace the entry belongs to. May be absent for global entries. |
++| `created_at` | `timestamp` | UTC instant of creation. |
++| `updated_at` | `timestamp` | UTC instant of last edit. |
++
++**Immutability rule.** An entry's `entry_id`, `kind`, and `created_at` are
++immutable. Editing rewrites `body`/`metadata` and bumps `updated_at`; deleting
++is a soft delete (a `deleted_at` tombstone), because a Journal and memory
++subsystem must not lose history silently.
++
++### Provenance
++
++Every entry records the Workspace it belongs to and the time it was written.
++`workspace_id` is the same identifier used by the Workspace registry
++([`Workspace.md`](Workspace.md)), the Journal, and Snapshots, so history can be
++reconstructed across subsystems: which Workspace was active when an activity
++entry was written, and which Context it referenced.
++
++## Query Interface
++
++Queries are typed and validated at the IPC boundary (ADR-0002). The Runtime
++exposes a fixed set of query operations through contract clients in
++`core/services/knowledge.ts`; features and the CLI use only these.
++
++| Operation | Shape | Description |
++|---|---|---|
++| `vault.entry.create` | `CreateEntryArgs` | Writes a new entry; 
