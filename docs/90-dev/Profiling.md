@@ -65,11 +65,11 @@ Run `bun run verify` (`scripts/verify.ts`) from any cwd before merging. It runs 
 
 CI runs exactly this gate on push/PR to `develop`/`main`. The individual `bun run check` and `bun run cargo:check` remain valid single-gate checks during development; `bun run tauri:dev` stays a manual desktop gate (transparent/compositor behavior cannot be tested headless, ADR-0004). A change failing any gate is not ready for review.
 
-Systematic measurement lands in two later milestones:
+Systematic measurement lands in two milestones:
 
 - **M2.4 (Performance, Phase 2)** — the graphics FPS monitor: object pooling,
   texture cache, and an FPS monitor that enforces the renderer's per-frame
-  allocation discipline.
+  allocation discipline (shipped 2026-08-10, develop 4d66849).
 - **M9.1 (Performance, Phase 9)** — profiling, benchmarks, and memory tooling:
   the permanent, repository-wide measurement harness.
 
@@ -118,7 +118,8 @@ budget. The permanent harness that automates this measurement lands with M9.1.
 2. Trigger the shell's motion: panel transitions, dock hover, theme
    switching.
 3. Verify sustained smoothness on the compositor. If your setup exposes a
-   frame meter, use it; the repository's own FPS monitor lands with M2.4.
+   frame meter, use it; the repository's FPS monitor (`FpsMonitor.svelte`,
+   bottom-right glass chip) shipped with M2.4.
 
 **Expected outcome:** no dropped frames during sustained motion. If frames
 drop, split the work:
@@ -179,7 +180,7 @@ driven by the renderer; `src/lib/graphics/README.md`). Nothing outside
 
 **Expected outcome:** long frames correlate with UI work or GPU work performed
 inside the loop. The fix is to move that work out of the loop, not to skip the
-frame. The FPS monitor that makes this a standing check lands with M2.4.
+frame. The FPS monitor that makes this a standing check shipped with M2.4.
 
 ## Performance review gates
 

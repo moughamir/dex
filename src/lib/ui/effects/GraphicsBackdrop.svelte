@@ -5,6 +5,7 @@
     createRenderer,
     type GraphicsRenderer,
   } from "$lib/graphics/renderer";
+  import FpsMonitor from "./FpsMonitor.svelte";
 
   // Created by the `use:mountBackdrop` action. `$state` so the palette-push
   // effect reacts to its creation (initial push) and to later theme changes
@@ -101,3 +102,8 @@
   class="pointer-events-none absolute inset-0 -z-50 overflow-hidden"
   aria-hidden="true"
 ></div>
+
+<!-- M2.4-B: live FPS chip. Sibling of the backdrop so it renders as visible
+     chrome above the -z-50 canvas; subscribes once `renderer` is published
+     (GFX-004) and tears down with the component. -->
+<FpsMonitor {renderer} />

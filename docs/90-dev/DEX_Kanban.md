@@ -2,7 +2,7 @@
 project: omnizya-dex
 type: canonical-kanban
 authority: project-state
-updated: 2026-08-09
+updated: 2026-08-10
 ---
 
 # DEX — Canonical Engineering Kanban
@@ -10,13 +10,13 @@ updated: 2026-08-09
 ## 🧭 Current State
 
 - Current Phase: Phase 2 — Graphics Engine
-- Current Milestone: M2.3 — Animation Engine (DONE; M2.4 Performance next)
-- Branch: develop @ 43c0e02 (M2.3 merged; origin/develop @ 408498e, local ahead 4)
-- Commit: 43c0e02 — feat(motion): ship M2.3 animation engine (manager, timeline, transitions, theme cross-fade) (squash)
-- CI: PASS (`bun run verify` 9/9, 2026-08-09, on branch tip pre-merge and develop HEAD post-merge)
-- Verification: AUTOMATED VERIFIED — Vitest 205/205 (30 files), Rust 67/67, svelte-check 0/0, clippy/build/format/lint PASS
-- Native Verification: PASSED (smoke, 2026-08-09) — transparent fullscreen window, WebGL scene live, graphics unaffected by DOM motion work. Screenshots `/tmp/opencode/m22-native-*.png`. (Motion engine is DOM/CSS-side; no new native gate required — frontend-only delta, per M1.4 precedent.)
-- Overall Status: M2.3 DONE — accepted (implementation review ora-3: 3 MAJOR + minors, all closed incl. cascade-verified press fix + fill:"both" theme fade; spot re-review READY) + merged to develop 43c0e02; M2.4 next
+- Current Milestone: M2.4 — Performance (DONE; M3.1 Widget SDK next)
+- Branch: develop @ 4d66849 (M2.4 merged; origin/develop @ 408498e, local ahead 5)
+- Commit: 4d66849 — feat(graphics): ship M2.4 performance (pool, texture cache, FPS monitor) (squash)
+- CI: PASS (`bun run verify` 9/9, 2026-08-10, on branch tip pre-merge and develop HEAD post-merge)
+- Verification: AUTOMATED VERIFIED — Vitest 250/250 (34 files), Rust 67/67, svelte-check 0/0, clippy/build/format/lint PASS
+- Native Verification: SKIPPED (frontend-only delta, per M1.4/M2.3 precedent); M2.2 native smoke (pixel-corroborated, `/tmp/opencode/m22-native-*.png`) remains the standing evidence for the transparent window + graphics path.
+- Overall Status: M2.4 DONE — accepted (implementation review ora-4: 2 MAJOR + minors, all closed) + merged to develop 4d66849; M3.1 next
 
 ## 📊 Milestone Progress
 
@@ -33,6 +33,7 @@ updated: 2026-08-09
 | M2.1 | Three.js Core (renderer, scene, camera, lights) | DONE | 100% | — |
 | M2.2 | Effects (bloom, fog, background, grid, particles) | DONE | 100% | — |
 | M2.3 | Animation Engine (timeline, motion manager, transition manager) | DONE | 100% | — |
+| M2.4 | Performance (object pooling, texture cache, FPS monitor) | DONE | 100% | — |
 
 > Milestone names per canonical `docs/10-product/11_Product_Roadmap.md` (M0.1–M0.4 only; no M0.5/M0.6). M9.4 = Documentation, M9.5 = Release (v1.0).
 
@@ -92,13 +93,13 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
 
 ## 🔨 WIP
 
-(none — M2.3 merged; M2.4 not started)
+(none — M2.4 merged; M3.1 not started)
 
 ---
 
 ## 🔍 IN REVIEW
 
-(none — M2.3 accepted and merged; M2.4 not started)
+(none — M2.4 accepted and merged; M3.1 not started)
 
 ---
 
@@ -157,6 +158,13 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
   - Native: frontend-only delta — native gate SKIPPED per M1.4 precedent; smoke at M2.2 remains valid
   - Commit: 43c0e02
   - Residual debt: M1.4-TEST-001 remainder (token-resolution across themes); M1.4-THEME-004/005/006 (see TODO)
+- [x] **[M2.4]** Performance — object pooling, texture cache, FPS monitor
+  - Accepted: implementation review (ora-4) — 2 MAJOR (dirty cleared before render → freeze-after-throw; no `meter.reset` on loop start → garbage FPS sample on visibility resume) + minors, ALL closed incl. window-atomic sampling, dead-LRU-removal, disposed-subscriber cleanup, visibility-guarded media restart, pool drain try/finally + initial-clamp; merged to develop 4d66849 (squash)
+  - Evidence: GFX-005 (dirty-flag render skip + `visibilitychange` pause/resume; explicit-stop and reduced-motion respected); `graphics/fps.ts` (windowed allocation-free meter, `subscribeFps` on GraphicsRenderer only); `graphics/core/{pool,texture-cache}.ts` (free-list pool, ref-counted same-instance cache); `ui/effects/FpsMonitor.svelte` glass chip wired in GraphicsBackdrop; 25_Graphics.md M2.4 section + graphics/README.md reconciled
+  - Verification: `bun run verify` 9/9 ALL GATES PASSED (2026-08-10, pre-merge on branch tip and post-merge on develop HEAD); Vitest 250/250 (34 files), Rust 67/67, svelte-check 0/0
+  - Native: frontend-only delta — native gate SKIPPED per M1.4 precedent; smoke at M2.2 remains valid
+  - Commit: 4d66849
+  - Residual debt: M2.1-TEST-001 (inert fallback test); M2.1-GFX-002/003 (see TECHNICAL DEBT); M1.4-TEST-001 remainder
 
 ---
 
@@ -212,11 +220,12 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
   - Milestone: M2.2
   - Reason deferred: architect F7 — assign `renderer = created` before `start()` in the mount action; invisible with the empty scene
   - RESOLVED: M2.2 (1931421) — initial palette applied at construction
-- [ ] **[M2.1]** Empty-scene rAF runs at 60 fps for the shell lifetime
+- [x] **[M2.1]** Empty-scene rAF runs at 60 fps for the shell lifetime
   - ID: M2.1-GFX-005
   - Severity: P3
   - Milestone: M2.2/M2.4
   - Reason deferred: security + architect R4 — consider dirty-flag render skip / `visibilitychange` pause; `powerPreference: high-performance` biases discrete GPU
+  - RESOLVED: M2.4 (4d66849) — GFX-005 dirty-flag render skip (idle loop schedules, draws only on dirty/composed) + lazy `visibilitychange` pause/resume (resume guarded by explicit-stop and reduced-motion); empty-scene loop runs at 60 fps for the shell lifetime
 
 ---
 
@@ -290,12 +299,14 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
 | (pruned) | feat/m2.1-graphics @ decfd45 | M2.1 work branch | MERGED (squash-merged as 56f9aa6; ref kept until report) |
 | (pruned) | feat/m2.2-effects @ ab93156 | M2.2 effects work | PRUNED (squash-merged as 1931421) |
 | (pruned) | feat/m2.3-animation @ <branch tip> | M2.3 animation work | PRUNED (squash-merged as 43c0e02) |
+| (pruned) | feat/m2.4-performance @ bce55ae | M2.4 performance work | PRUNED (squash-merged as 4d66849) |
 | — | agent/m1.4-theme @ 88c60cd | M1.4 theme | DELETED (local + remote; squash-merged 3e0a38e) |
 
 ---
 
 ## 🧾 RECENT CHANGES
 
+- 2026-08-10 — **M2.4 ACCEPTED + MERGED to develop (4d66849, squash)**: performance slice shipped — GFX-005 dirty-flag render skip + `visibilitychange` pause/resume (explicit-stop and reduced-motion respected); windowed allocation-free FPS meter (`graphics/fps.ts`) + `subscribeFps` on GraphicsRenderer (not the contracts Renderer); object pool + ref-counted texture cache (`graphics/core/{pool,texture-cache}.ts`, same-instance-per-key, dispose-at-zero, no dead LRU); FpsMonitor glass chip mounted in GraphicsBackdrop; implementation review (ora-4) 2 MAJOR + minors ALL closed (M1 dirty-clear-after-draw, M2 meter.reset on startLoop, m4 window-atomic sampling, m1 dead-LRU removal); `bun run verify` 9/9 PASS pre- and post-merge; Vitest 250/250 (34 files), Rust 67/67; GFX-005 closed, M2.4 roadmapped `[x]`, Feature Matrix Built; 3-lane parallel dispatch (renderer/fps + monitor + pool/cache) in worktree, fix-6 re-executed after empty first run
 - 2026-08-09 — **M2.3 ACCEPTED + MERGED to develop (43c0e02, squash)**: animation engine shipped — ui/motion/{types,driver,presets,motion-manager,theme-transition,timeline,transition-manager,index}.ts; token-only durations (`--motion-*` role pairs, ADR-0009); single reduced-motion gate (manager + CSS net); THEME-TRANSITION root cross-fade (carve-out, `fill: "both"`); Modal/Menu enter-exit via transitionManager; chrome/Card/Tooltip/CursorGlow/splash tokenized; production-500 fix (unbound matchMedia → bound); implementation review (ora-3) 3 MAJOR + minors ALL closed (cascade-verified press fix; fill:"both" theme fade; reopen-mid-close test); `bun run verify` 9/9 PASS pre- and post-merge; Vitest 205/205 (30 files), Rust 67/67; THEME-003 closed, M1.4-TEST-001 reduced-motion part closed; roadmap M2.3 `[x]`, Feature Matrix Built
 - 2026-08-09 — **M2.1 ACCEPTED + MERGED to develop (56f9aa6, squash)**: 4-lane independent review (architect/implementation/security/docs) — 0 Critical/Major; consensus one-liners folded (3ea9321); doc debt fixed (8dd3543, Testing.md 43→47 + AGENTS.md graphics inventory); `bun run verify` 9/9 PASS pre- and post-merge; native smoke pixel-corroborated; roadmap M2.1 `[x]`, Feature Matrix Built
 - 2026-08-09 — M2.1 implementation complete → IN REVIEW: commit e36f6f2 on feat/m2.1-graphics (17 files); `bun run verify` 9/9 ALL GATES PASSED; oracle review READY FOR IN REVIEW (3 Minor + 3 Nits folded in); ADR-0008; 25_Graphics.md/README/Testing.md reconciled; native gate queued
@@ -310,4 +321,4 @@ Deferred out of M1.4 (per M1-4-Review.md) — fold into M2.x+ or M9 hardening:
 
 ## ⏭️ NEXT ACTION
 
-M2.3 is DONE (merged to develop 43c0e02). Next: **M2.4 (Performance — object pooling, texture cache, FPS monitor)** — create `feat/m2.4-performance` from develop after a pre-M2.4 baseline reconciliation. Remaining deferred debt: M1.4-THEME-004/005/006, M1.4-TEST-001 remainder (cross-theme token resolution), graphics debt (M2.1-TEST-001, GFX-002/003/005) — fold into M2.x+ or M9 hardening. Documentation debt: M1.3-DOC-005 (Build.md/ProjectStructure.md counts), DOC-006 (Debug.md/Profiling.md audit), DOC-007 (release wording); DOC-004 partially closed (AGENTS.md inventory + Testing.md count reconciled in 8dd3543).
+M2.4 is DONE (merged to develop 4d66849). Next: **M3.1 (Widget SDK — registry, metadata, lifecycle)**, Phase 3 — create `feat/m3.1-widget-sdk` from develop after a pre-M3.1 baseline reconciliation. Remaining deferred debt: M1.4-THEME-004/005/006, M1.4-TEST-001 remainder (cross-theme token resolution), graphics debt (M2.1-TEST-001 inert fallback test, GFX-002 `--z-background`, GFX-003 context-loss pause) — fold into M3.x+ or M9 hardening. Documentation debt: M1.3-DOC-005 (Build.md/ProjectStructure.md counts), DOC-006 (Debug.md/Profiling.md audit), DOC-007 (release wording); DOC-004 partially closed (AGENTS.md inventory + Testing.md count reconciled in 8dd3543; AGENTS.md graphics inventory refreshed to M2.4).

@@ -101,7 +101,7 @@ timeline
 - [x] **M2.1 Three.js Core** — renderer, scene, camera, lights
 - [x] **M2.2 Effects** — bloom, fog, background, grid, particles
 - [x] **M2.3 Animation Engine** — timeline, motion manager, transition manager
-- [ ] **M2.4 Performance** — object pooling, texture cache, FPS monitor
+- [x] **M2.4 Performance** — object pooling, texture cache, FPS monitor
 
 ## Phase 3 — Widget Platform
 

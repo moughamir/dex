@@ -3,6 +3,7 @@ import { logError } from "$lib/core/utils/logger";
 import type { ThemePalette } from "$lib/ui/themes/types";
 import { createCamera } from "./camera";
 import type { Renderer, RenderSurface } from "./contracts";
+import { createFpsMeter } from "./fps";
 import { createLights } from "./lighting";
 import { createScene } from "./scene";
 
@@ -69,6 +70,8 @@ export interface RendererOptions {
 export interface GraphicsRenderer extends Renderer {
   /** ADR-0003: scene colors pushed by the owner on theme change, never polled. */
   applyPalette(palette: ThemePalette): void;
+  /** GFX-005: subscribes to windowed FPS samples; returns an unsubscribe. */
+  subscribeFps(callback: (fps: number) => void): () => void;
 }
 
 /**
@@ -139,15 +142,54 @@ export function createRenderer(options?: RendererOptions): GraphicsRenderer {
   // Tracks an explicit owner stop so the media-change listener never restarts
   // the loop against the owner's intent (M1).
   let externallyStopped = false;
+  // GFX-005: render skip. Set by start(), resize, applyPalette, and the
+  // visibility resume path; cleared only after a successful tick render (a
+  // render throw keeps the flag set so the next tick retries). While a
+  // composed effect is active the tick always renders (its effects animate),
+  // so the flag only gates the plain scene-render path.
+  let dirty = true;
+  // Mirrors the current `prefers-reduced-motion` state so the visibility
+  // resume path never restarts a loop the preference has stopped.
+  let reducedMotion = false;
+  // Set when the document visibility handler pauses the loop; guards the
+  // hidden→visible resume so it never overrides an explicit stop().
+  let pausedForVisibility = false;
   let rafId: number | null = null;
   let media: MediaQueryList | null = null;
   let mediaChange: ((event: MediaQueryListEvent) => void) | null = null;
+  let visibilityHandler: (() => void) | null = null;
+
+  // GFX-005: windowed FPS meter. Subscribers are notified only on sample
+  // (~2/sec), so the per-frame tick stays allocation-free.
+  const fpsSubscribers = new Set<(fps: number) => void>();
+  const meter = createFpsMeter({
+    onSample: (fps: number): void => {
+      // ~2 samples/sec — the per-frame tick stays allocation-free.
+      fpsSubscribers.forEach((subscriber) => subscriber(fps));
+    },
+  });
+
+  function subscribeFps(callback: (fps: number) => void): () => void {
+    if (disposed) {
+      // n4: after dispose the renderer can never sample again — accept the
+      // subscription but return an inert unsubscribe.
+      return () => {
+        // Disposed: nothing to unsubscribe from.
+      };
+    }
+    fpsSubscribers.add(callback);
+    return (): void => {
+      fpsSubscribers.delete(callback);
+    };
+  }
 
   const surface: RenderSurface = {
     canvas: glRenderer.domElement,
     resize(width, height) {
       if (disposed) return;
       if (width <= 0 || height <= 0) return;
+      // GFX-005: the backing store changed — the next tick must redraw.
+      dirty = true;
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       glRenderer.setPixelRatio(1);
@@ -175,6 +217,13 @@ export function createRenderer(options?: RendererOptions): GraphicsRenderer {
   function startLoop(): void {
     if (running || disposed) return;
     running = true;
+    // M2: the meter must not span the gap since the loop was last stopped —
+    // a long pause (visibility resume, media flip, stop→start) would otherwise
+    // be folded into one giant delta and produce a sub-1fps garbage sample.
+    // reset() preserves the last clean `value`; the FpsMonitor holds it.
+    meter.reset();
+    // A fresh loop draws on its first tick (and a resumed loop redraws).
+    dirty = true;
     const tick = (): void => {
       // Total-termination guard: makes loop cancellation provable even if
       // stop()/dispose() ever ran synchronously inside a tick (ADR-0008 D4).
@@ -182,7 +231,17 @@ export function createRenderer(options?: RendererOptions): GraphicsRenderer {
       // Schedule the next frame BEFORE rendering, so a render() throw (e.g. a
       // GL hiccup mid-composer) never kills the loop silently.
       rafId = globalThis.requestAnimationFrame(tick);
-      render();
+      // GFX-005: skip the expensive render when nothing changed — the loop
+      // stays alive, only the draw is deferred. A composed effect is always
+      // dirty: its sub-effects (e.g. drifting particles) animate every frame.
+      if (dirty || composed) {
+        // M1: clear the flag only AFTER a successful draw — a render throw
+        // must leave the tick dirty so the next frame retries instead of
+        // freezing the pipeline (the rAF above keeps the loop alive).
+        render();
+        dirty = false;
+        meter.tick(performance.now());
+      }
     };
     rafId = globalThis.requestAnimationFrame(tick);
   }
@@ -210,10 +269,17 @@ export function createRenderer(options?: RendererOptions): GraphicsRenderer {
     if (typeof window.matchMedia !== "function") return null;
     const mql = window.matchMedia(REDUCED_MOTION_QUERY);
     const listener = (event: MediaQueryListEvent): void => {
+      reducedMotion = event.matches;
       if (event.matches) {
         stopLoop();
         render();
-      } else if (!externallyStopped) {
+      } else if (
+        !externallyStopped &&
+        // m3: never schedule rAF for a hidden document — the visibility
+        // handler owns the hidden→visible resume instead.
+        (typeof document === "undefined" ||
+          document.visibilityState !== "hidden")
+      ) {
         startLoop();
       }
     };
@@ -230,6 +296,31 @@ export function createRenderer(options?: RendererOptions): GraphicsRenderer {
     return mql;
   }
 
+  /**
+   * GFX-005: pauses the loop while the document is hidden and resumes it on
+   * return. rAF is throttled/stopped in hidden tabs anyway, so canceling the
+   * handle keeps the lifecycle explicit. The resume only fires when this
+   * handler actually paused the loop — an explicit stop() (or the reduced
+   * motion preference) is never overridden by a hidden→visible transition.
+   */
+  function ensureVisibilityListener(): void {
+    if (visibilityHandler) return;
+    if (typeof document === "undefined") return;
+    const handler = (): void => {
+      if (document.visibilityState === "hidden") {
+        if (running) {
+          pausedForVisibility = true;
+          stopLoop();
+        }
+      } else if (pausedForVisibility && !externallyStopped && !reducedMotion) {
+        pausedForVisibility = false;
+        startLoop();
+      }
+    };
+    document.addEventListener("visibilitychange", handler);
+    visibilityHandler = handler;
+  }
+
   function start(): () => void {
     if (disposed) return stop;
     if (running) return stop;
@@ -237,6 +328,8 @@ export function createRenderer(options?: RendererOptions): GraphicsRenderer {
     // drive the loop again (until the owner stops once more).
     externallyStopped = false;
     const mql = ensureMediaListener();
+    ensureVisibilityListener();
+    reducedMotion = mql?.matches ?? false;
     if (mql?.matches) {
       // prefers-reduced-motion: render one static frame, no loop.
       render();
@@ -248,6 +341,8 @@ export function createRenderer(options?: RendererOptions): GraphicsRenderer {
 
   function applyPalette(palette: ThemePalette): void {
     if (disposed) return;
+    // GFX-005: scene colors changed — the next tick must redraw.
+    dirty = true;
     // three auto-linearizes hex colors — correct for lights; ColorManagement is
     // left untouched. In-place `.set()` keeps apply zero-allocation.
     lights.ambient.color.set(palette.ambient);
@@ -267,6 +362,12 @@ export function createRenderer(options?: RendererOptions): GraphicsRenderer {
     if (disposed) return;
     disposed = true;
     stopLoop();
+    // m2: drop FPS subscribers so nothing is notified after teardown.
+    fpsSubscribers.clear();
+    if (visibilityHandler && typeof document !== "undefined") {
+      document.removeEventListener("visibilitychange", visibilityHandler);
+      visibilityHandler = null;
+    }
     if (media && mediaChange) {
       if (media.removeEventListener) {
         media.removeEventListener("change", mediaChange);
@@ -316,7 +417,7 @@ export function createRenderer(options?: RendererOptions): GraphicsRenderer {
     }
   }
 
-  return { surface, start, render, applyPalette, dispose };
+  return { surface, start, render, applyPalette, dispose, subscribeFps };
 }
 
 /** Fallback when no WebGL context can be created — the shell stays alive. */
@@ -339,6 +440,11 @@ function createInertRenderer(canvas?: HTMLCanvasElement): GraphicsRenderer {
     },
     applyPalette(): void {
       // Inert.
+    },
+    subscribeFps(): () => void {
+      return () => {
+        // Inert: nothing to subscribe to.
+      };
     },
     dispose(): void {
       inertCanvas.parentNode?.removeChild(inertCanvas);

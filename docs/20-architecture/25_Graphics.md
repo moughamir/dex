@@ -161,7 +161,7 @@ the shell (ADR-0003, `40-engineering/Performance.md`):
   never animates layout properties.
 - **Zero per-frame allocations in steady state.** Hot paths reuse arrays and
   pooled objects; no per-frame garbage. Object pooling and the texture cache
-  land in M2.4.
+  landed in M2.4 (`graphics/core/`).
 - **DPR-aware backing store.** The canvas is sized in device pixels via
   `RenderSurface.resize`; resize follows the window, not the CSS box.
 - **Reduced motion.** `prefers-reduced-motion` disables ambient animation.
@@ -172,8 +172,9 @@ the shell (ADR-0003, `40-engineering/Performance.md`):
 
 The graphics subsystem ships in Phase 2 (roadmap M2.1–M2.4). M2.1 shipped the
 Three.js core (renderer, scene, camera, lights) behind the engine-agnostic
-contracts; M2.2–M2.4 add effects, animation, and the performance layers. No
-speculative engine code shipped before a feature needed it.
+contracts; M2.2 added effects, M2.4 added the performance layers (pooling,
+texture cache, FPS monitoring). No speculative engine code shipped before a
+feature needed it.
 
 | Milestone | Deliverable |
 |---|---|
@@ -203,6 +204,33 @@ builds five effects into the renderer scene:
 
 Palette strings are parsed by `graphics/effects/color.ts` (`parseColor` /
 `parseAlpha`) and pushed via `applyPalette` (ADR-0003) — never polled.
+
+## M2.4 Performance
+
+M2.4 (GFX-005) adds the performance layers without changing the ownership
+model — the renderer stays the single frame-loop and resource owner:
+
+- **Dirty-flag render skip.** The loop keeps scheduling frames (idle rAF), but
+  a tick draws only when `dirty` is set (`startLoop`, `surface.resize`,
+  `applyPalette`) or a composition exists (`dirty || composed` — post effects
+  animate every frame). A render throw leaves `dirty` set so the next frame
+  retries instead of freezing the canvas. `visibilitychange` pauses the loop
+  while the document is hidden; resume is guarded by explicit-stop and reduced
+  motion.
+- **FPS meter.** `graphics/fps.ts` (`createFpsMeter`) is a windowed,
+  allocation-free meter (~2 samples/sec) exposed as `subscribeFps` on
+  `GraphicsRenderer` (not the contracts `Renderer`); `meter.reset()` at loop
+  start keeps visibility gaps out of the sample. The inert renderer no-ops.
+  The `ui/effects/FpsMonitor.svelte` glass chip (mounted in
+  `GraphicsBackdrop.svelte`) displays the readout.
+- **Object pool.** `graphics/core/pool.ts` (`createObjectPool`) is a free-list;
+  `max` bounds idle retention (never allocation), `reset` runs on release,
+  `disposeAll` drains in try/finally so a throwing disposer can't leave
+  disposed items reachable.
+- **Texture cache.** `graphics/core/texture-cache.ts` (`createTextureCache`)
+  keys a single `Texture` instance per key (three's own `Cache` still
+  allocates a fresh `Texture` per `load`), ref-counted with dispose-at-zero,
+  keyed by colorSpace-tokenized keys; `logWarn` never throws.
 
 ## Related Documents
 

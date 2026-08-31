@@ -23,6 +23,7 @@ interface FakeRenderer {
   start: ReturnType<typeof vi.fn>;
   render: ReturnType<typeof vi.fn>;
   applyPalette: ReturnType<typeof vi.fn>;
+  subscribeFps: ReturnType<typeof vi.fn>;
   dispose: ReturnType<typeof vi.fn>;
 }
 
@@ -33,6 +34,7 @@ function createFakeRenderer(): FakeRenderer {
     start: vi.fn(() => vi.fn()),
     render: vi.fn(),
     applyPalette: vi.fn(),
+    subscribeFps: vi.fn(() => vi.fn()),
     dispose: vi.fn(() => {
       // Mirrors the real renderer contract: dispose detaches the canvas.
       canvas.parentNode?.removeChild(canvas);

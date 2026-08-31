@@ -93,7 +93,7 @@ Status: **Built** = delivered (milestone checked in the roadmap).
 | Three.js Core (renderer, scene, camera, lights) | Graphics | 2 | M2.1 | Built |
 | Effects (bloom, fog, background, grid, particles) | Graphics | 2 | M2.2 | Built |
 | Animation Engine (timeline, motion manager, transition manager) | Graphics | 2 | M2.3 | Built |
-| Graphics Performance (object pooling, texture cache, FPS monitor) | Graphics | 2 | M2.4 | Planned |
+| Graphics Performance (object pooling, texture cache, FPS monitor) | Graphics | 2 | M2.4 | Built |
 | Widget SDK (registry, metadata, lifecycle) | Widgets | 3 | M3.1 | Planned |
 | Layout Engine (drag, resize, snap, dock, float) | Widgets | 3 | M3.2 | Planned |
 | Widget Persistence (SQLite-backed positions/sizes/settings) | Widgets | 3 | M3.3 | Planned |

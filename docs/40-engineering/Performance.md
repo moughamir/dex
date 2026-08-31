@@ -110,8 +110,8 @@ The graphics engine (Phase 2) has its own performance milestone:
 
 - **M2.4 (Performance):** object pooling, texture cache, and an FPS monitor.
   This is where the renderer's per-frame allocation discipline is enforced and
-  measured. The renderer owns its frame loop, resources, and lifecycle; it
-  never reaches into features (ADR-0001).
+  measured (shipped 2026-08-10, develop 4d66849). The renderer owns its frame
+  loop, resources, and lifecycle; it never reaches into features (ADR-0001).
 
 ## Related Documents
 
